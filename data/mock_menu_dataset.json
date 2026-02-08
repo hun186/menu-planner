@@ -1,0 +1,672 @@
+{
+  "meta": {
+    "dataset_name": "mock_menu_dataset",
+    "currency": "TWD",
+    "base_units": ["g", "ml", "piece"],
+    "notes": "此資料集用於自動排菜單 PoC：每日 1 主菜 + 3 配菜 + 1 水果 + 1 湯。價格以 base unit 計價（g/ml/piece），方便直接估算成本。"
+  },
+  "unit_conversions": [
+    { "from_unit": "kg", "to_unit": "g", "factor": 1000 },
+    { "from_unit": "L", "to_unit": "ml", "factor": 1000 },
+    { "from_unit": "tbsp", "to_unit": "ml", "factor": 15 },
+    { "from_unit": "tsp", "to_unit": "ml", "factor": 5 }
+  ],
+  "ingredients": [
+    { "id": "ing_rice", "name": "白米", "category": "grain", "default_unit": "g" },
+    { "id": "ing_noodles", "name": "麵條", "category": "grain", "default_unit": "g" },
+    { "id": "ing_potato", "name": "馬鈴薯", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_carrot", "name": "紅蘿蔔", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_onion", "name": "洋蔥", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_garlic", "name": "蒜頭", "category": "seasoning", "default_unit": "g" },
+    { "id": "ing_ginger", "name": "薑", "category": "seasoning", "default_unit": "g" },
+    { "id": "ing_scallion", "name": "青蔥", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_chili", "name": "辣椒", "category": "seasoning", "default_unit": "g" },
+    { "id": "ing_cabbage", "name": "高麗菜", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_bokchoy", "name": "青江菜", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_spinach", "name": "菠菜", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_broccoli", "name": "花椰菜", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_eggplant", "name": "茄子", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_tomato", "name": "番茄", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_cucumber", "name": "小黃瓜", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_corn", "name": "玉米粒", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_mushroom", "name": "鴻喜菇", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_shiitake", "name": "香菇", "category": "vegetable", "default_unit": "g" },
+    { "id": "ing_tofu", "name": "板豆腐", "category": "soy", "default_unit": "g" },
+    { "id": "ing_egg", "name": "雞蛋", "category": "egg", "default_unit": "piece" },
+
+    { "id": "ing_chicken_thigh", "name": "雞腿肉", "category": "meat", "protein_group": "chicken", "default_unit": "g" },
+    { "id": "ing_chicken_breast", "name": "雞胸肉", "category": "meat", "protein_group": "chicken", "default_unit": "g" },
+    { "id": "ing_pork_shoulder", "name": "豬梅花", "category": "meat", "protein_group": "pork", "default_unit": "g" },
+    { "id": "ing_pork_belly", "name": "五花肉", "category": "meat", "protein_group": "pork", "default_unit": "g" },
+    { "id": "ing_beef_slice", "name": "牛肉片", "category": "meat", "protein_group": "beef", "default_unit": "g" },
+    { "id": "ing_fish_tilapia", "name": "吳郭魚片", "category": "seafood", "protein_group": "fish", "default_unit": "g" },
+    { "id": "ing_fish_salmon", "name": "鮭魚", "category": "seafood", "protein_group": "fish", "default_unit": "g" },
+    { "id": "ing_shrimp", "name": "蝦仁", "category": "seafood", "protein_group": "seafood", "default_unit": "g" },
+
+    { "id": "ing_soy_sauce", "name": "醬油", "category": "seasoning", "default_unit": "ml" },
+    { "id": "ing_oyster_sauce", "name": "蠔油", "category": "seasoning", "default_unit": "ml" },
+    { "id": "ing_sesame_oil", "name": "香油", "category": "seasoning", "default_unit": "ml" },
+    { "id": "ing_cooking_oil", "name": "食用油", "category": "seasoning", "default_unit": "ml" },
+    { "id": "ing_salt", "name": "鹽", "category": "seasoning", "default_unit": "g" },
+    { "id": "ing_sugar", "name": "糖", "category": "seasoning", "default_unit": "g" },
+    { "id": "ing_black_pepper", "name": "黑胡椒", "category": "seasoning", "default_unit": "g" },
+    { "id": "ing_vinegar", "name": "醋", "category": "seasoning", "default_unit": "ml" },
+    { "id": "ing_chicken_stock", "name": "高湯", "category": "seasoning", "default_unit": "ml" },
+    { "id": "ing_miso", "name": "味噌", "category": "seasoning", "default_unit": "g" },
+
+    { "id": "ing_apple", "name": "蘋果", "category": "fruit", "default_unit": "piece" },
+    { "id": "ing_banana", "name": "香蕉", "category": "fruit", "default_unit": "piece" },
+    { "id": "ing_orange", "name": "柳丁", "category": "fruit", "default_unit": "piece" },
+    { "id": "ing_grapes", "name": "葡萄", "category": "fruit", "default_unit": "g" },
+    { "id": "ing_kiwi", "name": "奇異果", "category": "fruit", "default_unit": "piece" },
+    { "id": "ing_pineapple", "name": "鳳梨", "category": "fruit", "default_unit": "g" },
+    { "id": "ing_watermelon", "name": "西瓜", "category": "fruit", "default_unit": "g" },
+    { "id": "ing_papaya", "name": "木瓜", "category": "fruit", "default_unit": "g" }
+  ],
+  "dishes": [
+    {
+      "id": "dish_main_01",
+      "name": "蔥爆雞腿肉",
+      "role": "main",
+      "cuisine": "taiwanese",
+      "meat_type": "chicken",
+      "tags": ["stir_fry"],
+      "ingredients": [
+        { "ingredient_id": "ing_chicken_thigh", "qty": 180, "unit": "g" },
+        { "ingredient_id": "ing_scallion", "qty": 25, "unit": "g" },
+        { "ingredient_id": "ing_onion", "qty": 40, "unit": "g" },
+        { "ingredient_id": "ing_ginger", "qty": 6, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 12, "unit": "ml" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" },
+        { "ingredient_id": "ing_sugar", "qty": 2, "unit": "g" }
+      ]
+    },
+    {
+      "id": "dish_main_02",
+      "name": "醬燒豬梅花",
+      "role": "main",
+      "cuisine": "taiwanese",
+      "meat_type": "pork",
+      "tags": ["stew"],
+      "ingredients": [
+        { "ingredient_id": "ing_pork_shoulder", "qty": 180, "unit": "g" },
+        { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+        { "ingredient_id": "ing_ginger", "qty": 6, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 18, "unit": "ml" },
+        { "ingredient_id": "ing_sugar", "qty": 4, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 6, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_03",
+      "name": "番茄牛肉片",
+      "role": "main",
+      "cuisine": "home_style",
+      "meat_type": "beef",
+      "tags": ["stir_fry"],
+      "ingredients": [
+        { "ingredient_id": "ing_beef_slice", "qty": 170, "unit": "g" },
+        { "ingredient_id": "ing_tomato", "qty": 120, "unit": "g" },
+        { "ingredient_id": "ing_onion", "qty": 50, "unit": "g" },
+        { "ingredient_id": "ing_garlic", "qty": 5, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 10, "unit": "ml" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" },
+        { "ingredient_id": "ing_sugar", "qty": 2, "unit": "g" }
+      ]
+    },
+    {
+      "id": "dish_main_04",
+      "name": "味噌鮭魚",
+      "role": "main",
+      "cuisine": "japanese",
+      "meat_type": "fish",
+      "tags": ["pan_sear"],
+      "ingredients": [
+        { "ingredient_id": "ing_fish_salmon", "qty": 170, "unit": "g" },
+        { "ingredient_id": "ing_miso", "qty": 12, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 6, "unit": "ml" },
+        { "ingredient_id": "ing_sugar", "qty": 3, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 6, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_05",
+      "name": "蒜香吳郭魚片",
+      "role": "main",
+      "cuisine": "home_style",
+      "meat_type": "fish",
+      "tags": ["pan_sear"],
+      "ingredients": [
+        { "ingredient_id": "ing_fish_tilapia", "qty": 180, "unit": "g" },
+        { "ingredient_id": "ing_garlic", "qty": 8, "unit": "g" },
+        { "ingredient_id": "ing_black_pepper", "qty": 1, "unit": "g" },
+        { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_06",
+      "name": "蝦仁滑蛋",
+      "role": "main",
+      "cuisine": "chinese",
+      "meat_type": "seafood",
+      "tags": ["stir_fry"],
+      "ingredients": [
+        { "ingredient_id": "ing_shrimp", "qty": 140, "unit": "g" },
+        { "ingredient_id": "ing_egg", "qty": 2, "unit": "piece" },
+        { "ingredient_id": "ing_scallion", "qty": 15, "unit": "g" },
+        { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 10, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_07",
+      "name": "家常麻婆豆腐（不辣版）",
+      "role": "main",
+      "cuisine": "sichuan",
+      "meat_type": "vegetarian",
+      "tags": ["tofu", "stew"],
+      "ingredients": [
+        { "ingredient_id": "ing_tofu", "qty": 220, "unit": "g" },
+        { "ingredient_id": "ing_onion", "qty": 40, "unit": "g" },
+        { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 12, "unit": "ml" },
+        { "ingredient_id": "ing_oyster_sauce", "qty": 10, "unit": "ml" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_08",
+      "name": "洋蔥雞胸咖哩風（清爽版）",
+      "role": "main",
+      "cuisine": "home_style",
+      "meat_type": "chicken",
+      "tags": ["stew"],
+      "ingredients": [
+        { "ingredient_id": "ing_chicken_breast", "qty": 170, "unit": "g" },
+        { "ingredient_id": "ing_onion", "qty": 80, "unit": "g" },
+        { "ingredient_id": "ing_carrot", "qty": 60, "unit": "g" },
+        { "ingredient_id": "ing_potato", "qty": 80, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" },
+        { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+      ]
+    },
+    {
+      "id": "dish_main_09",
+      "name": "蠔油牛肉片炒青江菜",
+      "role": "main",
+      "cuisine": "chinese",
+      "meat_type": "beef",
+      "tags": ["stir_fry"],
+      "ingredients": [
+        { "ingredient_id": "ing_beef_slice", "qty": 160, "unit": "g" },
+        { "ingredient_id": "ing_bokchoy", "qty": 180, "unit": "g" },
+        { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+        { "ingredient_id": "ing_oyster_sauce", "qty": 14, "unit": "ml" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_10",
+      "name": "白菜豬肉燴",
+      "role": "main",
+      "cuisine": "taiwanese",
+      "meat_type": "pork",
+      "tags": ["stew"],
+      "ingredients": [
+        { "ingredient_id": "ing_pork_belly", "qty": 140, "unit": "g" },
+        { "ingredient_id": "ing_cabbage", "qty": 220, "unit": "g" },
+        { "ingredient_id": "ing_shiitake", "qty": 50, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 10, "unit": "ml" },
+        { "ingredient_id": "ing_chicken_stock", "qty": 120, "unit": "ml" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 6, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_11",
+      "name": "番茄豆腐燴蛋",
+      "role": "main",
+      "cuisine": "home_style",
+      "meat_type": "vegetarian",
+      "tags": ["stew"],
+      "ingredients": [
+        { "ingredient_id": "ing_tofu", "qty": 200, "unit": "g" },
+        { "ingredient_id": "ing_tomato", "qty": 140, "unit": "g" },
+        { "ingredient_id": "ing_egg", "qty": 2, "unit": "piece" },
+        { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_12",
+      "name": "蒜香雞腿肉炒花椰菜",
+      "role": "main",
+      "cuisine": "home_style",
+      "meat_type": "chicken",
+      "tags": ["stir_fry"],
+      "ingredients": [
+        { "ingredient_id": "ing_chicken_thigh", "qty": 160, "unit": "g" },
+        { "ingredient_id": "ing_broccoli", "qty": 200, "unit": "g" },
+        { "ingredient_id": "ing_garlic", "qty": 8, "unit": "g" },
+        { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_13",
+      "name": "薑絲豬梅花炒菠菜",
+      "role": "main",
+      "cuisine": "taiwanese",
+      "meat_type": "pork",
+      "tags": ["stir_fry"],
+      "ingredients": [
+        { "ingredient_id": "ing_pork_shoulder", "qty": 150, "unit": "g" },
+        { "ingredient_id": "ing_spinach", "qty": 220, "unit": "g" },
+        { "ingredient_id": "ing_ginger", "qty": 10, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 8, "unit": "ml" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_14",
+      "name": "香菇洋蔥燴雞胸",
+      "role": "main",
+      "cuisine": "home_style",
+      "meat_type": "chicken",
+      "tags": ["stew"],
+      "ingredients": [
+        { "ingredient_id": "ing_chicken_breast", "qty": 170, "unit": "g" },
+        { "ingredient_id": "ing_shiitake", "qty": 70, "unit": "g" },
+        { "ingredient_id": "ing_onion", "qty": 60, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 10, "unit": "ml" },
+        { "ingredient_id": "ing_chicken_stock", "qty": 120, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_15",
+      "name": "茄子燒豆腐",
+      "role": "main",
+      "cuisine": "chinese",
+      "meat_type": "vegetarian",
+      "tags": ["stew"],
+      "ingredients": [
+        { "ingredient_id": "ing_eggplant", "qty": 220, "unit": "g" },
+        { "ingredient_id": "ing_tofu", "qty": 180, "unit": "g" },
+        { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+        { "ingredient_id": "ing_soy_sauce", "qty": 12, "unit": "ml" },
+        { "ingredient_id": "ing_sugar", "qty": 2, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 10, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_16",
+      "name": "玉米洋蔥炒蛋",
+      "role": "main",
+      "cuisine": "home_style",
+      "meat_type": "vegetarian",
+      "tags": ["stir_fry"],
+      "ingredients": [
+        { "ingredient_id": "ing_egg", "qty": 3, "unit": "piece" },
+        { "ingredient_id": "ing_corn", "qty": 120, "unit": "g" },
+        { "ingredient_id": "ing_onion", "qty": 60, "unit": "g" },
+        { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 10, "unit": "ml" }
+      ]
+    },
+    {
+      "id": "dish_main_17",
+      "name": "味噌吳郭魚湯煮（乾版）",
+      "role": "main",
+      "cuisine": "japanese",
+      "meat_type": "fish",
+      "tags": ["stew"],
+      "ingredients": [
+        { "ingredient_id": "ing_fish_tilapia", "qty": 180, "unit": "g" },
+        { "ingredient_id": "ing_miso", "qty": 10, "unit": "g" },
+        { "ingredient_id": "ing_onion", "qty": 40, "unit": "g" },
+        { "ingredient_id": "ing_chicken_stock", "qty": 120, "unit": "ml" },
+        { "ingredient_id": "ing_scallion", "qty": 10, "unit": "g" }
+      ]
+    },
+    {
+      "id": "dish_main_18",
+      "name": "蒜香蝦仁炒花椰菜",
+      "role": "main",
+      "cuisine": "home_style",
+      "meat_type": "seafood",
+      "tags": ["stir_fry"],
+      "ingredients": [
+        { "ingredient_id": "ing_shrimp", "qty": 140, "unit": "g" },
+        { "ingredient_id": "ing_broccoli", "qty": 220, "unit": "g" },
+        { "ingredient_id": "ing_garlic", "qty": 8, "unit": "g" },
+        { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+        { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" }
+      ]
+    },
+
+    { "id": "dish_side_01", "name": "蒜炒青江菜", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_bokchoy", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_02", "name": "清炒高麗菜", "role": "side", "cuisine": "taiwanese", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_cabbage", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 5, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_03", "name": "涼拌小黃瓜", "role": "side", "cuisine": "taiwanese", "tags": ["cold"], "ingredients": [
+      { "ingredient_id": "ing_cucumber", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_vinegar", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_sugar", "qty": 3, "unit": "g" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 5, "unit": "ml" }
+    ]},
+    { "id": "dish_side_04", "name": "番茄洋蔥沙拉", "role": "side", "cuisine": "home_style", "tags": ["cold"], "ingredients": [
+      { "ingredient_id": "ing_tomato", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 40, "unit": "g" },
+      { "ingredient_id": "ing_vinegar", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_05", "name": "蒜炒菠菜", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_spinach", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_06", "name": "香菇炒高麗菜", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_cabbage", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_shiitake", "qty": 50, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 5, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_07", "name": "花椰菜蒜香拌（溫沙拉）", "role": "side", "cuisine": "home_style", "tags": ["warm"], "ingredients": [
+      { "ingredient_id": "ing_broccoli", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 5, "unit": "g" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 5, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_08", "name": "紅蘿蔔炒蛋（小份）", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_carrot", "qty": 90, "unit": "g" },
+      { "ingredient_id": "ing_egg", "qty": 1, "unit": "piece" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" }
+    ]},
+    { "id": "dish_side_09", "name": "蒜炒鴻喜菇", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_mushroom", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_10", "name": "茄子醬油燒（配菜版）", "role": "side", "cuisine": "taiwanese", "tags": ["stew"], "ingredients": [
+      { "ingredient_id": "ing_eggplant", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_sugar", "qty": 2, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" },
+      { "ingredient_id": "ing_garlic", "qty": 5, "unit": "g" }
+    ]},
+    { "id": "dish_side_11", "name": "菠菜拌香油", "role": "side", "cuisine": "home_style", "tags": ["cold"], "ingredients": [
+      { "ingredient_id": "ing_spinach", "qty": 150, "unit": "g" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 6, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_12", "name": "番茄炒蛋（小份）", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_tomato", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_egg", "qty": 1, "unit": "piece" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" }
+    ]},
+    { "id": "dish_side_13", "name": "洋蔥炒蛋（小份）", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_onion", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_egg", "qty": 1, "unit": "piece" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 7, "unit": "ml" }
+    ]},
+    { "id": "dish_side_14", "name": "清燙花椰菜", "role": "side", "cuisine": "home_style", "tags": ["warm"], "ingredients": [
+      { "ingredient_id": "ing_broccoli", "qty": 170, "unit": "g" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 4, "unit": "ml" }
+    ]},
+    { "id": "dish_side_15", "name": "清燙青江菜", "role": "side", "cuisine": "home_style", "tags": ["warm"], "ingredients": [
+      { "ingredient_id": "ing_bokchoy", "qty": 170, "unit": "g" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 4, "unit": "ml" }
+    ]},
+    { "id": "dish_side_16", "name": "高麗菜玉米拌（溫）", "role": "side", "cuisine": "home_style", "tags": ["warm"], "ingredients": [
+      { "ingredient_id": "ing_cabbage", "qty": 130, "unit": "g" },
+      { "ingredient_id": "ing_corn", "qty": 70, "unit": "g" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 5, "unit": "ml" }
+    ]},
+    { "id": "dish_side_17", "name": "蒜炒茄子", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_eggplant", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 7, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_18", "name": "番茄涼拌（簡版）", "role": "side", "cuisine": "home_style", "tags": ["cold"], "ingredients": [
+      { "ingredient_id": "ing_tomato", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_vinegar", "qty": 6, "unit": "ml" }
+    ]},
+    { "id": "dish_side_19", "name": "香菇拌青蔥（溫）", "role": "side", "cuisine": "home_style", "tags": ["warm"], "ingredients": [
+      { "ingredient_id": "ing_shiitake", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_scallion", "qty": 15, "unit": "g" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 8, "unit": "ml" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 5, "unit": "ml" }
+    ]},
+    { "id": "dish_side_20", "name": "蒜炒菠菜＋玉米粒", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_spinach", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_corn", "qty": 60, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_21", "name": "涼拌小黃瓜＋番茄", "role": "side", "cuisine": "home_style", "tags": ["cold"], "ingredients": [
+      { "ingredient_id": "ing_cucumber", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_tomato", "qty": 80, "unit": "g" },
+      { "ingredient_id": "ing_vinegar", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_sugar", "qty": 2, "unit": "g" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_22", "name": "清炒花椰菜＋紅蘿蔔", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_broccoli", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_carrot", "qty": 60, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 5, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_side_23", "name": "青江菜拌蠔油（溫）", "role": "side", "cuisine": "chinese", "tags": ["warm"], "ingredients": [
+      { "ingredient_id": "ing_bokchoy", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_oyster_sauce", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 4, "unit": "ml" }
+    ]},
+    { "id": "dish_side_24", "name": "高麗菜炒鴻喜菇", "role": "side", "cuisine": "home_style", "tags": ["stir_fry"], "ingredients": [
+      { "ingredient_id": "ing_cabbage", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_mushroom", "qty": 60, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 5, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+
+    { "id": "dish_soup_01", "name": "番茄蛋花湯", "role": "soup", "cuisine": "home_style", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_tomato", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_egg", "qty": 1, "unit": "piece" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 350, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_scallion", "qty": 8, "unit": "g" }
+    ]},
+    { "id": "dish_soup_02", "name": "味噌豆腐湯", "role": "soup", "cuisine": "japanese", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_miso", "qty": 12, "unit": "g" },
+      { "ingredient_id": "ing_tofu", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 40, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 380, "unit": "ml" },
+      { "ingredient_id": "ing_scallion", "qty": 10, "unit": "g" }
+    ]},
+    { "id": "dish_soup_03", "name": "香菇蔬菜湯", "role": "soup", "cuisine": "home_style", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_shiitake", "qty": 70, "unit": "g" },
+      { "ingredient_id": "ing_carrot", "qty": 70, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 50, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 420, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_soup_04", "name": "白菜豆腐湯", "role": "soup", "cuisine": "taiwanese", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_cabbage", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_tofu", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 420, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_scallion", "qty": 8, "unit": "g" }
+    ]},
+    { "id": "dish_soup_05", "name": "玉米蛋花湯", "role": "soup", "cuisine": "home_style", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_corn", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_egg", "qty": 1, "unit": "piece" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 380, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_soup_06", "name": "菠菜豆腐湯", "role": "soup", "cuisine": "home_style", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_spinach", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_tofu", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 420, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_soup_07", "name": "花椰菜蔬菜湯", "role": "soup", "cuisine": "home_style", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_broccoli", "qty": 150, "unit": "g" },
+      { "ingredient_id": "ing_carrot", "qty": 60, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 40, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 430, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_soup_08", "name": "番茄洋蔥湯（清湯）", "role": "soup", "cuisine": "home_style", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_tomato", "qty": 180, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 60, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 450, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_soup_09", "name": "蒜香菇菇湯", "role": "soup", "cuisine": "home_style", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_mushroom", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 430, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+    { "id": "dish_soup_10", "name": "高麗菜洋蔥清湯", "role": "soup", "cuisine": "home_style", "tags": ["light"], "ingredients": [
+      { "ingredient_id": "ing_cabbage", "qty": 180, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 60, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 450, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]},
+
+    { "id": "dish_fruit_01", "name": "蘋果", "role": "fruit", "cuisine": "n/a", "tags": ["fresh"], "ingredients": [
+      { "ingredient_id": "ing_apple", "qty": 1, "unit": "piece" }
+    ]},
+    { "id": "dish_fruit_02", "name": "香蕉", "role": "fruit", "cuisine": "n/a", "tags": ["fresh"], "ingredients": [
+      { "ingredient_id": "ing_banana", "qty": 1, "unit": "piece" }
+    ]},
+    { "id": "dish_fruit_03", "name": "柳丁", "role": "fruit", "cuisine": "n/a", "tags": ["fresh"], "ingredients": [
+      { "ingredient_id": "ing_orange", "qty": 1, "unit": "piece" }
+    ]},
+    { "id": "dish_fruit_04", "name": "奇異果", "role": "fruit", "cuisine": "n/a", "tags": ["fresh"], "ingredients": [
+      { "ingredient_id": "ing_kiwi", "qty": 1, "unit": "piece" }
+    ]},
+    { "id": "dish_fruit_05", "name": "葡萄（小份）", "role": "fruit", "cuisine": "n/a", "tags": ["fresh"], "ingredients": [
+      { "ingredient_id": "ing_grapes", "qty": 120, "unit": "g" }
+    ]},
+    { "id": "dish_fruit_06", "name": "鳳梨（切片小份）", "role": "fruit", "cuisine": "n/a", "tags": ["fresh"], "ingredients": [
+      { "ingredient_id": "ing_pineapple", "qty": 150, "unit": "g" }
+    ]},
+    { "id": "dish_fruit_07", "name": "西瓜（小份）", "role": "fruit", "cuisine": "n/a", "tags": ["fresh"], "ingredients": [
+      { "ingredient_id": "ing_watermelon", "qty": 220, "unit": "g" }
+    ]},
+    { "id": "dish_fruit_08", "name": "木瓜（小份）", "role": "fruit", "cuisine": "n/a", "tags": ["fresh"], "ingredients": [
+      { "ingredient_id": "ing_papaya", "qty": 200, "unit": "g" }
+    ]}
+  ],
+  "inventory": [
+    { "ingredient_id": "ing_cabbage", "qty_on_hand": 1500, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-13" },
+    { "ingredient_id": "ing_bokchoy", "qty_on_hand": 800, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-11" },
+    { "ingredient_id": "ing_spinach", "qty_on_hand": 600, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-10" },
+    { "ingredient_id": "ing_broccoli", "qty_on_hand": 900, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-12" },
+    { "ingredient_id": "ing_tomato", "qty_on_hand": 1200, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-12" },
+    { "ingredient_id": "ing_onion", "qty_on_hand": 2000, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-25" },
+    { "ingredient_id": "ing_garlic", "qty_on_hand": 300, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-03-08" },
+    { "ingredient_id": "ing_egg", "qty_on_hand": 20, "unit": "piece", "updated_at": "2026-02-08", "expiry_date": "2026-02-20" },
+    { "ingredient_id": "ing_tofu", "qty_on_hand": 900, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-11" },
+    { "ingredient_id": "ing_chicken_thigh", "qty_on_hand": 1200, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-11" },
+    { "ingredient_id": "ing_pork_shoulder", "qty_on_hand": 1000, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-12" },
+    { "ingredient_id": "ing_beef_slice", "qty_on_hand": 800, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-12" },
+    { "ingredient_id": "ing_fish_tilapia", "qty_on_hand": 700, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-10" },
+    { "ingredient_id": "ing_shrimp", "qty_on_hand": 600, "unit": "g", "updated_at": "2026-02-08", "expiry_date": "2026-02-11" }
+  ],
+  "prices": [
+    { "ingredient_id": "ing_cabbage", "price_date": "2026-02-08", "price_per_unit": 0.05, "unit": "g" },
+    { "ingredient_id": "ing_bokchoy", "price_date": "2026-02-08", "price_per_unit": 0.06, "unit": "g" },
+    { "ingredient_id": "ing_spinach", "price_date": "2026-02-08", "price_per_unit": 0.07, "unit": "g" },
+    { "ingredient_id": "ing_broccoli", "price_date": "2026-02-08", "price_per_unit": 0.09, "unit": "g" },
+    { "ingredient_id": "ing_tomato", "price_date": "2026-02-08", "price_per_unit": 0.08, "unit": "g" },
+    { "ingredient_id": "ing_onion", "price_date": "2026-02-08", "price_per_unit": 0.05, "unit": "g" },
+    { "ingredient_id": "ing_garlic", "price_date": "2026-02-08", "price_per_unit": 0.25, "unit": "g" },
+    { "ingredient_id": "ing_egg", "price_date": "2026-02-08", "price_per_unit": 6.0, "unit": "piece" },
+    { "ingredient_id": "ing_tofu", "price_date": "2026-02-08", "price_per_unit": 0.06, "unit": "g" },
+
+    { "ingredient_id": "ing_chicken_thigh", "price_date": "2026-02-08", "price_per_unit": 0.18, "unit": "g" },
+    { "ingredient_id": "ing_chicken_breast", "price_date": "2026-02-08", "price_per_unit": 0.16, "unit": "g" },
+    { "ingredient_id": "ing_pork_shoulder", "price_date": "2026-02-08", "price_per_unit": 0.17, "unit": "g" },
+    { "ingredient_id": "ing_pork_belly", "price_date": "2026-02-08", "price_per_unit": 0.19, "unit": "g" },
+    { "ingredient_id": "ing_beef_slice", "price_date": "2026-02-08", "price_per_unit": 0.32, "unit": "g" },
+    { "ingredient_id": "ing_fish_tilapia", "price_date": "2026-02-08", "price_per_unit": 0.15, "unit": "g" },
+    { "ingredient_id": "ing_fish_salmon", "price_date": "2026-02-08", "price_per_unit": 0.45, "unit": "g" },
+    { "ingredient_id": "ing_shrimp", "price_date": "2026-02-08", "price_per_unit": 0.38, "unit": "g" },
+
+    { "ingredient_id": "ing_soy_sauce", "price_date": "2026-02-08", "price_per_unit": 0.03, "unit": "ml" },
+    { "ingredient_id": "ing_oyster_sauce", "price_date": "2026-02-08", "price_per_unit": 0.05, "unit": "ml" },
+    { "ingredient_id": "ing_sesame_oil", "price_date": "2026-02-08", "price_per_unit": 0.07, "unit": "ml" },
+    { "ingredient_id": "ing_cooking_oil", "price_date": "2026-02-08", "price_per_unit": 0.02, "unit": "ml" },
+    { "ingredient_id": "ing_salt", "price_date": "2026-02-08", "price_per_unit": 0.01, "unit": "g" },
+    { "ingredient_id": "ing_sugar", "price_date": "2026-02-08", "price_per_unit": 0.02, "unit": "g" },
+    { "ingredient_id": "ing_miso", "price_date": "2026-02-08", "price_per_unit": 0.08, "unit": "g" },
+    { "ingredient_id": "ing_chicken_stock", "price_date": "2026-02-08", "price_per_unit": 0.01, "unit": "ml" },
+
+    { "ingredient_id": "ing_apple", "price_date": "2026-02-08", "price_per_unit": 18.0, "unit": "piece" },
+    { "ingredient_id": "ing_banana", "price_date": "2026-02-08", "price_per_unit": 10.0, "unit": "piece" },
+    { "ingredient_id": "ing_orange", "price_date": "2026-02-08", "price_per_unit": 12.0, "unit": "piece" },
+    { "ingredient_id": "ing_kiwi", "price_date": "2026-02-08", "price_per_unit": 20.0, "unit": "piece" },
+    { "ingredient_id": "ing_grapes", "price_date": "2026-02-08", "price_per_unit": 0.22, "unit": "g" },
+    { "ingredient_id": "ing_pineapple", "price_date": "2026-02-08", "price_per_unit": 0.10, "unit": "g" },
+    { "ingredient_id": "ing_watermelon", "price_date": "2026-02-08", "price_per_unit": 0.05, "unit": "g" },
+    { "ingredient_id": "ing_papaya", "price_date": "2026-02-08", "price_per_unit": 0.07, "unit": "g" },
+
+    { "ingredient_id": "ing_beef_slice", "price_date": "2026-02-01", "price_per_unit": 0.30, "unit": "g" },
+    { "ingredient_id": "ing_broccoli", "price_date": "2026-02-01", "price_per_unit": 0.10, "unit": "g" }
+  ],
+  "example_constraints": {
+    "menu_plan": { "days": 30, "per_day": { "main": 1, "side": 3, "fruit": 1, "soup": 1 } },
+    "cost_control": {
+      "target_cost_per_person_per_day_min": 65,
+      "target_cost_per_person_per_day_max": 120,
+      "notes": "成本可用 dish_ingredients * ingredient_prices 計算（本資料已採 base unit 計價，先忽略損耗率）。"
+    },
+    "meat_rotation": {
+      "avoid_same_meat_consecutive_days": true,
+      "weekly_max_by_meat_type": {
+        "chicken": 2,
+        "pork": 2,
+        "beef": 1,
+        "fish": 2,
+        "seafood": 1,
+        "vegetarian": 2
+      }
+    },
+    "inventory_priority": {
+      "prefer_ingredients": ["ing_spinach", "ing_fish_tilapia", "ing_tofu"],
+      "prefer_near_expiry": true,
+      "notes": "排菜時，若可行優先選用接近 expiry_date 的食材；也可用權重方式把 near-expiry 食材加分。"
+    },
+    "diversity": {
+      "max_repeat_same_dish_in_30_days": 2,
+      "max_repeat_same_side_in_7_days": 1,
+      "max_repeat_same_soup_in_7_days": 1,
+      "fruit_can_repeat": true
+    }
+  }
+}

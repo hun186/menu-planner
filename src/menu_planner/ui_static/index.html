@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Menu Planner</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- 你若已經本地放 jQuery，也可以改成本地路徑 -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+
+<body>
+  <div class="wrap">
+    <!-- ✅ Header（補回） -->
+    <header class="hdr">
+      <h1>自動排菜單（PoC）</h1>
+      <div class="sub">
+        主菜 + 三配菜 + 湯 + 水果；支援週配額、偏好食材、禁用菜色、成本控制、可解釋打分、匯出 Excel
+      </div>
+    </header>
+
+    <!-- ✅ 主要版面：左（設定）/ 右（JSON）/ 下（結果） -->
+    <div class="grid">
+      <!-- ✅ 設定卡（你提供的內容：原封不動） -->
+      <section class="card">
+        <h2>設定</h2>
+
+        <div class="row">
+          <label>天數</label>
+          <input id="horizon_days" type="number" min="1" value="30" />
+        </div>
+
+        <div class="row">
+          <label>成本區間（每人/日）</label>
+          <div class="inline">
+            <input id="cost_min" type="number" value="65" />
+            <span class="sep">～</span>
+            <input id="cost_max" type="number" value="120" />
+          </div>
+        </div>
+
+        <div class="row">
+          <label>主菜肉類允許</label>
+          <div class="chips" id="meat_types">
+            <label><input type="checkbox" value="chicken" checked>雞</label>
+            <label><input type="checkbox" value="pork" checked>豬</label>
+            <label><input type="checkbox" value="beef" checked>牛</label>
+            <label><input type="checkbox" value="fish" checked>魚</label>
+            <label><input type="checkbox" value="seafood" checked>海鮮</label>
+            <label><input type="checkbox" value="vegetarian" checked>素</label>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>避免連續同肉</label>
+          <label class="switch">
+            <input id="no_consecutive_meat" type="checkbox" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <hr class="hr" />
+
+        <h3 class="h3">每週肉類配額（主菜）</h3>
+        <table class="mini-table" id="weekly_quota_table">
+          <thead>
+            <tr><th>肉類</th><th>每週上限</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>雞</td><td><input class="quota" data-meat="chicken" type="number" min="0" value="2"></td></tr>
+            <tr><td>豬</td><td><input class="quota" data-meat="pork" type="number" min="0" value="2"></td></tr>
+            <tr><td>牛</td><td><input class="quota" data-meat="beef" type="number" min="0" value="1"></td></tr>
+            <tr><td>魚</td><td><input class="quota" data-meat="fish" type="number" min="0" value="2"></td></tr>
+            <tr><td>海鮮</td><td><input class="quota" data-meat="seafood" type="number" min="0" value="1"></td></tr>
+            <tr><td>素</td><td><input class="quota" data-meat="vegetarian" type="number" min="0" value="2"></td></tr>
+          </tbody>
+        </table>
+
+        <hr class="hr" />
+
+        <h3 class="h3">庫存 / 到期偏好</h3>
+        <div class="row">
+          <label>偏好策略</label>
+          <div class="chips">
+            <label><input id="prefer_inventory" type="checkbox" checked>優先用庫存</label>
+            <label><input id="prefer_expiry" type="checkbox" checked>優先用近到期</label>
+          </div>
+        </div>
+
+        <div class="row top">
+          <label>偏好食材（多選）</label>
+          <div class="grow">
+            <input id="ingredient_search" type="text" placeholder="輸入食材關鍵字（例如：菠菜、豆腐）" />
+            <div id="ingredient_suggest" class="suggest"></div>
+            <div id="ingredient_chips" class="chips chips-box"></div>
+            <div class="hint">點選建議清單加入；點 chip 可移除。</div>
+          </div>
+        </div>
+
+        <hr class="hr" />
+
+        <h3 class="h3">禁用菜色（搜尋加入）</h3>
+        <div class="row top">
+          <label>搜尋</label>
+          <div class="grow">
+            <div class="inline left">
+              <select id="dish_role_filter">
+                <option value="">全部</option>
+                <option value="main">主菜</option>
+                <option value="side">配菜</option>
+                <option value="soup">湯</option>
+                <option value="fruit">水果</option>
+              </select>
+              <input id="dish_search" type="text" placeholder="輸入菜名關鍵字（例如：咖哩、清蒸）" />
+            </div>
+            <div id="dish_suggest" class="suggest"></div>
+            <div id="exclude_dish_chips" class="chips chips-box"></div>
+            <div class="hint">可先用角色縮小範圍，再搜尋加入。</div>
+          </div>
+        </div>
+
+        <hr class="hr" />
+
+        <div class="btns">
+          <button id="btn_load_defaults">載入預設</button>
+          <button id="btn_apply_json">套用 JSON 到表單</button>
+          <button id="btn_validate">驗證</button>
+          <button class="primary" id="btn_plan">產生菜單</button>
+          <button id="btn_export_excel" disabled>匯出 Excel</button>
+        </div>
+
+        <div id="msg" class="msg"></div>
+      </section>
+
+      <!-- ✅ JSON 編輯區（補回） -->
+      <section class="card">
+        <h2>限制條件 JSON（可直接編輯）</h2>
+        <textarea id="cfg_json" spellcheck="false"></textarea>
+        <div class="hint" style="margin-top:8px;">
+          小提醒：表單變更後會同步到這裡；你也可以直接改 JSON，再按「套用 JSON 到表單」。
+        </div>
+      </section>
+
+      <!-- ✅ 結果區（補回） -->
+      <section class="card full">
+        <h2>結果</h2>
+        <div id="result" class="result"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

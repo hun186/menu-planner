@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Menu Planner</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hdr">
+      <h1>自動排菜單（PoC）</h1>
+      <div class="sub">主菜×1、配菜×3、水果×1、湯×1；支援限制條件、成本、庫存優先與可解釋輸出。</div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <h2>設定</h2>
+
+        <div class="row">
+          <label>天數</label>
+          <input id="horizon_days" type="number" min="1" value="30" />
+        </div>
+
+        <div class="row">
+          <label>成本區間（每人/日）</label>
+          <div class="inline">
+            <input id="cost_min" type="number" value="65" />
+            <span class="sep">～</span>
+            <input id="cost_max" type="number" value="120" />
+          </div>
+        </div>
+
+        <div class="row">
+          <label>主菜肉類允許</label>
+          <div class="chips" id="meat_types">
+            <label><input type="checkbox" value="chicken" checked>雞</label>
+            <label><input type="checkbox" value="pork" checked>豬</label>
+            <label><input type="checkbox" value="beef" checked>牛</label>
+            <label><input type="checkbox" value="fish" checked>魚</label>
+            <label><input type="checkbox" value="seafood" checked>海鮮</label>
+            <label><input type="checkbox" value="vegetarian" checked>素</label>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>避免連續同肉</label>
+          <label class="switch">
+            <input id="no_consecutive_meat" type="checkbox" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <label>庫存/到期優先</label>
+          <div class="chips">
+            <label><input id="prefer_inventory" type="checkbox" checked>優先用庫存</label>
+            <label><input id="prefer_expiry" type="checkbox" checked>優先用近到期</label>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button id="btn_load_defaults">載入預設</button>
+          <button id="btn_validate">驗證</button>
+          <button class="primary" id="btn_plan">產生菜單</button>
+        </div>
+
+        <div id="msg" class="msg"></div>
+      </section>
+
+      <section class="card">
+        <h2>限制條件 JSON（可直接改）</h2>
+        <textarea id="cfg_json" spellcheck="false"></textarea>
+      </section>
+
+      <section class="card full">
+        <h2>結果</h2>
+        <div id="result"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

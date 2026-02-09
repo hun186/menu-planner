@@ -1,0 +1,109 @@
+:root { --bd:#e6e6e6; --bg:#fafafa; --tx:#111; }
+*{ box-sizing:border-box; }
+body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto Sans TC", sans-serif; color:var(--tx); background:var(--bg); }
+.wrap{ max-width:1200px; margin:0 auto; padding:18px; }
+.hdr h1{ margin:0 0 6px 0; font-size:22px; }
+.sub{ color:#555; font-size:13px; }
+
+.grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; }
+.card{ background:#fff; border:1px solid var(--bd); border-radius:12px; padding:14px; }
+.card.full{ grid-column: 1 / -1; }
+h2{ margin:0 0 10px 0; font-size:16px; }
+
+.row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; }
+.row label{ font-size:13px; color:#333; min-width:120px; }
+.inline{ display:flex; align-items:center; gap:8px; width:100%; justify-content:flex-end; }
+.sep{ color:#777; }
+input[type=number]{ width:110px; padding:6px 8px; border:1px solid var(--bd); border-radius:8px; }
+
+.chips{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; width:100%; }
+.chips label{ font-size:13px; color:#333; display:flex; align-items:center; gap:6px; }
+.btns{ display:flex; gap:8px; margin-top:12px; }
+button{ padding:8px 10px; border:1px solid var(--bd); background:#fff; border-radius:10px; cursor:pointer; }
+button.primary{ background:#111; color:#fff; border-color:#111; }
+
+.msg{ margin-top:10px; font-size:13px; color:#1a7f37; white-space:pre-line; }
+.msg.err{ color:#b42318; }
+
+textarea{
+  width:100%; height:380px;
+  border:1px solid var(--bd); border-radius:10px;
+  padding:10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size:12px; line-height:1.4;
+}
+
+.summary{ display:flex; gap:16px; flex-wrap:wrap; font-size:13px; padding:8px 0 14px 0; }
+.tbl{ width:100%; border-collapse:collapse; font-size:13px; }
+.tbl th, .tbl td{ border:1px solid var(--bd); padding:8px; vertical-align:top; }
+.tbl th{ background:#f6f6f6; }
+.explain td{ background:#fcfcfc; }
+.explain-box{ padding:10px; }
+.ex-title{ font-weight:600; margin:8px 0 6px; }
+.bd{ display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dashed #eee; }
+.bd-list{ max-width:520px; }
+.pre{ background:#fff; border:1px solid #eee; padding:8px; border-radius:10px; overflow:auto; }
+.muted{ color:#777; }
+
+/* switch */
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { display:none; }
+.slider { position:absolute; cursor:pointer; inset:0; background:#ddd; border-radius:999px; transition:.2s; }
+.slider:before { content:""; position:absolute; height:18px; width:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+.switch input:checked + .slider { background:#111; }
+.switch input:checked + .slider:before { transform: translateX(20px); }
+
+.hr{ border:none; border-top:1px solid #eee; margin:12px 0; }
+.h3{ margin:0 0 8px 0; font-size:14px; }
+.row.top{ align-items:flex-start; }
+.grow{ width:100%; position:relative; }
+
+.mini-table{ width:100%; border-collapse:collapse; font-size:13px; }
+.mini-table th,.mini-table td{ border:1px solid #e6e6e6; padding:8px; }
+.mini-table th{ background:#f6f6f6; text-align:left; }
+.mini-table input{ width:100%; padding:6px 8px; border:1px solid #e6e6e6; border-radius:8px; }
+
+.suggest{
+  display:none;
+  position:absolute;
+  left:0; right:0;
+  top:38px;
+  background:#fff;
+  border:1px solid #e6e6e6;
+  border-radius:10px;
+  box-shadow:0 10px 30px rgba(0,0,0,.06);
+  max-height:240px;
+  overflow:auto;
+  z-index:20;
+}
+.suggest .item{
+  padding:8px 10px;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+}
+.suggest .item:hover{ background:#f6f6f6; }
+.suggest .meta{ color:#777; font-size:12px; }
+
+.chips-box{ margin-top:8px; justify-content:flex-start; }
+.chip{
+  border:1px solid #e6e6e6;
+  background:#fff;
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:12px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.chip .x{ color:#777; font-weight:700; }
+.hint{ color:#777; font-size:12px; margin-top:6px; }
+
+.inline.left{ justify-content:flex-start; }
+select{
+  padding:6px 8px;
+  border:1px solid #e6e6e6;
+  border-radius:8px;
+  background:#fff;
+}

@@ -107,3 +107,10 @@ select{
   border-radius:8px;
   background:#fff;
 }
+
+#msg{
+  white-space: pre-wrap;     /* 讓 \n 真的換行 */
+  max-height: 240px;         /* 避免超長把版面撐爆 */
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}

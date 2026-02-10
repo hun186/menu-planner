@@ -22,6 +22,41 @@
   }
   function pretty(obj) { return JSON.stringify(obj, null, 2); }
 
+  function formatErrors(errs) {
+    if (!errs || !errs.length) return "（無更多資訊）";
+  
+    return errs.map(e => {
+      if (typeof e === "string") return e;
+      if (!e || typeof e !== "object") return String(e);
+  
+      const code = e.code ? `[${e.code}] ` : "";
+      const msg = e.message || "(no message)";
+  
+      // ✅ 把 traceback 印出來
+      const trace = (e.details && e.details.trace) ? ("\n" + e.details.trace) : "";
+  
+      // 其他你想補的細節也可放這裡（避免只看到 message）
+      const extra = (e.details && !e.details.trace) ? ("\n" + JSON.stringify(e.details, null, 2)) : "";
+  
+      return code + msg + trace + extra;
+    }).join("\n\n- ");
+  }
+
+  function showErrorDetail(payload) {
+    const errs = payload?.errors || [];
+    const trace = errs.map(e => e?.details?.trace).filter(Boolean).join("\n\n");
+    const text = trace || JSON.stringify(payload, null, 2);
+  
+    $("#result").html(`
+      <div class="errbox">
+        <details open>
+          <summary>錯誤詳情（含 traceback）</summary>
+          <pre class="pre">${escapeHtml(text)}</pre>
+        </details>
+      </div>
+    `);
+  }
+
   // -------- chips helpers --------
   function addChip($box, id, label) {
     if ($box.find(`.chip[data-id="${id}"]`).length) return;
@@ -175,6 +210,15 @@
   }
 
   function renderResult(r) {
+	  
+    const errByDay = new Map();
+    (r.errors || []).forEach(e => {
+      const k = e.day_index;
+      if (k === undefined || k === null) return;
+      if (!errByDay.has(k)) errByDay.set(k, []);
+      errByDay.get(k).push(e);
+    });
+
     const s = r.summary || {};
     const days = r.days || [];
 
@@ -194,13 +238,50 @@
       </thead>
       <tbody>`;
 
-    days.forEach(d => {
-      const main = d.items.main.name;
-      const sides = d.items.sides.map(x => x.name).join("、");
-      const soup = d.items.soup.name;
-      const fruit = d.items.fruit.name;
-      const cost = d.day_cost;
+    days.forEach((d, idx) => {
+      const dayIndex = (d.day_index ?? idx);
+      const dayErrs = errByDay.get(dayIndex) || [];
+      const isFailed = (dayErrs.length > 0) || !!d.failed;
+    
+      // 失敗日：顯示原因，不要硬取 sides/soup/fruit
+      if (isFailed) {
+        const mainName =
+          (d.items && d.items.main && d.items.main.name)
+            ? d.items.main.name
+            : "(主菜已排但明細不足)";
+    
+        const reason =
+          dayErrs.map(e => (e.message || e.code)).filter(Boolean).join(" / ")
+          || "當天無可行組合";
+    
+        html += `<tr class="row-failed">
+          <td>${d.date || ""}</td>
+          <td>${escapeHtml(mainName)}</td>
+          <td colspan="3"><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
+          <td>${d.day_cost ?? ""}</td>
+          <td></td>
+        </tr>`;
+    
+        const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason });
+        html += `<tr class="explain">
+          <td colspan="7">
+            <details open>
+              <summary>原因與建議</summary>
+              <pre class="pre">${escapeHtml(detailJson)}</pre>
+            </details>
+          </td>
+        </tr>`;
+        return;
+      }
+    
+      // 成功日：安全取值
+      const main = d.items?.main?.name || "";
+      const sides = (d.items?.sides || []).map(x => x?.name).filter(Boolean).join("、");
+      const soup = d.items?.soup?.name || "";
+      const fruit = d.items?.fruit?.name || "";
+      const cost = d.day_cost ?? "";
       const score = (d.score ?? "");
+    
       html += `<tr>
         <td>${d.date}</td>
         <td>${escapeHtml(main)}</td>
@@ -210,10 +291,12 @@
         <td>${cost}</td>
         <td>${score}</td>
       </tr>`;
-
+    
       const breakdown = d.score_breakdown || {};
-      const bRows = Object.keys(breakdown).map(k => `<div class="bd"><span>${escapeHtml(k)}</span><span>${breakdown[k]}</span></div>`).join("");
-
+      const bRows = Object.keys(breakdown)
+        .map(k => `<div class="bd"><span>${escapeHtml(k)}</span><span>${breakdown[k]}</span></div>`)
+        .join("");
+    
       html += `<tr class="explain">
         <td colspan="7">
           <details>
@@ -223,20 +306,20 @@
               <div class="bd-list">${bRows || "<div class='muted'>（無）</div>"}</div>
               <div class="ex-title">庫存使用（ID）</div>
               <pre class="pre">${escapeHtml(pretty({
-                main: d.items.main.used_inventory_ingredients,
-                soup: d.items.soup.used_inventory_ingredients,
-                sides: d.items.sides.map(x => x.used_inventory_ingredients)
+                main: d.items?.main?.used_inventory_ingredients,
+                soup: d.items?.soup?.used_inventory_ingredients,
+                sides: (d.items?.sides || []).map(x => x?.used_inventory_ingredients)
               }))}</pre>
             </div>
           </details>
         </td>
       </tr>`;
     });
-
+    // ✅ 補齊表格結尾 + 把結果塞回畫面
     html += `</tbody></table>`;
     $("#result").html(html);
-  }
-
+  } // ✅ renderResult 結束
+  
   async function downloadExcel(cfg) {
     const res = await fetch(API.exportExcel, {
       method: "POST",
@@ -246,7 +329,11 @@
     if (!res.ok) {
       let detail = "";
       try { detail = (await res.json()).detail; } catch (e) {}
-      throw new Error("匯出失敗：" + (Array.isArray(detail) ? detail.join(" / ") : String(detail || "")));
+      let msg = "";
+      if (Array.isArray(detail)) msg = detail.join(" / ");
+      else if (detail && typeof detail === "object") msg = detail.message || JSON.stringify(detail);
+      else msg = String(detail || "");
+      throw new Error("匯出失敗：" + msg);
     }
 
     const blob = await res.blob();
@@ -388,8 +475,11 @@
             body: JSON.stringify(cfg)
           });
           const payload = await res.json();
+		  
           if (!payload.ok) {
-            setMsg("產生失敗：\n- " + (payload.errors || []).join("\n- "), true);
+            console.error("PLAN ERROR payload =", payload);
+            setMsg("產生失敗：\n- " + formatErrors(payload.errors), true);
+            showErrorDetail(payload);   // ✅ 直接把 traceback 印在 result 區
             return;
           }
 

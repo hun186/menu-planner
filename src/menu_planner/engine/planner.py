@@ -71,7 +71,7 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
         seed=7
     )
 
-    plan_days, base_score, base_expl = fill_days_after_mains(
+    plan_days, base_score, base_expl, base_errors = fill_days_after_mains(
         horizon_days=horizon_days,
         main_ids=main_ids,
         sides=sides,
@@ -85,7 +85,15 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
 
     # local search
     ls = (search.get("local_search") or {})
-    if bool(ls.get("enabled", True)):
+    ls_enabled = bool(ls.get("enabled", True))
+    
+    # ✅ 偵測「未完成日」：湯/果/配菜不足（或不是 3 道）
+    incomplete_days = [
+        i for i, d in enumerate(plan_days)
+        if (not d.soup) or (not d.fruit) or (not d.sides) or (len(d.sides) != 3)
+    ]
+    
+    if ls_enabled and not incomplete_days and not base_errors:
         improved_plan, improved_score, improved_day_details = improve_by_local_search(
             plan_days=plan_days,
             mains=mains, sides=sides, soups=soups, fruits=fruits,
@@ -99,8 +107,11 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
         final_score = improved_score
         day_details = improved_day_details
     else:
+        # ✅ 有失敗日：直接用 backtracking 的解釋輸出（你 fill_days_after_mains 已經算好）
         final_plan = plan_days
-        final_score, day_details = compute_total_score(plan_days, feat, hard, weights, soft)
+        final_score = base_score
+        day_details = base_expl
+    
 
     # explain output
     result = build_explanations(
@@ -110,9 +121,16 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
         feat=feat,
         day_scores=day_details
     )
-    result["debug"] = {
-        "base_fill_score": base_score,
-        "final_score": final_score,
-        "start_date": start_date.isoformat()
-    }
+    result["errors"] = base_errors
+    result["ok"] = (len(base_errors) == 0)
+    
+    # ✅ 確保 debug 一定存在
+    result.setdefault("debug", {})
+    result["debug"]["failed_days"] = [e.get("day_index") for e in base_errors if e.get("day_index") is not None]
+    result["debug"]["incomplete_days"] = incomplete_days
+    result["debug"]["base_fill_score"] = base_score
+    result["debug"]["final_score"] = final_score
+    result["debug"]["start_date"] = start_date.isoformat()
+    result["debug"]["local_search_enabled"] = (ls_enabled and not incomplete_days and not base_errors)
+
     return result

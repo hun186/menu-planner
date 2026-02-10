@@ -1,0 +1,1 @@
+uvicorn src.menu_planner.api.main:app --reload

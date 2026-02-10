@@ -11,6 +11,7 @@ from .features import DishFeatures
 from .constraints import PlanDay, check_main_hard, check_side_window_repeat, check_soup_window_repeat, check_cost_range
 from .scoring import score_day
 
+from .errors import PlanError
 
 @dataclass
 class BeamState:
@@ -98,8 +99,16 @@ def plan_mains_beam(
         states = new_states[:beam_width]
 
         if not states:
-            raise RuntimeError("主菜 beam search 找不到可行解（hard 限制太嚴或資料太少）。")
-
+            raise PlanError(
+                code="MAIN_BEAM_NO_SOLUTION",
+                day_index=day,
+                message=f"主菜在第 {day+1} 天開始無可行解（hard 限制太嚴或主菜候選太少）。",
+                details={
+                    "beam_width": beam_width,
+                    "candidate_limit": candidate_limit,
+                    "hint": "可嘗試放寬週配額/連續同肉限制、提高主菜候選數或增加主菜資料。"
+                }
+            )
     return states[0].main_ids
 
 
@@ -112,7 +121,7 @@ def _pick_fruit(
     fruit_ids = [d.id for d in fruits if d.id in feat]
     fruit_ids.sort()
     if not fruit_ids:
-        raise RuntimeError("找不到水果菜色。")
+        raise PlanError(code="FRUIT_EMPTY", message="找不到水果菜色。")
     return fruit_ids[day_idx % len(fruit_ids)]
 
 
@@ -187,6 +196,219 @@ def fill_days_after_mains(
     hard: Dict,
     weights: Dict,
     soft: Dict,
+) -> Tuple[List[PlanDay], float, List[Dict], List[Dict]]:
+    plan_days: List[PlanDay] = []
+    total_score = 0.0
+    explanations: List[Dict] = []
+    errors: List[Dict] = []
+
+    prev_meat = None
+    prev_cuisine = None
+
+    rep = hard.get("repeat_limits", {}) or {}
+    max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
+    max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
+
+    cr = (hard.get("cost_range_per_person_per_day") or {})
+    cost_min = float(cr.get("min", 0))
+    cost_max = float(cr.get("max", 10**18))
+
+    for day in range(horizon_days):
+        main_id = main_ids[day]
+
+        # ===== fruit（若整個水果類別空，這屬於「系統性缺資料」，建議仍可 raise）=====
+        # 你想「連水果都缺也繼續排」也行，但通常代表資料集不完整
+        try:
+            fruit_id = _pick_fruit(fruits, day, feat)
+        except PlanError as e:
+            # 系統性缺水果：仍可回傳 errors + placeholder 後繼續
+            errors.append(e.to_dict())
+            plan_days.append(PlanDay(main=main_id, sides=[], soup="", fruit=""))
+            explanations.append({
+                "day_index": day,
+                "failed": True,
+                "reason_code": e.code,
+                "message": e.message,
+                "details": e.details or {}
+            })
+            continue
+
+        # ===== soup =====
+        soup_id = _choose_soup(day, soups, plan_days, feat, hard)
+        if not soup_id:
+            err = PlanError(
+                code="SOUP_NO_SOLUTION",
+                day_index=day,
+                message=f"第 {day+1} 天找不到符合重複限制的湯。",
+                details={
+                    "max_same_soup_in_7_days": max_soup_7,
+                    "hint": "可放寬湯品 7 天重複限制，或增加湯品候選。"
+                }
+            )
+            errors.append(err.to_dict())
+            # placeholder：主菜保留，其餘留空
+            plan_days.append(PlanDay(main=main_id, sides=[], soup="", fruit=fruit_id))
+            explanations.append({
+                "day_index": day,
+                "failed": True,
+                "reason_code": err.code,
+                "message": err.message,
+                "details": err.details or {}
+            })
+            continue
+
+        # ===== sides =====
+        side_ids = _choose_sides_backtrack(day, sides, plan_days, feat, hard)
+        if not side_ids:
+            side_candidates = [d.id for d in sides if d.id in feat]
+            err = PlanError(
+                code="SIDE_NO_SOLUTION",
+                day_index=day,
+                message=f"第 {day+1} 天找不到符合重複限制的 3 道配菜。",
+                details={
+                    "max_same_side_in_7_days": max_side_7,
+                    "candidate_count": len(side_candidates),
+                    "hint": "可放寬配菜 7 天重複限制，或增加配菜候選。"
+                }
+            )
+            errors.append(err.to_dict())
+            plan_days.append(PlanDay(main=main_id, sides=[], soup=soup_id, fruit=fruit_id))
+            explanations.append({
+                "day_index": day,
+                "failed": True,
+                "reason_code": err.code,
+                "message": err.message,
+                "details": err.details or {}
+            })
+            continue
+
+        # ===== cost =====
+        day_cost = (
+            feat[main_id].cost_per_serving
+            + feat[soup_id].cost_per_serving
+            + feat[fruit_id].cost_per_serving
+            + sum(feat[s].cost_per_serving for s in side_ids)
+        )
+
+        if not check_cost_range(day_cost, hard):
+            # 嘗試替換湯/配菜以符合成本（簡單重試）
+            ok = False
+
+            # 重試湯
+            for sid in [d.id for d in soups if d.id in feat]:
+                if not check_soup_window_repeat(day, sid, plan_days, max_soup_7):
+                    continue
+                test_cost = (
+                    feat[main_id].cost_per_serving
+                    + feat[sid].cost_per_serving
+                    + feat[fruit_id].cost_per_serving
+                    + sum(feat[s].cost_per_serving for s in side_ids)
+                )
+                if check_cost_range(test_cost, hard):
+                    soup_id = sid
+                    day_cost = test_cost
+                    ok = True
+                    break
+
+            # 重試配菜（改用另一組）
+            if not ok:
+                alt = _choose_sides_backtrack(day, sides[::-1], plan_days, feat, hard)  # 反向試一次
+                if alt:
+                    side_ids = alt
+                    day_cost = (
+                        feat[main_id].cost_per_serving
+                        + feat[soup_id].cost_per_serving
+                        + feat[fruit_id].cost_per_serving
+                        + sum(feat[s].cost_per_serving for s in side_ids)
+                    )
+                    ok = check_cost_range(day_cost, hard)
+
+            if not ok:
+                err = PlanError(
+                    code="COST_OUT_OF_RANGE",
+                    day_index=day,
+                    message=f"第 {day+1} 天成本 {day_cost:.2f} 超出區間 {cost_min:.2f}～{cost_max:.2f}。",
+                    details={
+                        "day_cost": round(day_cost, 2),
+                        "range": {"min": cost_min, "max": cost_max},
+                        "items": {"main": main_id, "soup": soup_id, "fruit": fruit_id, "sides": side_ids},
+                        "cost_breakdown": {
+                            "main": round(feat[main_id].cost_per_serving, 2),
+                            "soup": round(feat[soup_id].cost_per_serving, 2),
+                            "fruit": round(feat[fruit_id].cost_per_serving, 2),
+                            "sides": [round(feat[s].cost_per_serving, 2) for s in side_ids],
+                        },
+                        "hint": "可提高成本上限、增加低成本候選、或放寬湯/配菜重複限制以擴大可替換組合。"
+                    }
+                )
+                errors.append(err.to_dict())
+                # placeholder：主菜/湯/果保留，配菜清空（代表當天未完成）
+                plan_days.append(PlanDay(main=main_id, sides=[], soup=soup_id, fruit=fruit_id))
+                explanations.append({
+                    "day_index": day,
+                    "failed": True,
+                    "reason_code": err.code,
+                    "message": err.message,
+                    "details": err.details or {},
+                    "cost": round(day_cost, 2),
+                })
+                continue
+
+        # ===== success day =====
+        day_obj = PlanDay(main=main_id, sides=side_ids, soup=soup_id, fruit=fruit_id)
+
+        chosen = {
+            "main": feat[main_id],
+            "side1": feat[side_ids[0]],
+            "side2": feat[side_ids[1]],
+            "side3": feat[side_ids[2]],
+            "soup": feat[soup_id],
+            "fruit": feat[fruit_id],
+        }
+        ctx = {
+            "prev_main_meat": prev_meat,
+            "prev_main_cuisine": prev_cuisine,
+            "prefer_use_inventory": bool(soft.get("prefer_use_inventory", False)),
+            "prefer_near_expiry": bool(soft.get("prefer_near_expiry", False)),
+        }
+        sb = score_day(day_cost=day_cost, hard=hard, weights=weights, chosen=chosen, context=ctx)
+
+        total_score += sb.total
+        plan_days.append(day_obj)
+        explanations.append({
+            "day_index": day,
+            "failed": False,
+            "cost": round(day_cost, 2),
+            "score": sb.total,
+            "score_breakdown": sb.items,
+            "main_meat_type": chosen["main"].meat_type,
+            "inventory_used": {
+                "main": chosen["main"].used_inventory_ingredients,
+                "soup": chosen["soup"].used_inventory_ingredients,
+                "sides": [
+                    chosen["side1"].used_inventory_ingredients,
+                    chosen["side2"].used_inventory_ingredients,
+                    chosen["side3"].used_inventory_ingredients,
+                ]
+            }
+        })
+
+        prev_meat = chosen["main"].meat_type
+        prev_cuisine = chosen["main"].cuisine
+
+    return plan_days, round(total_score, 2), explanations, errors
+
+'''
+def fill_days_after_mains_0210(
+    horizon_days: int,
+    main_ids: List[str],
+    sides: List[Dish],
+    soups: List[Dish],
+    fruits: List[Dish],
+    feat: Dict[str, DishFeatures],
+    hard: Dict,
+    weights: Dict,
+    soft: Dict,
 ) -> Tuple[List[PlanDay], float, List[Dict]]:
     plan_days: List[PlanDay] = []
     total_score = 0.0
@@ -201,11 +423,29 @@ def fill_days_after_mains(
 
         soup_id = _choose_soup(day, soups, plan_days, feat, hard)
         if not soup_id:
-            raise RuntimeError(f"第 {day+1} 天找不到符合 7 天重複限制的湯。")
+            rep = hard.get("repeat_limits", {}) or {}
+            raise PlanError(
+                code="SOUP_NO_SOLUTION",
+                day_index=day,
+                message=f"第 {day+1} 天找不到符合重複限制的湯。",
+                details={
+                    "max_same_soup_in_7_days": int(rep.get("max_same_soup_in_7_days", 1)),
+                    "hint": "可放寬湯品 7 天重複限制，或增加湯品候選。"
+                }
+            )
 
         side_ids = _choose_sides_backtrack(day, sides, plan_days, feat, hard)
         if not side_ids:
-            raise RuntimeError(f"第 {day+1} 天找不到符合 7 天重複限制的 3 道配菜。")
+            rep = hard.get("repeat_limits", {}) or {}
+            raise PlanError(
+                code="SIDE_NO_SOLUTION",
+                day_index=day,
+                message=f"第 {day+1} 天找不到符合重複限制的 3 道配菜。",
+                details={
+                    "max_same_side_in_7_days": int(rep.get("max_same_side_in_7_days", 1)),
+                    "hint": "可放寬配菜 7 天重複限制，或增加配菜候選。"
+                }
+            )
 
         # 成本 hard：主+3配+湯+果
         day_cost = (
@@ -237,7 +477,32 @@ def fill_days_after_mains(
                     ok = check_cost_range(day_cost, hard)
 
             if not ok:
-                raise RuntimeError(f"第 {day+1} 天成本無法落在區間內（目前 {day_cost:.2f}）。")
+                cr = (hard.get("cost_range_per_person_per_day") or {})
+                mn = float(cr.get("min", 0))
+                mx = float(cr.get("max", 10**18))
+            
+                raise PlanError(
+                    code="COST_OUT_OF_RANGE",
+                    day_index=day,
+                    message=f"第 {day+1} 天成本 {day_cost:.2f} 超出區間 {mn:.2f}～{mx:.2f}。",
+                    details={
+                        "day_cost": round(day_cost, 2),
+                        "range": {"min": mn, "max": mx},
+                        "items": {
+                            "main": main_id,
+                            "soup": soup_id,
+                            "fruit": fruit_id,
+                            "sides": side_ids,
+                        },
+                        "cost_breakdown": {
+                            "main": round(feat[main_id].cost_per_serving, 2),
+                            "soup": round(feat[soup_id].cost_per_serving, 2),
+                            "fruit": round(feat[fruit_id].cost_per_serving, 2),
+                            "sides": [round(feat[s].cost_per_serving, 2) for s in side_ids],
+                        },
+                        "hint": "可提高成本上限、增加低成本候選、或放寬湯/配菜重複限制以擴大可替換組合。"
+                    }
+                )
 
         day_obj = PlanDay(main=main_id, sides=side_ids, soup=soup_id, fruit=fruit_id)
 
@@ -280,3 +545,4 @@ def fill_days_after_mains(
         prev_cuisine = chosen["main"].cuisine
 
     return plan_days, round(total_score, 2), explanations
+'''

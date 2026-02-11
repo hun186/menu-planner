@@ -47,7 +47,7 @@ def plan_mains_beam(
         return (inv, near, cost)
 
     main_ids.sort(key=base_key)
-    main_ids = main_ids[:max(candidate_limit, 10)]
+    #main_ids = main_ids[:max(candidate_limit, 100)]
 
     states: List[BeamState] = [
         BeamState(main_ids=[], main_meats=[], weekly_meat_counts={}, score=0.0)

@@ -23,7 +23,7 @@
     },
 
     "repeat_limits": {
-      "max_same_main_in_30_days": 2,
+      "max_same_main_in_30_days": 3,
       "max_same_side_in_7_days": 1,
       "max_same_soup_in_7_days": 1
     },
@@ -62,7 +62,7 @@
     "backtracking": {
       "time_limit_ms": 2000,
       "beam_width": 12,
-      "candidate_limit_per_role": { "main": 25, "side": 30, "soup": 20, "fruit": 20 }
+      "candidate_limit_per_role": { "main": 100, "side": 100, "soup": 100, "fruit": 60 }
     },
     "local_search": {
       "enabled": true,

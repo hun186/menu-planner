@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Body, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse
 from pathlib import Path
 from typing import Any, Dict, Optional
 import io
@@ -13,6 +14,8 @@ from ..db.repo import SQLiteRepo
 from ..config.loader import load_defaults, validate_config
 from ..engine.planner import plan_month
 from ..engine.errors import PlanError  # ✅ 確保有匯入
+
+from .routes.admin_catalog import router as admin_catalog_router
 
 from ..api.export_excel import build_plan_workbook, build_filename
 
@@ -24,6 +27,7 @@ DEFAULT_DB_PATH = str((Path.cwd() / "data" / "menu.db").resolve())
 
 app = FastAPI(title="Menu Planner", version="0.1.0")
 
+app.include_router(admin_catalog_router)
 
 @app.get("/config/default")
 def get_default_config():
@@ -100,6 +104,10 @@ def post_export_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
+
+@app.get("/admin")
+def get_admin_page():
+    return FileResponse(UI_DIR / "admin.html")
 
 # 靜態 UI（http://localhost:8000/）
 app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")

@@ -1,0 +1,182 @@
+{
+  "ingredients": [
+  { "id": "ing_udon", "name": "烏龍麵", "category": "grain", "protein_group": "noodles", "default_unit": "g" },
+  { "id": "ing_soba", "name": "蕎麥麵", "category": "grain", "protein_group": "noodles", "default_unit": "g" },
+  { "id": "ing_ramen_noodles", "name": "拉麵（生麵）", "category": "grain", "protein_group": "noodles", "default_unit": "g" },
+  { "id": "ing_spaghetti", "name": "義大利麵", "category": "grain", "protein_group": "noodles", "default_unit": "g" },
+  { "id": "ing_rice_noodles", "name": "米粉", "category": "grain", "protein_group": "noodles", "default_unit": "g" },
+  { "id": "ing_glass_noodles", "name": "冬粉", "category": "grain", "protein_group": "noodles", "default_unit": "g" },
+  { "id": "ing_yellow_noodles", "name": "油麵（黃麵）", "category": "grain", "protein_group": "noodles", "default_unit": "g" },
+  { "id": "ing_thin_noodles", "name": "細麵（陽春麵）", "category": "grain", "protein_group": "noodles", "default_unit": "g" },
+  { "id": "ing_flat_noodles", "name": "寬麵", "category": "grain", "protein_group": "noodles", "default_unit": "g" }
+]
+,
+  "dishes": [
+  {
+    "id": "dish_main_noodles_01",
+    "name": "蔥香雞腿烏龍（湯）",
+    "role": "main",
+    "cuisine": "japanese",
+    "meat_type": "noodles",
+    "tags": ["noodles", "soup", "light"],
+    "ingredients": [
+      { "ingredient_id": "ing_udon", "qty": 220, "unit": "g" },
+      { "ingredient_id": "ing_chicken_thigh", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 50, "unit": "g" },
+      { "ingredient_id": "ing_scallion", "qty": 15, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 420, "unit": "ml" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 10, "unit": "ml" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_02",
+    "name": "番茄牛肉義大利麵（簡版）",
+    "role": "main",
+    "cuisine": "western",
+    "meat_type": "noodles",
+    "tags": ["noodles", "stir_fry", "quick"],
+    "ingredients": [
+      { "ingredient_id": "ing_spaghetti", "qty": 220, "unit": "g" },
+      { "ingredient_id": "ing_beef_slice", "qty": 130, "unit": "g" },
+      { "ingredient_id": "ing_tomato", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 50, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" },
+      { "ingredient_id": "ing_black_pepper", "qty": 1, "unit": "g" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_03",
+    "name": "蒜香蝦仁炒米粉",
+    "role": "main",
+    "cuisine": "taiwanese",
+    "meat_type": "noodles",
+    "tags": ["noodles", "stir_fry"],
+    "ingredients": [
+      { "ingredient_id": "ing_rice_noodles", "qty": 200, "unit": "g" },
+      { "ingredient_id": "ing_shrimp", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_cabbage", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 50, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 8, "unit": "g" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 12, "unit": "ml" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 12, "unit": "ml" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_04",
+    "name": "味噌鮭魚拉麵（湯）",
+    "role": "main",
+    "cuisine": "japanese",
+    "meat_type": "noodles",
+    "tags": ["noodles", "soup"],
+    "ingredients": [
+      { "ingredient_id": "ing_ramen_noodles", "qty": 220, "unit": "g" },
+      { "ingredient_id": "ing_fish_salmon", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_miso", "qty": 14, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 40, "unit": "g" },
+      { "ingredient_id": "ing_scallion", "qty": 12, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 450, "unit": "ml" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_05",
+    "name": "蠔油牛肉拌油麵（乾）",
+    "role": "main",
+    "cuisine": "chinese",
+    "meat_type": "noodles",
+    "tags": ["noodles", "dry_mix"],
+    "ingredients": [
+      { "ingredient_id": "ing_yellow_noodles", "qty": 220, "unit": "g" },
+      { "ingredient_id": "ing_beef_slice", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_bokchoy", "qty": 160, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_oyster_sauce", "qty": 14, "unit": "ml" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 8, "unit": "ml" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 6, "unit": "ml" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_06",
+    "name": "家常麻婆豆腐拌寬麵（不辣版）",
+    "role": "main",
+    "cuisine": "home_style",
+    "meat_type": "noodles",
+    "tags": ["noodles", "tofu", "stew"],
+    "ingredients": [
+      { "ingredient_id": "ing_flat_noodles", "qty": 220, "unit": "g" },
+      { "ingredient_id": "ing_tofu", "qty": 200, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 50, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 12, "unit": "ml" },
+      { "ingredient_id": "ing_oyster_sauce", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 10, "unit": "ml" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_07",
+    "name": "薑絲豬梅花炒冬粉",
+    "role": "main",
+    "cuisine": "taiwanese",
+    "meat_type": "noodles",
+    "tags": ["noodles", "stir_fry"],
+    "ingredients": [
+      { "ingredient_id": "ing_glass_noodles", "qty": 190, "unit": "g" },
+      { "ingredient_id": "ing_pork_shoulder", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_spinach", "qty": 140, "unit": "g" },
+      { "ingredient_id": "ing_ginger", "qty": 10, "unit": "g" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 12, "unit": "ml" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 12, "unit": "ml" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_08",
+    "name": "蒜香吳郭魚蕎麥麵（冷拌）",
+    "role": "main",
+    "cuisine": "japanese",
+    "meat_type": "noodles",
+    "tags": ["noodles", "cold", "light"],
+    "ingredients": [
+      { "ingredient_id": "ing_soba", "qty": 210, "unit": "g" },
+      { "ingredient_id": "ing_fish_tilapia", "qty": 150, "unit": "g" },
+      { "ingredient_id": "ing_cucumber", "qty": 120, "unit": "g" },
+      { "ingredient_id": "ing_garlic", "qty": 6, "unit": "g" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 12, "unit": "ml" },
+      { "ingredient_id": "ing_vinegar", "qty": 8, "unit": "ml" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 6, "unit": "ml" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_09",
+    "name": "番茄洋蔥雞胸細麵（湯）",
+    "role": "main",
+    "cuisine": "home_style",
+    "meat_type": "noodles",
+    "tags": ["noodles", "soup", "light"],
+    "ingredients": [
+      { "ingredient_id": "ing_thin_noodles", "qty": 220, "unit": "g" },
+      { "ingredient_id": "ing_chicken_breast", "qty": 130, "unit": "g" },
+      { "ingredient_id": "ing_tomato", "qty": 170, "unit": "g" },
+      { "ingredient_id": "ing_onion", "qty": 60, "unit": "g" },
+      { "ingredient_id": "ing_chicken_stock", "qty": 480, "unit": "ml" },
+      { "ingredient_id": "ing_salt", "qty": 1, "unit": "g" }
+    ]
+  },
+  {
+    "id": "dish_main_noodles_10",
+    "name": "蔥香蛋拌寬麵（乾）",
+    "role": "main",
+    "cuisine": "home_style",
+    "meat_type": "noodles",
+    "tags": ["noodles", "dry_mix", "quick"],
+    "ingredients": [
+      { "ingredient_id": "ing_flat_noodles", "qty": 220, "unit": "g" },
+      { "ingredient_id": "ing_egg", "qty": 2, "unit": "piece" },
+      { "ingredient_id": "ing_scallion", "qty": 18, "unit": "g" },
+      { "ingredient_id": "ing_soy_sauce", "qty": 10, "unit": "ml" },
+      { "ingredient_id": "ing_sesame_oil", "qty": 6, "unit": "ml" },
+      { "ingredient_id": "ing_cooking_oil", "qty": 8, "unit": "ml" }
+    ]
+  }
+]
+}

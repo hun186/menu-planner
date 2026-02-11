@@ -40,6 +40,20 @@ textarea{
 .explain-box{ padding:10px; }
 .ex-title{ font-weight:600; margin:8px 0 6px; }
 .bd{ display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dashed #eee; }
+.score-legend{
+  margin: 10px 0 12px;
+  padding: 10px;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  line-height: 1.5;
+}
+.small{ font-size: 12px; }
+
+.bd .meta{ color:#777; font-size:12px; margin-left:6px; }
+.bd.good .v{ font-weight:700; }
+.bd.bad .v{ font-weight:700; }
+
 .bd-list{ max-width:520px; }
 .pre{ background:#fff; border:1px solid #eee; padding:8px; border-radius:10px; overflow:auto; }
 .muted{ color:#777; }
@@ -114,3 +128,32 @@ select{
   overflow: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
+
+.hide{ display:none !important; }
+
+.mp-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:99;
+}
+.mp-modal-card{
+  width:min(980px, 92vw);
+  max-height:86vh;
+  overflow:auto;
+  background:#fff;
+  border-radius:14px;
+  border:1px solid var(--bd);
+  padding:14px;
+}
+.mp-modal-hd{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+.mp-modal-title{ font-weight:700; }

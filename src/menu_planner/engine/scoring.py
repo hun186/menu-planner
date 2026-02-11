@@ -10,7 +10,11 @@ from .features import DishFeatures
 @dataclass
 class ScoreBreakdown:
     total: float
-    items: Dict[str, float]   # 每個子項目分數（正=扣分，負=加分）
+    items: Dict[str, float]   # 正=扣分，負=加分
+    penalty_total: float = 0.0
+    bonus_total: float = 0.0
+    fitness: float = 0.0      # = -total（越高越好）
+
 
 
 def score_day(
@@ -86,4 +90,15 @@ def score_day(
     for k, v in items.items():
         total += float(v)
 
-    return ScoreBreakdown(total=round(total, 2), items={k: round(v, 2) for k, v in items.items()})
+    penalty_total = sum(v for v in items.values() if v > 0)
+    bonus_total = sum(-v for v in items.values() if v < 0)
+    total = round(total, 2)
+
+    return ScoreBreakdown(
+        total=total,
+        items={k: round(v, 2) for k, v in items.items()},
+        penalty_total=round(penalty_total, 2),
+        bonus_total=round(bonus_total, 2),
+        fitness=round(-total, 2),
+    )
+

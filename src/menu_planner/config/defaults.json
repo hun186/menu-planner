@@ -1,5 +1,6 @@
 {
   "horizon_days": 30,
+  "weekdays": [1,2,3,4,5],
   "people": 1,
   "per_day_roles": { "main": 1, "side": 3, "fruit": 1, "soup": 1 },
 
@@ -7,17 +8,18 @@
     "include_dish_ids": [],
     "exclude_dish_ids": [],
     "exclude_ingredient_ids": [],
-    "allowed_main_meat_types": ["chicken", "pork", "beef", "fish", "seafood", "vegetarian"],
+    "allowed_main_meat_types_old": ["chicken", "pork", "beef", "fish", "seafood", "noodles", "vegetarian"],
+	"allowed_main_meat_types": ["chicken", "pork", "beef", "seafood", "noodles", "vegetarian"],
 
     "no_consecutive_same_main_meat": true,
 
     "weekly_max_main_meat": {
-      "chicken": 2,
-      "pork": 2,
+      "chicken": 1,
+      "pork": 1,
       "beef": 1,
-      "fish": 2,
       "seafood": 1,
-      "vegetarian": 2
+	  "noodles": 1,
+      "vegetarian": 0
     },
 
     "repeat_limits": {

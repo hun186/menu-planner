@@ -21,7 +21,6 @@ def _week_index(day_idx: int) -> int:
 def _window_start(day_idx: int, window: int) -> int:
     return max(0, day_idx - window + 1)
 
-
 def check_main_hard(
     day_idx: int,
     main_id: str,
@@ -30,6 +29,7 @@ def check_main_hard(
     plan_main_meats: List[Optional[str]],
     weekly_meat_counts: Dict[int, Dict[str, int]],
     hard: Dict,
+    week_key: Optional[int] = None,   # ✅ 新增：由外部傳入真實週
 ) -> bool:
     allowed = set(hard.get("allowed_main_meat_types", []))
     if allowed and (main_meat_type not in allowed):
@@ -39,28 +39,28 @@ def check_main_hard(
         if day_idx > 0 and plan_main_meats and plan_main_meats[-1] == main_meat_type:
             return False
 
-    # weekly max
     weekly_max = hard.get("weekly_max_main_meat", {}) or {}
-    w = _week_index(day_idx)
-    counts = weekly_meat_counts.setdefault(w, {})
+    w = week_key if week_key is not None else (day_idx // 7)
+
+    # ✅ 不要用 setdefault，避免在「檢查」時污染 state
+    counts = weekly_meat_counts.get(w, {})
     if main_meat_type:
         max_allowed = weekly_max.get(main_meat_type)
         if max_allowed is not None:
             if counts.get(main_meat_type, 0) + 1 > int(max_allowed):
                 return False
 
-    # repeat limits (main in horizon)
     rep = hard.get("repeat_limits", {}) or {}
     max_same_main = rep.get("max_same_main_in_30_days")
     if max_same_main is not None:
         if plan_main_ids.count(main_id) + 1 > int(max_same_main):
             return False
 
-    # include/exclude
     if main_id in set(hard.get("exclude_dish_ids", []) or []):
         return False
 
     return True
+
 
 
 def check_side_window_repeat(

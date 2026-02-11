@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 
-ALLOWED_MEAT_TYPES = {"chicken", "pork", "beef", "fish", "seafood", "vegetarian"}
+ALLOWED_MEAT_TYPES = {"chicken", "pork", "beef", "fish", "seafood", "noodles", "vegetarian"}
 ALLOWED_ROLES = {"main", "side", "soup", "fruit"}
 
 

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Menu Planner - 資料庫管理</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+
+<body>
+  <div class="wrap">
+    <header class="hdr">
+      <h1>資料庫管理</h1>
+      <div class="sub">
+        管理食材、菜色與菜色食材用量。<a href="/" style="color:#111;">回到排菜</a>
+      </div>
+    </header>
+
+    <div class="card" style="margin-bottom:12px;">
+      <h2>管理權限（選配）</h2>
+      <div class="row">
+        <label>Admin Key</label>
+        <input id="admin_key" type="password" placeholder="若後端有設定 MENU_ADMIN_KEY，請在此輸入" />
+      </div>
+      <div class="btns">
+        <button id="save_admin_key" class="primary">儲存到本機</button>
+        <button id="clear_admin_key">清除</button>
+      </div>
+      <div class="hint">若後端未設定金鑰，這欄可不填。</div>
+    </div>
+
+    <div class="grid">
+      <!-- 食材管理 -->
+      <section class="card">
+        <h2>食材管理</h2>
+
+        <div class="row">
+          <label>搜尋</label>
+          <input id="ing_q" type="text" placeholder="名稱或 ID" />
+        </div>
+
+        <table class="tbl" id="ing_tbl">
+          <thead>
+            <tr>
+              <th style="width:170px;">ID</th>
+              <th>名稱</th>
+              <th>分類</th>
+              <th>蛋白群組</th>
+              <th style="width:90px;">單位</th>
+              <th style="width:120px;">操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <hr class="hr" />
+        <h3 class="h3">新增 / 編輯</h3>
+
+        <div class="row"><label>ID</label><input id="ing_id" type="text" placeholder="留空會自動產生" /></div>
+        <div class="row"><label>名稱</label><input id="ing_name" type="text" /></div>
+        <div class="row"><label>分類</label><input id="ing_category" type="text" placeholder="蔬菜/肉類/豆製品..." /></div>
+        <div class="row"><label>蛋白群組</label><input id="ing_protein" type="text" placeholder="optional" /></div>
+        <div class="row"><label>預設單位</label><input id="ing_unit" type="text" placeholder="g/ml/顆/份" /></div>
+
+        <div class="btns">
+          <button id="ing_clear">清空</button>
+          <button id="ing_save" class="primary">儲存</button>
+        </div>
+        <div class="hint">刪除失敗通常是「被菜色引用」；請先到右側菜色編輯食材清單移除引用。</div>
+        <div id="msg_ing" class="msg"></div>
+      </section>
+
+      <!-- 菜色管理 -->
+      <section class="card">
+        <h2>菜色管理</h2>
+
+        <div class="row">
+          <label>搜尋</label>
+          <input id="dish_q" type="text" placeholder="名稱或 ID" />
+        </div>
+
+        <table class="tbl" id="dish_tbl">
+          <thead>
+            <tr>
+              <th style="width:170px;">ID</th>
+              <th>名稱</th>
+              <th style="width:80px;">角色</th>
+              <th style="width:110px;">肉類</th>
+              <th>菜系</th>
+              <th style="width:160px;">操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <hr class="hr" />
+        <h3 class="h3">新增 / 編輯</h3>
+
+        <div class="row"><label>ID</label><input id="dish_id" type="text" placeholder="留空會自動產生" /></div>
+        <div class="row"><label>名稱</label><input id="dish_name" type="text" /></div>
+        <div class="row">
+          <label>角色</label>
+          <select id="dish_role">
+            <option value="main">主菜</option>
+            <option value="side">配菜</option>
+            <option value="soup">湯</option>
+            <option value="fruit">水果</option>
+          </select>
+        </div>
+        <div class="row"><label>肉類</label><input id="dish_meat" type="text" placeholder="chicken/pork/..." /></div>
+        <div class="row"><label>菜系</label><input id="dish_cuisine" type="text" placeholder="台式/日式/..." /></div>
+        <div class="row"><label>標籤</label><input id="dish_tags" type="text" placeholder='可輸入 JSON: ["清淡","快手"] 或 逗號分隔: 清淡,快手' /></div>
+
+        <div class="btns">
+          <button id="dish_clear">清空</button>
+          <button id="dish_save" class="primary">儲存</button>
+        </div>
+        <div class="hint">「編輯食材」會開啟視窗，維護該菜色的食材用量（qty/unit）。</div>
+        <div id="msg_dish" class="msg"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Modal：菜色食材 -->
+  <datalist id="dl_ingredients"></datalist>
+  <div id="modal" class="mp-modal hide">
+    <div class="mp-modal-card">
+      <div class="mp-modal-hd">
+        <div class="mp-modal-title" id="modal_title">編輯菜色食材</div>
+        <button id="modal_close">關閉</button>
+      </div>
+
+      <table class="tbl" id="di_tbl">
+        <thead>
+          <tr>
+            <th>食材</th>
+            <th style="width:100px;">qty</th>
+            <th style="width:100px;">unit</th>
+            <th style="width:90px;">操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="btns" style="margin-top:10px;">
+        <button id="di_add">新增一列</button>
+        <button id="di_save" class="primary">儲存食材清單</button>
+      </div>
+      <div class="hint">儲存會「整批覆蓋」此菜色的食材清單。</div>
+      <div id="msg_di" class="msg"></div>
+    </div>
+  </div>
+
+  <div id="modal_ing" class="mp-modal hide">
+    <div class="mp-modal-card">
+      <div class="mp-modal-hd">
+        <div class="mp-modal-title" id="modal_ing_title">價格/庫存</div>
+        <button id="modal_ing_close">關閉</button>
+      </div>
+  
+      <h3 class="h3">庫存（快照）</h3>
+      <div class="row"><label>數量</label><input id="inv_qty" type="number" step="0.1" /></div>
+      <div class="row"><label>單位</label><input id="inv_unit" type="text" placeholder="g/ml/顆/份" /></div>
+      <div class="row"><label>更新日</label><input id="inv_updated" type="date" /></div>
+      <div class="row"><label>到期日</label><input id="inv_expiry" type="date" /></div>
+      <div class="btns">
+        <button id="inv_save" class="primary">儲存庫存</button>
+      </div>
+  
+      <hr class="hr" />
+      <h3 class="h3">價格（歷史）</h3>
+  
+      <table class="tbl" id="price_tbl">
+        <thead>
+          <tr>
+            <th style="width:140px;">日期</th>
+            <th style="width:140px;">單價</th>
+            <th style="width:120px;">單位</th>
+            <th style="width:90px;">操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+  
+      <div class="btns" style="margin-top:10px;">
+        <button id="price_add">新增一列</button>
+        <button id="price_save" class="primary">儲存價格（逐列 Upsert）</button>
+      </div>
+  
+      <div id="msg_ing_meta" class="msg"></div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

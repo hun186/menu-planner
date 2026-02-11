@@ -89,6 +89,123 @@
     return String(s || "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   }
 
+  // --- 分數可解釋化（UI 顯示用）------------------------------------
+  const SCORE_ITEM_META = {
+    cost_over_max: {
+      label: "成本超過上限",
+      tip: "超過每日成本上限會扣分，超越越多扣越多。"
+    },
+    cost_under_min: {
+      label: "成本低於下限",
+      tip: "低於每日成本下限會扣分，避免菜單過度節省導致品質偏差。"
+    },
+    consecutive_same_meat: {
+      label: "主菜連續同肉類",
+      tip: "主菜連續兩天同肉類會扣分（避免吃膩）。"
+    },
+    cuisine_consecutive: {
+      label: "主菜連續同菜系",
+      tip: "主菜連續兩天同菜系會扣分（提高多樣性）。"
+    },
+    use_inventory_bonus_main: {
+      label: "主菜使用庫存（加分）",
+      tip: "主菜命中庫存比例越高，加分越多。"
+    },
+    use_inventory_bonus_others: {
+      label: "湯/配菜使用庫存（加分）",
+      tip: "湯與配菜命中庫存也會加分（權重較低）。"
+    },
+    near_expiry_bonus: {
+      label: "使用近到期食材（加分）",
+      tip: "越接近到期（天數越小）加分越多，促進先進先出。"
+    }
+  };
+
+  function scoreLabel(key) {
+    return (SCORE_ITEM_META[key] && SCORE_ITEM_META[key].label) ? SCORE_ITEM_META[key].label : key;
+  }
+
+  function getCostRange(cfg) {
+    const cr = cfg?.hard?.cost_range_per_person_per_day || {};
+    const minv = (cr.min ?? null);
+    const maxv = (cr.max ?? null);
+    return { minv, maxv };
+  }
+
+  // 由 day 的 items 中抓「近到期線索」（菜色層級）
+  function collectNearExpiryHints(day) {
+    const out = [];
+    const push = (dish) => {
+      const name = dish?.name;
+      const days = dish?.near_expiry_days_min;
+      if (name && (days !== undefined && days !== null) && days <= 7) {
+        out.push({ name, days: Number(days) });
+      }
+    };
+    push(day?.items?.main);
+    push(day?.items?.soup);
+    (day?.items?.sides || []).forEach(push);
+
+    out.sort((a, b) => a.days - b.days);
+    return out.slice(0, 3).map(x => `${x.name}（${x.days}天）`);
+  }
+
+  function summarizeBreakdown(breakdown) {
+    let bonus = 0;    // 把負數轉成正值加總
+    let penalty = 0;  // 正數加總
+    Object.values(breakdown || {}).forEach(v0 => {
+      const v = Number(v0) || 0;
+      if (v < 0) bonus += (-v);
+      else penalty += v;
+    });
+    // raw = penalty - bonus ；fitness = bonus - penalty (= -raw)
+    const raw = penalty - bonus;
+    const fitness = bonus - penalty;
+    return { bonus, penalty, raw, fitness };
+  }
+
+  // 給每個分項補「觸發原因」：有資料就講得更具體，沒資料就退回 tip
+  function scoreReason(key, value, day, cfg) {
+    const v = Number(value) || 0;
+
+    if (key === "cost_over_max") {
+      const { maxv } = getCostRange(cfg);
+      const dc = Number(day?.day_cost);
+      if (maxv !== null && !Number.isNaN(dc)) {
+        const over = dc - Number(maxv);
+        if (over > 0) return `超出上限 ${over.toFixed(2)}`;
+      }
+    }
+
+    if (key === "cost_under_min") {
+      const { minv } = getCostRange(cfg);
+      const dc = Number(day?.day_cost);
+      if (minv !== null && !Number.isNaN(dc)) {
+        const under = Number(minv) - dc;
+        if (under > 0) return `低於下限 ${under.toFixed(2)}`;
+      }
+    }
+
+    if (key === "use_inventory_bonus_main") {
+      const hit = day?.items?.main?.inventory_hit_ratio;
+      if (hit !== undefined && hit !== null) return `主菜庫存命中 ${(Number(hit) * 100).toFixed(0)}%`;
+    }
+
+    if (key === "use_inventory_bonus_others") {
+      const soup = Number(day?.items?.soup?.inventory_hit_ratio || 0);
+      const sides = (day?.items?.sides || []).reduce((a, x) => a + Number(x?.inventory_hit_ratio || 0), 0);
+      const sum = soup + sides;
+      if (sum > 0) return `湯+配菜庫存命中合計 ${(sum * 100).toFixed(0)}%（加權前）`;
+    }
+
+    if (key === "near_expiry_bonus") {
+      const hints = collectNearExpiryHints(day);
+      if (hints.length) return `近到期：${hints.join("、")}`;
+    }
+
+    return SCORE_ITEM_META[key]?.tip || "";
+  }
+  
   // -------- form <-> cfg --------
   function buildCfgFromForm(baseCfg) {
     const cfg = JSON.parse(JSON.stringify(baseCfg || {}));
@@ -223,17 +340,28 @@
     const days = r.days || [];
 
     let html = "";
+
+    const rawTotal = Number(s.total_score ?? 0);
+    const fitTotal = (-rawTotal);
+
+    html += `<div class="score-legend">
+      <div><b>分數解讀</b>：系統把「扣分（+）」與「加分（-）」加總，<b>原始分數越低越好</b>。</div>
+      <div>為了直覺，另外顯示 <b>符合度 = -原始分數（越高越好）</b>。</div>
+      <div class="muted">常見加分：使用庫存、使用近到期。常見扣分：成本超限、主菜連續同肉／同菜系。</div>
+    </div>`;
+
     html += `<div class="summary">
       <div><b>天數</b>：${s.days}</div>
       <div><b>總成本</b>：${s.total_cost}</div>
       <div><b>平均/日</b>：${s.avg_cost_per_day}</div>
-      <div><b>總分數</b>：${s.total_score}</div>
+      <div><b>符合度</b>：${fitTotal.toFixed(2)}</div>
     </div>`;
+	
 
     html += `<table class="tbl">
       <thead>
         <tr>
-          <th>日期</th><th>主菜</th><th>配菜</th><th>湯</th><th>水果</th><th>成本</th><th>分數</th>
+          <th>日期</th><th>主菜</th><th>配菜</th><th>湯</th><th>水果</th><th>成本</th><th>符合度</th>
         </tr>
       </thead>
       <tbody>`;
@@ -280,7 +408,11 @@
       const soup = d.items?.soup?.name || "";
       const fruit = d.items?.fruit?.name || "";
       const cost = d.day_cost ?? "";
-      const score = (d.score ?? "");
+      const rawScore = Number(d.score ?? 0);
+      const fitness = (d.score_fitness !== undefined && d.score_fitness !== null)
+        ? Number(d.score_fitness)
+        : (-rawScore);
+
     
       html += `<tr>
         <td>${d.date}</td>
@@ -289,21 +421,56 @@
         <td>${escapeHtml(soup)}</td>
         <td>${escapeHtml(fruit)}</td>
         <td>${cost}</td>
-        <td>${score}</td>
+        <td>
+          <b>${fitness.toFixed(1)}</b>
+        </td>
       </tr>`;
+
     
       const breakdown = d.score_breakdown || {};
-      const bRows = Object.keys(breakdown)
-        .map(k => `<div class="bd"><span>${escapeHtml(k)}</span><span>${breakdown[k]}</span></div>`)
-        .join("");
-    
+      const sum = summarizeBreakdown(breakdown);
+
+      const entries = Object.entries(breakdown).map(([k, v]) => {
+        const vv = Number(v) || 0;
+        const isBonus = (vv < 0);
+        const abs = Math.abs(vv).toFixed(2);
+        const label = scoreLabel(k);
+        const reason = scoreReason(k, vv, d, lastCfg);
+        return {
+          key: k,
+          isBonus,
+          abs,
+          label,
+          reason,
+          mag: Math.abs(vv)
+        };
+      });
+
+      // 大項先排：影響最大的放前面
+      entries.sort((a, b) => b.mag - a.mag);
+
+      const bRows = entries.map(e => {
+        const tag = e.isBonus ? "加分" : "扣分";
+        const cls = e.isBonus ? "good" : "bad";
+        const reasonTxt = e.reason ? `<span class="meta">（${escapeHtml(e.reason)}）</span>` : "";
+        return `<div class="bd ${cls}">
+          <span>${escapeHtml(e.label)}${reasonTxt}</span>
+          <span class="v">${tag} ${e.abs}</span>
+        </div>`;
+      }).join("");
+
+      const daySummary = `今日小結：加分 ${sum.bonus.toFixed(1)} ／ 扣分 ${sum.penalty.toFixed(1)} ／ 原始 ${sum.raw.toFixed(1)}（符合度 ${sum.fitness.toFixed(1)}）`;
+
       html += `<tr class="explain">
         <td colspan="7">
           <details>
             <summary>可解釋明細</summary>
             <div class="explain-box">
-              <div class="ex-title">打分拆解</div>
+              <div class="ex-title">${escapeHtml(daySummary)}</div>
+
+              <div class="ex-title">打分拆解（影響大 → 小）</div>
               <div class="bd-list">${bRows || "<div class='muted'>（無）</div>"}</div>
+
               <div class="ex-title">庫存使用（ID）</div>
               <pre class="pre">${escapeHtml(pretty({
                 main: d.items?.main?.used_inventory_ingredients,

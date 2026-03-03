@@ -1,14 +1,17 @@
 # src/menu_planner/engine/planner.py
 from __future__ import annotations
 
+import random
+import time
+
 from datetime import date, datetime
 from datetime import timedelta
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 
-from ..db.repo import SQLiteRepo, Dish
+from ..db.repo import SQLiteRepo
 from .features import build_dish_features
 from .backtracking import plan_mains_beam, fill_days_after_mains
-from .local_search import improve_by_local_search, compute_total_score
+from .local_search import improve_by_local_search
 from .explain import build_explanations
 from .constraints import PlanDay
 
@@ -30,6 +33,32 @@ def _get_active_mask(start_date: date, horizon_days: int, cfg: Dict[str, Any]) -
         mask.append(wd in allowed)
     return mask
 
+def _resolve_seed(cfg: Dict[str, Any], start_date: date) -> int:
+    """
+    cfg["seed"] 可支援：
+      - int: 固定 seed
+      - "random": 每次都亂數
+      - "time": 以時間為 seed（效果等同 random，但可讀）
+      - "date": 以 start_date 為 seed（同一天重跑會一樣）
+    """
+    s = cfg.get("seed", 7)
+
+    if isinstance(s, int):
+        return s
+
+    if isinstance(s, str):
+        key = s.strip().lower()
+        if key == "random":
+            # 32-bit seed，避免過大
+            return random.SystemRandom().randint(0, 2**31 - 1)
+        if key == "time":
+            return int(time.time()) & 0x7fffffff
+        if key == "date":
+            return int(start_date.strftime("%Y%m%d"))
+
+    # fallback：保留舊行為
+    return 7
+
 def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
     repo = SQLiteRepo(db_path)
 
@@ -42,7 +71,9 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
     soft = cfg.get("soft", {}) or {}
     weights = cfg.get("weights", {}) or {}
     search = cfg.get("search", {}) or {}
-
+    seed = _resolve_seed(cfg, start_date)
+    hard["seed"] = seed
+    
     # load catalog
     ingredients = repo.fetch_ingredients()
     all_dishes = repo.fetch_dishes()
@@ -68,6 +99,12 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
     sides = [d for d in all_dishes if d.role == "side"]
     soups = [d for d in all_dishes if d.role == "soup"]
     fruits = [d for d in all_dishes if d.role == "fruit"]
+
+    print("ALL dishes:", len(all_dishes))
+    print("mains:", len([d for d in all_dishes if d.role=="main"]))
+    print("sides:", len([d for d in all_dishes if d.role=="side"]))
+    print("soups:", len([d for d in all_dishes if d.role=="soup"]))
+    print("fruits:", len([d for d in all_dishes if d.role=="fruit"]))
 
     # ✅ 若全都不排（weekdays 空或全不選），直接回傳全休息日
     if not any(active_mask):
@@ -106,7 +143,7 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
         hard=hard,
         beam_width=beam_width,
         candidate_limit=cand_limit,
-        seed=7,
+        seed=seed,
         start_date=start_date,
         active_mask=active_mask,
     )
@@ -142,7 +179,7 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
             hard=hard, weights=weights, soft=soft,
             iterations=int(ls.get("iterations", 800)),
             accept_worse_probability=float(ls.get("accept_worse_probability", 0.03)),
-            seed=7,
+            seed=seed,
             start_date=start_date,
             active_mask=active_mask,
         )
@@ -168,6 +205,7 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
     result["ok"] = (len(errors) == 0)
 
     result.setdefault("debug", {})
+    result["debug"]["seed"] = seed
     result["debug"]["active_mask"] = active_mask
     result["debug"]["active_days"] = sum(1 for x in active_mask if x)
     result["debug"]["failed_days"] = [e.get("day_index") for e in errors if e.get("day_index") is not None]

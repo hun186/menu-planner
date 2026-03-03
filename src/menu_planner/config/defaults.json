@@ -1,9 +1,12 @@
 {
   "horizon_days": 30,
-  "weekdays": [1,2,3,4,5],
+  "schedule": {
+    "weekdays": [1, 2, 4, 5]
+  },
   "people": 1,
   "per_day_roles": { "main": 1, "side": 3, "fruit": 1, "soup": 1 },
-
+  "seed": "time",
+  "seed_choices": ["random", "time", "date", 7],
   "hard": {
     "include_dish_ids": [],
     "exclude_dish_ids": [],
@@ -14,10 +17,10 @@
     "no_consecutive_same_main_meat": true,
 
     "weekly_max_main_meat": {
-      "chicken": 1,
-      "pork": 1,
-      "beef": 1,
-      "seafood": 1,
+      "chicken": 2,
+      "pork": 2,
+      "beef": 2,
+      "seafood": 2,
 	  "noodles": 1,
       "vegetarian": 0
     },
@@ -25,10 +28,11 @@
     "repeat_limits": {
       "max_same_main_in_30_days": 3,
       "max_same_side_in_7_days": 1,
-      "max_same_soup_in_7_days": 1
+      "max_same_soup_in_7_days": 1,
+	  "max_same_fruit_in_7_days": 1
     },
 
-    "cost_range_per_person_per_day": { "min": 65, "max": 120 }
+    "cost_range_per_person_per_day": { "min": 1, "max": 200 }
   },
 
   "soft": {
@@ -50,7 +54,8 @@
     "repeat_penalty_main": 20,
     "repeat_penalty_side": 8,
     "repeat_penalty_soup": 8,
-
+    "repeat_penalty_fruit": 6,
+	
     "consecutive_same_meat_penalty": 25,
     "near_expiry_bonus": -12,
     "use_inventory_bonus": -10,

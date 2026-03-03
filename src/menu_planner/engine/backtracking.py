@@ -9,7 +9,9 @@ import random
 
 from ..db.repo import Dish
 from .features import DishFeatures
-from .constraints import PlanDay, check_main_hard, check_side_window_repeat, check_soup_window_repeat, check_cost_range
+from .constraints import PlanDay, check_main_hard 
+from .constraints import check_side_window_repeat, check_soup_window_repeat, check_fruit_window_repeat
+from .constraints import check_cost_range
 from .scoring import score_day
 
 from .errors import PlanError
@@ -141,7 +143,7 @@ def plan_mains_beam(
 
     return states[0].main_ids
 
-
+'''
 def _pick_fruit(
     fruits: List[Dish],
     day_idx: int,
@@ -153,7 +155,29 @@ def _pick_fruit(
     if not fruit_ids:
         raise PlanError(code="FRUIT_EMPTY", message="找不到水果菜色。")
     return fruit_ids[day_idx % len(fruit_ids)]
+'''
 
+def _pick_fruit(
+    fruits: List[Dish],
+    day_idx: int,
+    plan_days: List[PlanDay],
+    feat: Dict[str, DishFeatures],
+    hard: Dict,
+) -> str:
+    rep = hard.get("repeat_limits", {}) or {}
+    max_fruit_7 = int(rep.get("max_same_fruit_in_7_days", 10**9))  # 預設幾乎不限制
+
+    fruit_ids = [d.id for d in fruits if d.id in feat]
+    if not fruit_ids:
+        raise PlanError(code="FRUIT_EMPTY", message="找不到水果菜色。")
+
+    # ✅ 不要 sort，保留外部傳入的順序（你已在外面 shuffle）
+    for fid in fruit_ids:
+        if check_fruit_window_repeat(day_idx, fid, plan_days, max_fruit_7):
+            return fid
+
+    # 都不符合時：退一步給個 fallback（避免整天失敗）
+    return fruit_ids[day_idx % len(fruit_ids)]
 
 def _choose_soup(
     day_idx: int,
@@ -161,15 +185,24 @@ def _choose_soup(
     plan_days: List[PlanDay],
     feat: Dict[str, DishFeatures],
     hard: Dict,
+    rng: Optional[random.Random] = None,
+    topk: int = 25,
 ) -> Optional[str]:
     rep = hard.get("repeat_limits", {}) or {}
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
     soup_ids = [d.id for d in soups if d.id in feat]
 
-    # 優先：庫存命中高、近到期
-    soup_ids.sort(key=lambda did: (-feat[did].inventory_hit_ratio,
-                                  999 if feat[did].near_expiry_days_min is None else feat[did].near_expiry_days_min,
-                                  feat[did].cost_per_serving))
+    soup_ids.sort(key=lambda did: (
+        -feat[did].inventory_hit_ratio,
+        999 if feat[did].near_expiry_days_min is None else feat[did].near_expiry_days_min,
+        feat[did].cost_per_serving
+    ))
+
+    # ✅ 打散前 topk，避免永遠選到同一批第一名
+    if rng is not None and len(soup_ids) > 1:
+        head = soup_ids[:topk]
+        rng.shuffle(head)
+        soup_ids = head + soup_ids[topk:]
 
     for sid in soup_ids:
         if check_soup_window_repeat(day_idx, sid, plan_days, max_soup_7):
@@ -183,24 +216,30 @@ def _choose_sides_backtrack(
     plan_days: List[PlanDay],
     feat: Dict[str, DishFeatures],
     hard: Dict,
+    rng: Optional[random.Random] = None,
+    topk: int = 120,
 ) -> Optional[List[str]]:
     rep = hard.get("repeat_limits", {}) or {}
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
     side_ids = [d.id for d in sides if d.id in feat]
 
-    # 排序：偏好庫存命中 + 近到期 + 低成本
-    side_ids.sort(key=lambda did: (-feat[did].inventory_hit_ratio,
-                                  999 if feat[did].near_expiry_days_min is None else feat[did].near_expiry_days_min,
-                                  feat[did].cost_per_serving))
+    side_ids.sort(key=lambda did: (
+        -feat[did].inventory_hit_ratio,
+        999 if feat[did].near_expiry_days_min is None else feat[did].near_expiry_days_min,
+        feat[did].cost_per_serving
+    ))
 
-    # 小回溯選 3 道互不相同
+    # ✅ 打散 topk（也可順便縮小搜尋空間，加速回溯）
+    if rng is not None and len(side_ids) > 1:
+        head = side_ids[:topk]
+        rng.shuffle(head)
+        side_ids = head  # 直接用 topk 當候選池（通常更穩、更快）
+
     chosen: List[str] = []
 
     def dfs(start_idx: int) -> Optional[List[str]]:
         if len(chosen) == 3:
-            if check_side_window_repeat(day_idx, chosen, plan_days, max_side_7):
-                return list(chosen)
-            return None
+            return list(chosen) if check_side_window_repeat(day_idx, chosen, plan_days, max_side_7) else None
 
         for i in range(start_idx, len(side_ids)):
             did = side_ids[i]
@@ -245,6 +284,14 @@ def fill_days_after_mains(
     cost_min = float(cr.get("min", 0))
     cost_max = float(cr.get("max", 10**18))
 
+    side_pool0  = [d for d in sides  if d.id in feat]
+    soup_pool0  = [d for d in soups  if d.id in feat]
+    fruit_pool0 = [d for d in fruits if d.id in feat]
+    
+    print("usable sides (in feat):", len(side_pool0), "/", len(sides))
+    print("usable soups (in feat):", len(soup_pool0), "/", len(soups))
+    print("usable fruits(in feat):", len(fruit_pool0), "/", len(fruits))
+
     for day in range(horizon_days):
         main_id = main_ids[day]
         if not main_id:
@@ -263,10 +310,25 @@ def fill_days_after_mains(
                 "score_summary": {"bonus": 0, "penalty": 0, "raw": 0, "fitness": 0},
             })
             continue
+        
+        seed0 = int(hard.get("seed", 7))  # 或改成 cfg seed 傳進來
+        rng = random.Random(seed0 + day * 10007)
+        
+        # 只拿可用候選（在 feat 裡）
+        fruit_pool = [d for d in fruits if d.id in feat]
+        soup_pool  = [d for d in soups  if d.id in feat]
+        side_pool  = [d for d in sides  if d.id in feat]
+        
+        rng.shuffle(fruit_pool)
+        rng.shuffle(soup_pool)
+        rng.shuffle(side_pool)
+        
         # ===== fruit（若整個水果類別空，這屬於「系統性缺資料」，建議仍可 raise）=====
         # 你想「連水果都缺也繼續排」也行，但通常代表資料集不完整
         try:
-            fruit_id = _pick_fruit(fruits, day, feat)
+            #fruit_id = _pick_fruit(fruits, day, feat)
+            #fruit_id = _pick_fruit(fruit_pool, day, feat)
+            fruit_id = _pick_fruit(fruit_pool, day, plan_days, feat, hard)
         except PlanError as e:
             # 系統性缺水果：仍可回傳 errors + placeholder 後繼續
             errors.append(e.to_dict())
@@ -290,7 +352,9 @@ def fill_days_after_mains(
             continue
 
         # ===== soup =====
-        soup_id = _choose_soup(day, soups, plan_days, feat, hard)
+        #soup_id = _choose_soup(day, soups, plan_days, feat, hard)
+        #soup_id  = _choose_soup(day, soup_pool, plan_days, feat, hard)
+        soup_id  = _choose_soup(day, soup_pool, plan_days, feat, hard, rng=rng)
         if not soup_id:
             err = PlanError(
                 code="SOUP_NO_SOLUTION",
@@ -323,7 +387,9 @@ def fill_days_after_mains(
             continue
 
         # ===== sides =====
-        side_ids = _choose_sides_backtrack(day, sides, plan_days, feat, hard)
+        #side_ids = _choose_sides_backtrack(day, sides, plan_days, feat, hard)
+        #side_ids = _choose_sides_backtrack(day, side_pool, plan_days, feat, hard)
+        side_ids = _choose_sides_backtrack(day, side_pool, plan_days, feat, hard, rng=rng)
         if not side_ids:
             side_candidates = [d.id for d in sides if d.id in feat]
             err = PlanError(
@@ -369,7 +435,10 @@ def fill_days_after_mains(
             ok = False
 
             # 重試湯
-            for sid in [d.id for d in soups if d.id in feat]:
+            #for sid in [d.id for d in soups if d.id in feat]:
+            # 重試湯：改用 soup_pool（已打散）
+            for d in soup_pool:
+                sid = d.id
                 if not check_soup_window_repeat(day, sid, plan_days, max_soup_7):
                     continue
                 test_cost = (
@@ -386,7 +455,11 @@ def fill_days_after_mains(
 
             # 重試配菜（改用另一組）
             if not ok:
-                alt = _choose_sides_backtrack(day, sides[::-1], plan_days, feat, hard)  # 反向試一次
+                #alt = _choose_sides_backtrack(day, sides[::-1], plan_days, feat, hard)  # 反向試一次
+                alt_pool = side_pool[:]
+                rng.shuffle(alt_pool)
+                #alt = _choose_sides_backtrack(day, alt_pool, plan_days, feat, hard)
+                alt = _choose_sides_backtrack(day, alt_pool, plan_days, feat, hard, rng=rng)
                 if alt:
                     side_ids = alt
                     day_cost = (
@@ -453,6 +526,30 @@ def fill_days_after_mains(
             "prefer_use_inventory": bool(soft.get("prefer_use_inventory", False)),
             "prefer_near_expiry": bool(soft.get("prefer_near_expiry", False)),
         }
+        
+        
+        # 最近 7 個排程日（略過 offday）
+        recent_idx = []
+        seen = 0
+        for i in range(day - 1, -1, -1):
+            if i < len(plan_days) and plan_days[i].main:
+                recent_idx.append(i)
+                seen += 1
+                if seen >= 7:
+                    break
+        
+        ctx.update({
+            "cur_main_id": main_id,
+            "cur_soup_id": soup_id,
+            "cur_fruit_id": fruit_id,
+            "cur_side_ids": side_ids,
+        
+            "recent_main_ids": [plan_days[i].main for i in recent_idx if plan_days[i].main],
+            "recent_soups":    [plan_days[i].soup for i in recent_idx if plan_days[i].soup],
+            "recent_fruits":   [plan_days[i].fruit for i in recent_idx if plan_days[i].fruit],
+            "recent_sides":    [s for i in recent_idx for s in (plan_days[i].sides or [])],
+        })
+
         sb = score_day(day_cost=day_cost, hard=hard, weights=weights, chosen=chosen, context=ctx)
         
         # sb.total / sb.items 在 score_day() 內已 round 過

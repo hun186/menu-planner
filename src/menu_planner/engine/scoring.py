@@ -87,6 +87,42 @@ def score_day(
             one(chosen["side3"])
         )
 
+    # ===== 重複懲罰（soft；讓 local_search/報表看得出差異）=====
+    cur_main_id  = context.get("cur_main_id")
+    cur_soup_id  = context.get("cur_soup_id")
+    cur_fruit_id = context.get("cur_fruit_id")
+    cur_side_ids = context.get("cur_side_ids") or []
+    
+    recent_main_ids = context.get("recent_main_ids") or []
+    recent_soups    = context.get("recent_soups") or []
+    recent_fruits   = context.get("recent_fruits") or []
+    recent_sides    = context.get("recent_sides") or []
+    
+    w_main  = float(weights.get("repeat_penalty_main", 0))
+    w_soup  = float(weights.get("repeat_penalty_soup", 0))
+    w_side  = float(weights.get("repeat_penalty_side", 0))
+    w_fruit = float(weights.get("repeat_penalty_fruit", 0))
+    
+    if w_main > 0 and cur_main_id:
+        rep = recent_main_ids.count(cur_main_id)
+        if rep > 0:
+            items["repeat_penalty_main"] = w_main * rep
+    
+    if w_soup > 0 and cur_soup_id:
+        rep = recent_soups.count(cur_soup_id)
+        if rep > 0:
+            items["repeat_penalty_soup"] = w_soup * rep
+    
+    if w_fruit > 0 and cur_fruit_id:
+        rep = recent_fruits.count(cur_fruit_id)
+        if rep > 0:
+            items["repeat_penalty_fruit"] = w_fruit * rep
+    
+    if w_side > 0 and cur_side_ids:
+        rep = sum(recent_sides.count(sid) for sid in cur_side_ids)
+        if rep > 0:
+            items["repeat_penalty_side"] = w_side * rep
+            
     for k, v in items.items():
         total += float(v)
 

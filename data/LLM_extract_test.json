@@ -1,0 +1,396 @@
+
+[
+  {
+    "meta": {
+      "dataset_name": "menu_電訊科技中心安康營區_202601",
+      "currency": "TWD",
+      "base_units": [
+        "g",
+        "ml",
+        "piece"
+      ],
+      "notes": "來源：電訊科技中心(安康營區) ROC115-01-06 午餐明細表；people_est=280；counter=265",
+      "parse_profile": {
+        "source_type": "excel_extracted_text",
+        "source_note": "來源：電訊科技中心(安康營區) ROC115-01-06 午餐明細表；people_est=280；counter=265",
+        "portion_policy": "per_person",
+        "people_estimation": {
+          "priority": [
+            "今日用餐人數",
+            "計數器"
+          ],
+          "range_policy": "avg",
+          "missing_policy": "set_qty_null_and_log_error"
+        },
+        "dish_line_rules": {
+          "A_two_text_fields_before_number": "new_dish",
+          "B_one_text_field_before_number": "continue_ingredient",
+          "reset_on": [
+            "section_header",
+            "合計",
+            "總計"
+          ]
+        },
+        "special_sections": {
+          "青菜 水果": "each_row_is_dish_self_ingredient",
+          "雜貨": "no_dishes_only_ingredients_prices",
+          "週三麵食": "no_dishes_only_ingredients_prices"
+        },
+        "unit_conversions_used": [
+          "kg->g:1000",
+          "L->ml:1000",
+          "tbsp->ml:15",
+          "tsp->ml:5",
+          "斤->g:600"
+        ],
+        "id_policy": {
+          "ingredient_unknown": "ing_{normalize_zh(name)}",
+          "dish_unknown": "dish_{role}_{normalize_zh(name)}"
+        },
+        "limits": [
+          "qty 以每人份量輸出；若缺 people_est 或單位不明則 qty 可能為 null",
+          "prices 依單價與單位推得；若缺日期則 price_date=null"
+        ]
+      }
+    },
+    "unit_conversions": [
+      {
+        "from_unit": "kg",
+        "to_unit": "g",
+        "factor": 1000
+      },
+      {
+        "from_unit": "L",
+        "to_unit": "ml",
+        "factor": 1000
+      },
+      {
+        "from_unit": "tbsp",
+        "to_unit": "ml",
+        "factor": 15
+      },
+      {
+        "from_unit": "tsp",
+        "to_unit": "ml",
+        "factor": 5
+      },
+      {
+        "from_unit": "斤",
+        "to_unit": "g",
+        "factor": 600
+      }
+    ],
+    "ingredients": [
+      {
+        "id": "ing_里肌肉塊3_3",
+        "name": "里肌肉塊3*3",
+        "category": "meat",
+        "default_unit": "g",
+        "protein_group": "pork"
+      },
+      {
+        "id": "ing_臭豆腐",
+        "name": "臭豆腐",
+        "category": "soy",
+        "default_unit": "piece",
+        "protein_group": null
+      },
+      {
+        "id": "ing_鴨血",
+        "name": "鴨血",
+        "category": "meat",
+        "default_unit": "piece",
+        "protein_group": null
+      },
+      {
+        "id": "ing_豆芽菜",
+        "name": "豆芽菜",
+        "category": "vegetable",
+        "default_unit": "g",
+        "protein_group": null
+      },
+      {
+        "id": "ing_豬肉絲",
+        "name": "豬肉絲",
+        "category": "meat",
+        "default_unit": "g",
+        "protein_group": "pork"
+      },
+      {
+        "id": "ing_紅蘿蔔絲",
+        "name": "紅蘿蔔絲",
+        "category": "vegetable",
+        "default_unit": "g",
+        "protein_group": null
+      },
+      {
+        "id": "ing_油菜",
+        "name": "油菜",
+        "category": "vegetable",
+        "default_unit": "g",
+        "protein_group": null
+      },
+      {
+        "id": "ing_香蕉",
+        "name": "香蕉",
+        "category": "fruit",
+        "default_unit": "g",
+        "protein_group": null
+      },
+      {
+        "id": "ing_cooking_oil",
+        "name": "食用油",
+        "category": "seasoning",
+        "default_unit": "piece",
+        "protein_group": null
+      },
+      {
+        "id": "ing_五穀米",
+        "name": "五穀米",
+        "category": "grain",
+        "default_unit": "g",
+        "protein_group": null
+      },
+      {
+        "id": "ing_九層塔",
+        "name": "九層塔",
+        "category": "vegetable",
+        "default_unit": "g",
+        "protein_group": null
+      },
+      {
+        "id": "ing_素肚",
+        "name": "素肚",
+        "category": "soy",
+        "default_unit": "g",
+        "protein_group": null
+      },
+      {
+        "id": "ing_大烹堡",
+        "name": "大烹堡",
+        "category": "other",
+        "default_unit": "piece",
+        "protein_group": null
+      },
+      {
+        "id": "ing_雞翅",
+        "name": "雞翅",
+        "category": "meat",
+        "default_unit": "g",
+        "protein_group": "chicken"
+      }
+    ],
+    "dishes": [
+      {
+        "id": "dish_main_糖醋里肌",
+        "name": "糖醋里肌",
+        "role": "main",
+        "cuisine": null,
+        "meat_type": "pork",
+        "tags": [],
+        "ingredients": [
+          {
+            "ingredient_id": "ing_里肌肉塊3_3",
+            "qty": 107.1429,
+            "unit": "g"
+          }
+        ]
+      },
+      {
+        "id": "dish_side_麻辣臭豆腐",
+        "name": "麻辣臭豆腐",
+        "role": "side",
+        "cuisine": null,
+        "meat_type": null,
+        "tags": [],
+        "ingredients": [
+          {
+            "ingredient_id": "ing_臭豆腐",
+            "qty": 0.05,
+            "unit": "piece"
+          },
+          {
+            "ingredient_id": "ing_鴨血",
+            "qty": 0.1429,
+            "unit": "piece"
+          }
+        ]
+      },
+      {
+        "id": "dish_side_芽菜肉絲",
+        "name": "芽菜肉絲",
+        "role": "side",
+        "cuisine": null,
+        "meat_type": null,
+        "tags": [],
+        "ingredients": [
+          {
+            "ingredient_id": "ing_豆芽菜",
+            "qty": 96.4286,
+            "unit": "g"
+          },
+          {
+            "ingredient_id": "ing_豬肉絲",
+            "qty": 32.1429,
+            "unit": "g"
+          },
+          {
+            "ingredient_id": "ing_紅蘿蔔絲",
+            "qty": 6.4286,
+            "unit": "g"
+          }
+        ]
+      },
+      {
+        "id": "dish_side_油菜",
+        "name": "油菜",
+        "role": "side",
+        "cuisine": null,
+        "meat_type": null,
+        "tags": [],
+        "ingredients": [
+          {
+            "ingredient_id": "ing_油菜",
+            "qty": 160.7143,
+            "unit": "g"
+          }
+        ]
+      },
+      {
+        "id": "dish_fruit_香蕉",
+        "name": "香蕉",
+        "role": "fruit",
+        "cuisine": null,
+        "meat_type": null,
+        "tags": [],
+        "ingredients": [
+          {
+            "ingredient_id": "ing_香蕉",
+            "qty": 160.7143,
+            "unit": "g"
+          }
+        ]
+      }
+    ],
+    "inventory": [],
+    "prices": [
+      {
+        "ingredient_id": "ing_里肌肉塊3_3",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.305,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_臭豆腐",
+        "price_date": "2026-01-06",
+        "price_per_unit": 118,
+        "unit": "piece"
+      },
+      {
+        "ingredient_id": "ing_鴨血",
+        "price_date": "2026-01-06",
+        "price_per_unit": 11,
+        "unit": "piece"
+      },
+      {
+        "ingredient_id": "ing_豆芽菜",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.0195,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_豬肉絲",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.235,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_紅蘿蔔絲",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.0247,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_五穀米",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.1,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_cooking_oil",
+        "price_date": "2026-01-06",
+        "price_per_unit": 530,
+        "unit": "piece"
+      },
+      {
+        "ingredient_id": "ing_油菜",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.125,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_香蕉",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.125,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_九層塔",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.068,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_素肚",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.1417,
+        "unit": "g"
+      },
+      {
+        "ingredient_id": "ing_大烹堡",
+        "price_date": "2026-01-06",
+        "price_per_unit": 12,
+        "unit": "piece"
+      },
+      {
+        "ingredient_id": "ing_雞翅",
+        "price_date": "2026-01-06",
+        "price_per_unit": 0.13,
+        "unit": "g"
+      }
+    ],
+    "example_constraints": {
+      "menu_plan": {
+        "days": 30,
+        "per_day": {
+          "main": 1,
+          "side": 3,
+          "fruit": 1,
+          "soup": 1
+        }
+      }
+    },
+    "errors": [
+      {
+        "type": "unparsed_row",
+        "row_text": "0",
+        "message": "單獨數字行未解析"
+      },
+      {
+        "type": "unparsed_row",
+        "row_text": "0",
+        "message": "單獨數字行未解析"
+      },
+      {
+        "type": "unparsed_row",
+        "row_text": "0",
+        "message": "單獨數字行未解析"
+      },
+      {
+        "type": "unparsed_row",
+        "row_text": "綠豆薏仁湯 桶 0 庫存",
+        "message": "湯品區塊未能辨識為有效菜名或成分"
+      }
+    ]
+  }
+]

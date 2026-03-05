@@ -1,7 +1,7 @@
 {
   "horizon_days": 30,
   "schedule": {
-    "weekdays": [1, 2, 4, 5]
+    "weekdays": [1, 2, 3, 4, 5]
   },
   "people": 1,
   "per_day_roles": { "main": 1, "side": 3, "fruit": 1, "soup": 1 },
@@ -12,8 +12,10 @@
     "exclude_dish_ids": [],
     "exclude_ingredient_ids": [],
     "allowed_main_meat_types_old": ["chicken", "pork", "beef", "fish", "seafood", "noodles", "vegetarian"],
-	"allowed_main_meat_types": ["chicken", "pork", "beef", "seafood", "noodles", "vegetarian"],
-
+	"allowed_main_meat_types": ["chicken", "pork", "beef", "fish", "seafood", "noodles", "vegetarian"],
+    "fixed_main_meat_by_weekday": {
+      "3": ["noodles"]
+    },
     "no_consecutive_same_main_meat": true,
 
     "weekly_max_main_meat": {
@@ -26,7 +28,7 @@
     },
 
     "repeat_limits": {
-      "max_same_main_in_30_days": 3,
+      "max_same_main_in_30_days": 30,
       "max_same_side_in_7_days": 1,
       "max_same_soup_in_7_days": 1,
 	  "max_same_fruit_in_7_days": 1

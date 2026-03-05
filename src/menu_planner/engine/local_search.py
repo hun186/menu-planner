@@ -103,8 +103,10 @@ def _hard_ok_for_plan(
     weekly_meat_counts: Dict[int, Dict[str, int]] = {}
 
     for day_idx, d in enumerate(plan_days):
-        # ✅ 不排日跳過：不計入週配額/連續肉/重複主菜
+        # ✅ 不排日：塞 placeholder，讓 day_idx 對齊，也能斷開「連續同肉」
         if not d.main:
+            plan_main_ids.append("")
+            plan_main_meats.append(None)
             continue
 
         if d.main not in feat:
@@ -123,6 +125,7 @@ def _hard_ok_for_plan(
             weekly_meat_counts=weekly_meat_counts,
             hard=hard,
             week_key=week_key,
+            start_date=start_date,   # ✅ 補這行
         ):
             return False
 
@@ -180,6 +183,27 @@ def improve_by_local_search(
     soup_ids_all = [d.id for d in soups if d.id in feat]
     fruit_ids_all = [d.id for d in fruits if d.id in feat]
 
+    def _fixed_allowed_meats_set(day_idx: int) -> Optional[set]:
+        fixed = (hard.get("fixed_main_meat_by_weekday") or {})
+        if not fixed or start_date is None:
+            return None
+        wd = (start_date + timedelta(days=day_idx)).isoweekday()
+        rule = fixed.get(wd) or fixed.get(str(wd))
+        if not rule:
+            return None
+        if isinstance(rule, str):
+            r = rule.strip()
+            return {r} if r else None
+        if isinstance(rule, list):
+            s = {str(x).strip() for x in rule if x is not None and str(x).strip()}
+            return s if s else None
+        return None
+    
+    main_ids_by_meat: Dict[str, List[str]] = {}
+    for did in main_ids_all:
+        m = feat[did].meat_type or ""
+        main_ids_by_meat.setdefault(m, []).append(did)
+        
     # ✅ active 日索引（若沒傳 active_mask，就視為全 active）
     if active_mask and len(active_mask) == len(plan_days):
         active_indices = [i for i, on in enumerate(active_mask) if on]
@@ -209,10 +233,31 @@ def improve_by_local_search(
         if op == "swap_main":
             if day_a == day_b:
                 continue
+        
+            a_rule = _fixed_allowed_meats_set(day_a)
+            b_rule = _fixed_allowed_meats_set(day_b)
+        
+            # ✅ 兩天都沒固定 -> 可 swap
+            # ✅ 兩天都有固定但集合相同 -> 可 swap
+            # ❌ 其他情況 -> 直接跳過（swap 一定會破）
+            if (a_rule is None and b_rule is not None) or (a_rule is not None and b_rule is None):
+                continue
+            if (a_rule is not None and b_rule is not None) and (a_rule != b_rule):
+                continue
+        
             cand[day_a].main, cand[day_b].main = cand[day_b].main, cand[day_a].main
 
         elif op == "replace_main":
-            cand[day_a].main = rng.choice(main_ids_all)
+            rule = _fixed_allowed_meats_set(day_a)
+            if rule is None:
+                cand[day_a].main = rng.choice(main_ids_all)
+            else:
+                pool: List[str] = []
+                for mt in rule:
+                    pool.extend(main_ids_by_meat.get(mt, []))
+                if not pool:
+                    continue  # 該肉類根本沒主菜候選，別浪費迭代
+                cand[day_a].main = rng.choice(pool)
 
         elif op == "replace_soup":
             # active 日必須是完整日，不然直接跳過

@@ -97,6 +97,7 @@ def plan_mains_beam(
                     weekly_meat_counts=st.weekly_meat_counts,
                     hard=hard,
                     week_key=week_key,  # ✅ 關鍵：把真實週傳進去
+                    start_date=start_date,   # ✅ 新增這行
                 ):
                     continue
 
@@ -128,8 +129,12 @@ def plan_mains_beam(
 
         new_states.sort(key=lambda x: x.score)
         states = new_states[:beam_width]
+        print("states",states)
 
         if not states:
+            cur_date = start_date + timedelta(days=day)
+            print("NO SOLUTION AT:", day+1, cur_date.isoformat(), "weekday", cur_date.isoweekday())
+            print("fixed rule:", (hard.get("fixed_main_meat_by_weekday") or {}).get(str(cur_date.isoweekday())))
             raise PlanError(
                 code="MAIN_BEAM_NO_SOLUTION",
                 day_index=day,

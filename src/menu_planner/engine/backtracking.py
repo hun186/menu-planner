@@ -129,7 +129,7 @@ def plan_mains_beam(
 
         new_states.sort(key=lambda x: x.score)
         states = new_states[:beam_width]
-        print("states",states)
+        #print("states",states)
 
         if not states:
             cur_date = start_date + timedelta(days=day)

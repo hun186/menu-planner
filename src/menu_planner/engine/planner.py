@@ -67,7 +67,7 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
 
     active_mask = _get_active_mask(start_date, horizon_days, cfg)
 
-    hard = cfg.get("hard", {}) or {}
+    hard = dict(cfg.get("hard", {}) or {})
     soft = cfg.get("soft", {}) or {}
     weights = cfg.get("weights", {}) or {}
     search = cfg.get("search", {}) or {}

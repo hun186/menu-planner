@@ -16,6 +16,30 @@ from .scoring import score_day
 
 from .errors import PlanError
 
+
+def _failed_day_explanation(
+    *,
+    day_index: int,
+    reason_code: str,
+    message: str,
+    details: Optional[Dict] = None,
+    cost: Optional[float] = None,
+) -> Dict:
+    return {
+        "day_index": day_index,
+        "failed": True,
+        "reason_code": reason_code,
+        "message": message,
+        "details": details or {},
+        "cost": cost,
+        "score": None,
+        "score_breakdown": {},
+        "score_fitness": None,
+        "score_bonus_total": None,
+        "score_penalty_total": None,
+        "score_summary": None,
+    }
+
 @dataclass
 class BeamState:
     main_ids: List[str]
@@ -320,9 +344,9 @@ def fill_days_after_mains(
         rng = random.Random(seed0 + day * 10007)
         
         # 只拿可用候選（在 feat 裡）
-        fruit_pool = [d for d in fruits if d.id in feat]
-        soup_pool  = [d for d in soups  if d.id in feat]
-        side_pool  = [d for d in sides  if d.id in feat]
+        fruit_pool = fruit_pool0[:]
+        soup_pool  = soup_pool0[:]
+        side_pool  = side_pool0[:]
         
         rng.shuffle(fruit_pool)
         rng.shuffle(soup_pool)
@@ -338,22 +362,14 @@ def fill_days_after_mains(
             # 系統性缺水果：仍可回傳 errors + placeholder 後繼續
             errors.append(e.to_dict())
             plan_days.append(PlanDay(main=main_id, sides=[], soup="", fruit=""))
-            explanations.append({
-                "day_index": day,
-                "failed": True,
-                "reason_code": e.code,
-                "message": e.message,
-                "details": e.details or {},
-            
-                # ✅ 統一 schema：失敗就給 None/空 dict
-                "cost": None,
-                "score": None,
-                "score_breakdown": {},
-                "score_fitness": None,
-                "score_bonus_total": None,
-                "score_penalty_total": None,
-                "score_summary": None,
-            })
+            explanations.append(
+                _failed_day_explanation(
+                    day_index=day,
+                    reason_code=e.code,
+                    message=e.message,
+                    details=e.details,
+                )
+            )
             continue
 
         # ===== soup =====
@@ -373,22 +389,14 @@ def fill_days_after_mains(
             errors.append(err.to_dict())
             # placeholder：主菜保留，其餘留空
             plan_days.append(PlanDay(main=main_id, sides=[], soup="", fruit=fruit_id))
-            explanations.append({
-                "day_index": day,
-                "failed": True,
-                "reason_code": err.code,
-                "message": err.message,
-                "details": err.details or {},
-                
-                # ✅ 統一 schema：失敗就給 None/空 dict
-                "cost": None,
-                "score": None,
-                "score_breakdown": {},
-                "score_fitness": None,
-                "score_bonus_total": None,
-                "score_penalty_total": None,
-                "score_summary": None,
-            })
+            explanations.append(
+                _failed_day_explanation(
+                    day_index=day,
+                    reason_code=err.code,
+                    message=err.message,
+                    details=err.details,
+                )
+            )
             continue
 
         # ===== sides =====
@@ -409,22 +417,14 @@ def fill_days_after_mains(
             )
             errors.append(err.to_dict())
             plan_days.append(PlanDay(main=main_id, sides=[], soup=soup_id, fruit=fruit_id))
-            explanations.append({
-                "day_index": day,
-                "failed": True,
-                "reason_code": err.code,
-                "message": err.message,
-                "details": err.details or {},
-                
-                # ✅ 統一 schema：失敗就給 None/空 dict
-                "cost": None,
-                "score": None,
-                "score_breakdown": {},
-                "score_fitness": None,
-                "score_bonus_total": None,
-                "score_penalty_total": None,
-                "score_summary": None,
-            })
+            explanations.append(
+                _failed_day_explanation(
+                    day_index=day,
+                    reason_code=err.code,
+                    message=err.message,
+                    details=err.details,
+                )
+            )
             continue
 
         # ===== cost =====
@@ -496,22 +496,15 @@ def fill_days_after_mains(
                 errors.append(err.to_dict())
                 # placeholder：主菜/湯/果保留，配菜清空（代表當天未完成）
                 plan_days.append(PlanDay(main=main_id, sides=[], soup=soup_id, fruit=fruit_id))
-                explanations.append({
-                    "day_index": day,
-                    "failed": True,
-                    "reason_code": err.code,
-                    "message": err.message,
-                    "details": err.details or {},
-                    "cost": round(day_cost, 2),
-                    
-                    # ✅ 統一 schema：失敗就給 None/空 dict
-                    "score": None,
-                    "score_breakdown": {},
-                    "score_fitness": None,
-                    "score_bonus_total": None,
-                    "score_penalty_total": None,
-                    "score_summary": None,
-                })
+                explanations.append(
+                    _failed_day_explanation(
+                        day_index=day,
+                        reason_code=err.code,
+                        message=err.message,
+                        details=err.details,
+                        cost=round(day_cost, 2),
+                    )
+                )
                 continue
 
         # ===== success day =====

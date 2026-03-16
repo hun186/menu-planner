@@ -9,10 +9,20 @@ from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ...db.admin_repo import SQLiteAdminRepo
+from ...db.backup import create_db_backup
 
 DEFAULT_DB_PATH = str((__import__("pathlib").Path.cwd() / "data" / "menu.db").resolve())
 
 router = APIRouter(prefix="/admin/catalog", tags=["admin-catalog"])
+
+
+def backup_before_modify(db_path: str) -> None:
+    try:
+        create_db_backup(db_path)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail=f"資料庫檔案不存在：{db_path}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"建立資料庫備份失敗：{e}")
 
 def require_admin_key(x_admin_key: Optional[str] = Header(default=None)):
     required = os.getenv("MENU_ADMIN_KEY")
@@ -44,6 +54,7 @@ def upsert_ingredient(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
+    backup_before_modify(db_path)
     repo.upsert_ingredient(ingredient_id, body.model_dump())
     return {"ok": True, "id": ingredient_id}
 
@@ -53,6 +64,9 @@ def delete_ingredient(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
+    if not repo.ingredient_exists(ingredient_id):
+        raise HTTPException(status_code=404, detail="找不到此食材")
+    backup_before_modify(db_path)
     try:
         n = repo.delete_ingredient(ingredient_id)
         if n == 0:
@@ -96,6 +110,7 @@ def upsert_price(
     repo = SQLiteAdminRepo(db_path)
     if not repo.ingredient_exists(ingredient_id):
         raise HTTPException(status_code=404, detail="找不到此食材")
+    backup_before_modify(db_path)
     repo.upsert_price(ingredient_id, price_date, body.model_dump())
     return {"ok": True}
 
@@ -106,6 +121,7 @@ def delete_price(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
+    backup_before_modify(db_path)
     n = repo.delete_price(ingredient_id, price_date)
     if n == 0:
         raise HTTPException(status_code=404, detail="找不到此價格紀錄")
@@ -130,6 +146,7 @@ def upsert_inventory(
     repo = SQLiteAdminRepo(db_path)
     if not repo.ingredient_exists(ingredient_id):
         raise HTTPException(status_code=404, detail="找不到此食材")
+    backup_before_modify(db_path)
     repo.upsert_inventory(ingredient_id, body.model_dump())
     return {"ok": True}
 
@@ -140,6 +157,7 @@ def upsert_dish(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
+    backup_before_modify(db_path)
     repo.upsert_dish(dish_id, body.model_dump())
     return {"ok": True, "id": dish_id}
 
@@ -149,6 +167,9 @@ def delete_dish(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
+    if not repo.dish_exists(dish_id):
+        raise HTTPException(status_code=404, detail="找不到此菜色")
+    backup_before_modify(db_path)
     n = repo.delete_dish(dish_id)
     if n == 0:
         raise HTTPException(status_code=404, detail="找不到此菜色")
@@ -178,5 +199,6 @@ def put_dish_ingredients(
     if missing:
         raise HTTPException(status_code=400, detail={"message": "有不存在的食材 id", "missing": missing})
 
+    backup_before_modify(db_path)
     repo.replace_dish_ingredients(dish_id, [x.model_dump() for x in items])
     return {"ok": True}

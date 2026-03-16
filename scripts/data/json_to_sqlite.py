@@ -1,6 +1,6 @@
-#scripts/json_to_sqlite.py
+#scripts/data/json_to_sqlite.py
 #cd D:\shared\TopicClassification\menu-planner
-#python scripts/json_to_sqlite.py data/mock_menu_dataset.json data/menu.db --export-xlsx data/menu_export.xlsx
+#python scripts/data/json_to_sqlite.py data/mock_menu_dataset.json data/menu.db --export-xlsx data/menu_export.xlsx
 
 #cd /d D:\shared\TopicClassification\menu-planner
 #python scripts\json_to_sqlite.py "D:\shared\TopicClassification\GenerativeLanguageModel\czjLLM\LLMSourcePool_Finished\明細" data\menu.db --mode rebuild --auto-stub-missing-ingredients --missing-report data\missing_ingredients.txt --missing-qty-policy skip --bad-links-report data\bad_dish_links.jsonl --missing-price-policy skip --bad-prices-report data\bad_prices.jsonl --missing-inventory-qty-policy zero --bad-inventory-report data\bad_inventory.jsonl --export-xlsx data\menu_export.xlsx

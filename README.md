@@ -20,7 +20,17 @@ menu-planner/
     mock_menu_dataset.json
     mock_menu_dataset_noodles.json
   scripts/
-    json_to_sqlite.py
+    dev/
+      dev_env.sh
+    data/
+      json_to_sqlite.py
+      sqlite_to_excel.py
+    validation/
+      e2e_export_excel_check.py
+      playwright_ui_smoke.py
+  tests/
+    unit/
+    e2e/
   src/
     menu_planner/
       api/
@@ -104,8 +114,8 @@ pip install -r requirements.txt
 > 若遇到 `pytest: command not found`，請優先用 `python -m pytest`（可避免 PATH 問題）：
 >
 > ```bash
-> python -m pytest -q tests/test_e2e_excel.py
-> # 或：python3 -m pytest -q tests/test_e2e_excel.py
+> python -m pytest -q tests/e2e/test_e2e_excel.py
+> # 或：python3 -m pytest -q tests/e2e/test_e2e_excel.py
 > ```
 
 ### 3) 環境變數（選配）
@@ -137,6 +147,30 @@ uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 18000 --reload
 
 > 若你的 `API_CMD.txt` 有指定啟動方式，以該檔為準；上面是最常見且與你路徑一致的啟動寫法。
 
+### 4.1) 建議用統一腳本（自動找正確 Python 環境）
+
+為避免出現 `python`、`python3`、`pytest` 在不同環境找不到的問題，可使用：
+
+```bash
+# 顯示目前會使用哪個 python
+scripts/dev/dev_env.sh python
+
+# 啟動 API（127.0.0.1:18000）
+scripts/dev/dev_env.sh api
+
+# 直接跑 pytest
+scripts/dev/dev_env.sh pytest -q
+
+# 啟 API 後跑測試（結束後自動關閉 API）
+scripts/dev/dev_env.sh api-test -q
+```
+
+若要指定 python，可先設定：
+
+```bash
+export MENU_PLANNER_PYTHON=/your/python/path
+```
+
 ### 5) 開啟前端
 前端靜態檔位於：`src/menu_planner/ui_static/`
 
@@ -157,7 +191,7 @@ uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 18000 --reload
 預設 DB：`data/menu.db`
 
 如果你想從 mock dataset 重新灌入（JSON → SQLite）：
-- `scripts/json_to_sqlite.py`
+- `scripts/data/json_to_sqlite.py`
 - `data/mock_menu_dataset.json`
 - `data/mock_menu_dataset_noodles.json`
 

@@ -22,7 +22,7 @@
 
 
 ## Playwright 自動探測版（新增）
-- 新增 `scripts/playwright_ui_smoke.py`：會依序嘗試
+- 新增 `scripts/validation/playwright_ui_smoke.py`：會依序嘗試
   1. `http://host.docker.internal:18000`
   2. `http://127.0.0.1:18000`
   3. `http://localhost:18000`

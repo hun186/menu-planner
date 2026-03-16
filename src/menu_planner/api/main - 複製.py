@@ -1,4 +1,4 @@
-# src/menu_planner/api/main.py
+﻿# src/menu_planner/api/main.py
 from __future__ import annotations
 
 from fastapi import FastAPI, Body, Query

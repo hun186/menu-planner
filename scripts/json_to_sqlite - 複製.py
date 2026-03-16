@@ -1,6 +1,6 @@
-#scripts/json_to_sqlite.py
+#scripts/data/json_to_sqlite.py
 #cd D:\shared\TopicClassification\menu-planner
-#python scripts/json_to_sqlite.py data/mock_menu_dataset.json data/menu.db
+#python scripts/data/json_to_sqlite.py data/mock_menu_dataset.json data/menu.db
 import argparse
 import json
 import sqlite3

@@ -73,6 +73,19 @@ class SQLiteAdminRepo:
               WHERE ingredient_id=? AND price_date=?
             """, (ingredient_id, price_date))
             return cur.rowcount
+
+    def price_exists(self, ingredient_id: str, price_date: str) -> bool:
+        with self._conn() as conn:
+            r = conn.execute(
+                """
+                SELECT 1
+                FROM ingredient_prices
+                WHERE ingredient_id=? AND price_date=?
+                LIMIT 1
+                """,
+                (ingredient_id, price_date),
+            ).fetchone()
+        return r is not None
     
     # ---------- inventory ----------
     def get_inventory(self, ingredient_id: str):
@@ -183,4 +196,3 @@ class SQLiteAdminRepo:
             rows = conn.execute(f"SELECT id FROM ingredients WHERE id IN ({placeholders})", ids).fetchall()
         found = {r[0] for r in rows}
         return [x for x in ids if x not in found]
-

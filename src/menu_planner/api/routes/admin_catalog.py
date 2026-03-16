@@ -24,16 +24,34 @@ def backup_before_modify(db_path: str) -> None:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"建立資料庫備份失敗：{e}")
 
+
+def repo_with_backup(db_path: str) -> SQLiteAdminRepo:
+    backup_before_modify(db_path)
+    return SQLiteAdminRepo(db_path)
+
+
+def ensure_ingredient_exists(repo: SQLiteAdminRepo, ingredient_id: str) -> None:
+    if not repo.ingredient_exists(ingredient_id):
+        raise HTTPException(status_code=404, detail="找不到此食材")
+
+
+def ensure_dish_exists(repo: SQLiteAdminRepo, dish_id: str) -> None:
+    if not repo.dish_exists(dish_id):
+        raise HTTPException(status_code=404, detail="找不到此菜色")
+
+
 def require_admin_key(x_admin_key: Optional[str] = Header(default=None)):
     required = os.getenv("MENU_ADMIN_KEY")
     if required and x_admin_key != required:
         raise HTTPException(status_code=401, detail="未授權：需要有效的 X-Admin-Key")
+
 
 class IngredientUpsert(BaseModel):
     name: str = Field(min_length=1)
     category: str = Field(min_length=1)
     protein_group: Optional[str] = None
     default_unit: str = Field(min_length=1)
+
 
 class DishUpsert(BaseModel):
     name: str = Field(min_length=1)
@@ -42,10 +60,12 @@ class DishUpsert(BaseModel):
     meat_type: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
 
+
 class DishIngredientIn(BaseModel):
     ingredient_id: str = Field(min_length=1)
     qty: float = Field(gt=0)
     unit: str = Field(min_length=1)
+
 
 @router.put("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_key)])
 def upsert_ingredient(
@@ -53,10 +73,10 @@ def upsert_ingredient(
     body: IngredientUpsert,
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
-    repo = SQLiteAdminRepo(db_path)
-    backup_before_modify(db_path)
+    repo = repo_with_backup(db_path)
     repo.upsert_ingredient(ingredient_id, body.model_dump())
     return {"ok": True, "id": ingredient_id}
+
 
 @router.delete("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_key)])
 def delete_ingredient(
@@ -64,9 +84,9 @@ def delete_ingredient(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    if not repo.ingredient_exists(ingredient_id):
-        raise HTTPException(status_code=404, detail="找不到此食材")
-    backup_before_modify(db_path)
+    ensure_ingredient_exists(repo, ingredient_id)
+
+    repo = repo_with_backup(db_path)
     try:
         n = repo.delete_ingredient(ingredient_id)
         if n == 0:
@@ -79,15 +99,18 @@ def delete_ingredient(
             detail={"message": "此食材已被菜色引用，無法刪除", "referenced_by": refs},
         )
 
+
 class PriceUpsert(BaseModel):
     price_per_unit: float = Field(gt=0)
     unit: str = Field(min_length=1)
 
+
 class InventoryUpsert(BaseModel):
     qty_on_hand: float = Field(ge=0)
     unit: str = Field(min_length=1)
-    updated_at: str = Field(min_length=10)           # YYYY-MM-DD
-    expiry_date: Optional[str] = None                # YYYY-MM-DD or null
+    updated_at: str = Field(min_length=10)  # YYYY-MM-DD
+    expiry_date: Optional[str] = None  # YYYY-MM-DD or null
+
 
 @router.get("/ingredients/{ingredient_id}/prices", dependencies=[Depends(require_admin_key)])
 def list_prices(
@@ -96,9 +119,9 @@ def list_prices(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    if not repo.ingredient_exists(ingredient_id):
-        raise HTTPException(status_code=404, detail="找不到此食材")
+    ensure_ingredient_exists(repo, ingredient_id)
     return repo.list_prices(ingredient_id, limit=limit)
+
 
 @router.put("/ingredients/{ingredient_id}/prices/{price_date}", dependencies=[Depends(require_admin_key)])
 def upsert_price(
@@ -108,11 +131,12 @@ def upsert_price(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    if not repo.ingredient_exists(ingredient_id):
-        raise HTTPException(status_code=404, detail="找不到此食材")
-    backup_before_modify(db_path)
+    ensure_ingredient_exists(repo, ingredient_id)
+
+    repo = repo_with_backup(db_path)
     repo.upsert_price(ingredient_id, price_date, body.model_dump())
     return {"ok": True}
+
 
 @router.delete("/ingredients/{ingredient_id}/prices/{price_date}", dependencies=[Depends(require_admin_key)])
 def delete_price(
@@ -121,11 +145,14 @@ def delete_price(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    backup_before_modify(db_path)
-    n = repo.delete_price(ingredient_id, price_date)
-    if n == 0:
+    ensure_ingredient_exists(repo, ingredient_id)
+    if not repo.price_exists(ingredient_id, price_date):
         raise HTTPException(status_code=404, detail="找不到此價格紀錄")
+
+    repo = repo_with_backup(db_path)
+    repo.delete_price(ingredient_id, price_date)
     return {"ok": True}
+
 
 @router.get("/ingredients/{ingredient_id}/inventory", dependencies=[Depends(require_admin_key)])
 def get_inventory(
@@ -133,9 +160,9 @@ def get_inventory(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    if not repo.ingredient_exists(ingredient_id):
-        raise HTTPException(status_code=404, detail="找不到此食材")
+    ensure_ingredient_exists(repo, ingredient_id)
     return repo.get_inventory(ingredient_id)  # 可能回 null
+
 
 @router.put("/ingredients/{ingredient_id}/inventory", dependencies=[Depends(require_admin_key)])
 def upsert_inventory(
@@ -144,11 +171,12 @@ def upsert_inventory(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    if not repo.ingredient_exists(ingredient_id):
-        raise HTTPException(status_code=404, detail="找不到此食材")
-    backup_before_modify(db_path)
+    ensure_ingredient_exists(repo, ingredient_id)
+
+    repo = repo_with_backup(db_path)
     repo.upsert_inventory(ingredient_id, body.model_dump())
     return {"ok": True}
+
 
 @router.put("/dishes/{dish_id}", dependencies=[Depends(require_admin_key)])
 def upsert_dish(
@@ -156,10 +184,10 @@ def upsert_dish(
     body: DishUpsert,
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
-    repo = SQLiteAdminRepo(db_path)
-    backup_before_modify(db_path)
+    repo = repo_with_backup(db_path)
     repo.upsert_dish(dish_id, body.model_dump())
     return {"ok": True, "id": dish_id}
+
 
 @router.delete("/dishes/{dish_id}", dependencies=[Depends(require_admin_key)])
 def delete_dish(
@@ -167,13 +195,14 @@ def delete_dish(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    if not repo.dish_exists(dish_id):
-        raise HTTPException(status_code=404, detail="找不到此菜色")
-    backup_before_modify(db_path)
+    ensure_dish_exists(repo, dish_id)
+
+    repo = repo_with_backup(db_path)
     n = repo.delete_dish(dish_id)
     if n == 0:
         raise HTTPException(status_code=404, detail="找不到此菜色")
     return {"ok": True}
+
 
 @router.get("/dishes/{dish_id}/ingredients", dependencies=[Depends(require_admin_key)])
 def get_dish_ingredients(
@@ -181,9 +210,9 @@ def get_dish_ingredients(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    if not repo.dish_exists(dish_id):
-        raise HTTPException(status_code=404, detail="找不到此菜色")
+    ensure_dish_exists(repo, dish_id)
     return repo.get_dish_ingredients(dish_id)
+
 
 @router.put("/dishes/{dish_id}/ingredients", dependencies=[Depends(require_admin_key)])
 def put_dish_ingredients(
@@ -192,13 +221,12 @@ def put_dish_ingredients(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    if not repo.dish_exists(dish_id):
-        raise HTTPException(status_code=404, detail="找不到此菜色")
+    ensure_dish_exists(repo, dish_id)
 
     missing = repo.find_missing_ingredients([x.ingredient_id for x in items])
     if missing:
         raise HTTPException(status_code=400, detail={"message": "有不存在的食材 id", "missing": missing})
 
-    backup_before_modify(db_path)
+    repo = repo_with_backup(db_path)
     repo.replace_dish_ingredients(dish_id, [x.model_dump() for x in items])
     return {"ok": True}

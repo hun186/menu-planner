@@ -57,5 +57,5 @@ def post_plan(
     return {"ok": True, "result": result}
 
 
-# 靜態 UI（http://localhost:8000/）
+# 靜態 UI（http://localhost:18000/）
 app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")

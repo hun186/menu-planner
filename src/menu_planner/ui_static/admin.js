@@ -21,6 +21,15 @@
 
   };
 
+  const DOM = {
+    msgIng: "#msg_ing",
+    msgDish: "#msg_dish",
+    msgDishIngredients: "#msg_di",
+    msgIngMeta: "#msg_ing_meta",
+    ingredientEditorFields: "#ing_id,#ing_name,#ing_category,#ing_protein,#ing_unit",
+    dishEditorFields: "#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_tags",
+  };
+
   let ING = [];
   let DISHES = [];
   let ingById = new Map();
@@ -42,6 +51,25 @@
 
   function setMsg($el, text, isError) {
     $el.css("color", isError ? "#b42318" : "#1a7f37").text(text || "");
+  }
+
+  function clearMsg(selector) {
+    setMsg($(selector), "", false);
+  }
+
+  function clearFields(selector) {
+    $(selector).val("");
+  }
+
+  async function runWithMsg(msgSelector, fn, successText) {
+    try {
+      await fn();
+      if (successText) {
+        setMsg($(msgSelector), successText, false);
+      }
+    } catch (e) {
+      setMsg($(msgSelector), e.message || String(e), true);
+    }
   }
 
   async function reqJson(url, options) {
@@ -141,28 +169,23 @@
         $("#ing_category").val(x.category);
         $("#ing_protein").val(x.protein_group || "");
         $("#ing_unit").val(x.default_unit);
-        setMsg($("#msg_ing"), "", false);
+        clearMsg(DOM.msgIng);
       });
 	  
       $tr.find(".btn_meta").on("click", async () => {
-        try {
+        await runWithMsg(DOM.msgIng, async () => {
           await openIngMeta(x.id);
-        } catch (e) {
-          setMsg($("#msg_ing"), e.message || String(e), true);
-        }
+        });
       });
 
       $tr.find(".btn_del").on("click", async () => {
         if (!confirm(`確定刪除食材：${x.name}（${x.id}）？`)) return;
-        try {
+        await runWithMsg(DOM.msgIng, async () => {
           await reqJson(API.ingDelete(x.id), { method: "DELETE" });
           await loadCatalog();
 		  rebuildIngredientDatalist();
           renderAll();
-          setMsg($("#msg_ing"), "已刪除食材。", false);
-        } catch (e) {
-          setMsg($("#msg_ing"), e.message || String(e), true);
-        }
+        }, "已刪除食材。");
       });
 	  
 
@@ -207,27 +230,22 @@
           try { return JSON.parse(x.tags_json || "[]"); } catch { return []; }
         })();
         $("#dish_tags").val(Array.isArray(tags) ? JSON.stringify(tags) : "[]");
-        setMsg($("#msg_dish"), "", false);
+        clearMsg(DOM.msgDish);
       });
 
       $tr.find(".btn_del").on("click", async () => {
         if (!confirm(`確定刪除菜色：${x.name}（${x.id}）？`)) return;
-        try {
+        await runWithMsg(DOM.msgDish, async () => {
           await reqJson(API.dishDelete(x.id), { method: "DELETE" });
           await loadCatalog();
           renderAll();
-          setMsg($("#msg_dish"), "已刪除菜色。", false);
-        } catch (e) {
-          setMsg($("#msg_dish"), e.message || String(e), true);
-        }
+        }, "已刪除菜色。");
       });
 
       $tr.find(".btn_ing").on("click", async () => {
-        try {
+        await runWithMsg(DOM.msgDish, async () => {
           await openDishIngredients(x.id);
-        } catch (e) {
-          setMsg($("#msg_dish"), e.message || String(e), true);
-        }
+        });
       });
 
       $tb.append($tr);
@@ -349,7 +367,7 @@
     const dish = dishById.get(dishId);
     $("#modal_title").text(`編輯菜色食材：${dish?.name || ""}（${dishId}）`);
     $("#di_tbl tbody").empty();
-    setMsg($("#msg_di"), "", false);
+    clearMsg(DOM.msgDishIngredients);
 
     const items = await reqJson(API.dishIngGet(dishId), { method: "GET", headers: {} });
     (Array.isArray(items) ? items : []).forEach(r => addDishIngRow(r));
@@ -414,7 +432,7 @@ function todayStr() {
           await reqJson(API.ingPriceDelete(editingIngId, date), { method: "DELETE" });
           $tr.remove();
         } catch (e) {
-          setMsg($("#msg_ing_meta"), e.message || String(e), true);
+          setMsg($(DOM.msgIngMeta), e.message || String(e), true);
         }
       } else {
         $tr.remove();
@@ -428,7 +446,7 @@ function todayStr() {
     editingIngId = ingId;
     const ing = ingById.get(ingId);
     $("#modal_ing_title").text(`價格/庫存：${ing?.name || ""}（${ingId}）`);
-    setMsg($("#msg_ing_meta"), "", false);
+    clearMsg(DOM.msgIngMeta);
   
     // inventory
     const inv = await reqJson(API.ingInventory(ingId), { method: "GET", headers: {} }).catch(() => null);
@@ -451,50 +469,41 @@ function todayStr() {
     $("#dish_q").on("input", renderDishes);
 
     $("#ing_clear").on("click", () => {
-      $("#ing_id,#ing_name,#ing_category,#ing_protein,#ing_unit").val("");
-      setMsg($("#msg_ing"), "", false);
+      clearFields(DOM.ingredientEditorFields);
+      clearMsg(DOM.msgIng);
     });
 
     $("#dish_clear").on("click", () => {
-      $("#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_tags").val("");
+      clearFields(DOM.dishEditorFields);
       $("#dish_role").val("main");
-      setMsg($("#msg_dish"), "", false);
+      clearMsg(DOM.msgDish);
     });
 
     $("#ing_save").on("click", async () => {
-      try {
+      await runWithMsg(DOM.msgIng, async () => {
         await saveIngredient();
-        setMsg($("#msg_ing"), "已儲存食材。", false);
-      } catch (e) {
-        setMsg($("#msg_ing"), e.message || String(e), true);
-      }
+      }, "已儲存食材。");
     });
 
     $("#dish_save").on("click", async () => {
-      try {
+      await runWithMsg(DOM.msgDish, async () => {
         await saveDish();
-        setMsg($("#msg_dish"), "已儲存菜色。", false);
-      } catch (e) {
-        setMsg($("#msg_dish"), e.message || String(e), true);
-      }
+      }, "已儲存菜色。");
     });
 
     $("#modal_close").on("click", () => $("#modal").addClass("hide"));
     $("#di_add").on("click", () => addDishIngRow(null));
     $("#di_save").on("click", async () => {
-      try {
+      await runWithMsg(DOM.msgDishIngredients, async () => {
         await saveDishIngredients();
         $("#modal").addClass("hide");
-        setMsg($("#msg_di"), "已更新食材清單。", false);
-      } catch (e) {
-        setMsg($("#msg_di"), e.message || String(e), true);
-      }
+      }, "已更新食材清單。");
     });
 
     $("#modal_ing_close").on("click", () => $("#modal_ing").addClass("hide"));
     
     $("#inv_save").on("click", async () => {
-      try {
+      await runWithMsg(DOM.msgIngMeta, async () => {
         const body = {
           qty_on_hand: parseFloat($("#inv_qty").val() || "0"),
           unit: ($("#inv_unit").val() || "").trim(),
@@ -503,16 +512,13 @@ function todayStr() {
         };
         if (!body.unit) throw new Error("庫存單位必填。");
         await reqJson(API.ingInventory(editingIngId), { method: "PUT", body: JSON.stringify(body) });
-        setMsg($("#msg_ing_meta"), "已儲存庫存。", false);
-      } catch (e) {
-        setMsg($("#msg_ing_meta"), e.message || String(e), true);
-      }
+      }, "已儲存庫存。");
     });
     
     $("#price_add").on("click", () => addPriceRow(null));
     
     $("#price_save").on("click", async () => {
-      try {
+      await runWithMsg(DOM.msgIngMeta, async () => {
         const ops = [];
         $("#price_tbl tbody tr").each(function () {
           const d = $(this).find(".p_date").val();
@@ -530,11 +536,8 @@ function todayStr() {
             body: JSON.stringify({ price_per_unit: x.v, unit: x.u })
           });
         }
-    
-        setMsg($("#msg_ing_meta"), "已儲存價格。", false);
-      } catch (e) {
-        setMsg($("#msg_ing_meta"), e.message || String(e), true);
-      }
+
+      }, "已儲存價格。");
     });
 
     // admin key

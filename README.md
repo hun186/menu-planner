@@ -101,6 +101,13 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+> 若遇到 `pytest: command not found`，請優先用 `python -m pytest`（可避免 PATH 問題）：
+>
+> ```bash
+> python -m pytest -q tests/test_e2e_excel.py
+> # 或：python3 -m pytest -q tests/test_e2e_excel.py
+> ```
+
 ### 3) 環境變數（選配）
 你可以在 `.env` 或系統環境變數中設定：
 

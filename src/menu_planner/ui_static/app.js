@@ -494,12 +494,13 @@
       body: JSON.stringify(cfg)
     });
     if (!res.ok) {
-      let detail = "";
-      try { detail = (await res.json()).detail; } catch (e) {}
-      let msg = "";
-      if (Array.isArray(detail)) msg = detail.join(" / ");
-      else if (detail && typeof detail === "object") msg = detail.message || JSON.stringify(detail);
-      else msg = String(detail || "");
+      let payload = {};
+      try { payload = await res.json(); } catch (e) {}
+      const detail = payload?.detail || {};
+      const errs = detail?.errors || [];
+      const msg = errs.length
+        ? formatErrors(errs)
+        : (detail?.message || JSON.stringify(detail || payload || {}));
       throw new Error("匯出失敗：" + msg);
     }
 
@@ -641,12 +642,22 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(cfg)
           });
-          const payload = await res.json();
-		  
+          const payload = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            const errPayload = (payload && payload.detail && payload.detail.errors)
+              ? payload.detail
+              : (payload || { errors: [{ message: "Unknown error" }] });
+            console.error("PLAN ERROR payload =", errPayload);
+            setMsg("產生失敗：\n- " + formatErrors(errPayload.errors), true);
+            showErrorDetail(errPayload);
+            return;
+          }
+
           if (!payload.ok) {
             console.error("PLAN ERROR payload =", payload);
             setMsg("產生失敗：\n- " + formatErrors(payload.errors), true);
-            showErrorDetail(payload);   // ✅ 直接把 traceback 印在 result 區
+            showErrorDetail(payload);
             return;
           }
 

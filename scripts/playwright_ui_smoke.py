@@ -4,9 +4,9 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 CANDIDATE_URLS = [
-    "http://host.docker.internal:8000",
-    "http://127.0.0.1:8000",
-    "http://localhost:8000",
+    "http://host.docker.internal:18000",
+    "http://127.0.0.1:18000",
+    "http://localhost:18000",
 ]
 
 

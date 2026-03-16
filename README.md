@@ -125,7 +125,7 @@ API 入口位於：`src/menu_planner/api/main.py`
 在 repo 根目錄執行（讓 Python 找得到 src）：
 
 ```bash
-uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 18000 --reload
 ```
 
 > 若你的 `API_CMD.txt` 有指定啟動方式，以該檔為準；上面是最常見且與你路徑一致的啟動寫法。
@@ -137,8 +137,8 @@ uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 8000 --reload
 - 管理（管理端）：`src/menu_planner/ui_static/admin.html`
 
 若後端有提供靜態路由，通常可用：
-- `http://localhost:8000/`（排菜）
-- `http://localhost:8000/admin`（管理）
+- `http://localhost:18000/`（排菜）
+- `http://localhost:18000/admin`（管理）
 
 若沒有靜態路由，也可以直接用瀏覽器打開 `index.html` / `admin.html`（但需要注意 CORS 與 API URL 設定）。
 

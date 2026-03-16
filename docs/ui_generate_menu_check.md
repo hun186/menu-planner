@@ -16,14 +16,14 @@
 
 ## 可重跑指令
 1. 啟動服務
-   - `python -m uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 8000`
+   - `python -m uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 18000`
 2. 送出 30 天排程請求
    - 以 `python` + `urllib.request` 呼叫：先抓 `/config/default`，再 POST `/plan`。
 
 
 ## Playwright 自動探測版（新增）
 - 新增 `scripts/playwright_ui_smoke.py`：會依序嘗試
-  1. `http://host.docker.internal:8000`
-  2. `http://127.0.0.1:8000`
-  3. `http://localhost:8000`
+  1. `http://host.docker.internal:18000`
+  2. `http://127.0.0.1:18000`
+  3. `http://localhost:18000`
 - 探測到可用 UI 後，才會點擊「產生菜單」按鈕並等待結果。

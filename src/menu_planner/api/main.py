@@ -124,5 +124,5 @@ def get_admin_page():
     return FileResponse(UI_DIR / "admin.html")
 
 
-# 靜態 UI（http://localhost:8000/）
+# 靜態 UI（http://localhost:18000/）
 app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")

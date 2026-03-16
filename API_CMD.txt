@@ -1,2 +1,2 @@
 cd D:\shared\TopicClassification\menu-planner
-uvicorn src.menu_planner.api.main:app --reload
+uvicorn src.menu_planner.api.main:app --reload --port 18000

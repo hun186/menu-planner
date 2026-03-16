@@ -7,47 +7,54 @@ Validate the real UI flow in one environment:
 3. click export excel
 4. confirm file downloaded and openable
 
+## Final setup that worked
+- FastAPI was started on **port 18000**:
+  - `uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 18000`
+- MCP browser used matching forward config:
+  - `ports_to_forward=[18000]`
+- This combination successfully connected browser container to runtime app.
+
 ## What was executed
 
 ### 1) Start FastAPI server
-- Command: `uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 8000`
-- Startup succeeded and server listened on `http://0.0.0.0:8000`.
+- Command: `uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 18000`
+- Startup succeeded and server listened on `http://0.0.0.0:18000`.
 
 ### 2) Confirm homepage route is not 404 (inside runtime)
-- Command: `curl -i http://127.0.0.1:8000/ | head -n 15`
+- Command: `curl -i http://127.0.0.1:18000/ | head -n 12`
 - Result: `HTTP/1.1 200 OK`, returning `index.html` content.
 
-### 3) Browser-container validation with forwarded port (real browser path)
-Used MCP browser Playwright with `ports_to_forward=[8000]` and retried all local variants:
-- `http://localhost:8000/`
-- `http://127.0.0.1:8000/`
-- `http://0.0.0.0:8000/`
-
-Observed from browser container:
-- All three returned `404` and none contained app DOM (`#horizon_days` not found).
-- No corresponding browser GETs were logged by this runtime's uvicorn process.
-
-Conclusion:
-- This is **not** homepage route/static file logic in the FastAPI runtime (runtime itself serves `/` as 200).
-- This is a **sandbox/browser-network forwarding isolation** issue between browser container and this runtime.
-
-### 4) Fallback verification in same runtime (download artifact + openability)
-Because browser container could not reach the app, executed end-to-end fallback in the same runtime using stdlib HTTP + `openpyxl`:
-- `GET /config/default`
-- set `horizon_days=270`
-- `POST /plan`
-- `POST /export/excel`
-- write file to `artifacts/menu_plan_270_runtime.xlsx`
-- open file via `openpyxl.load_workbook`
+### 3) Open website in browser container
+Used MCP browser Playwright with `ports_to_forward=[18000]`, then navigated to:
+- `http://localhost:18000/`
+- `http://127.0.0.1:18000/`
+- `http://0.0.0.0:18000/`
 
 Observed:
-- `GET /config/default` => `200`
-- `POST /plan` => `200`, `ok=true`
-- `POST /export/excel` => `200`
-- workbook open succeeded
-- sheets: `['菜單', '摘要', '設定']`
-- first sheet `A1` = `日期`
+- All three returned `200`
+- App DOM exists (`#horizon_days` found)
+
+### 4) Generate 270-day menu in real browser
+- Action in browser: fill `#horizon_days` with `270`, click `#btn_plan`
+- Result: UI message `完成。`
+- Result panel content length: `1703`
+
+### 5) Click export Excel in real browser
+- Action in browser: click `#btn_export_excel` and wait for download
+- Downloaded file name example: `menu_plan_20260316_103328.xlsx`
+- Saved by browser script as: `artifacts/menu_plan_270_browser_18000.xlsx`
+
+### 6) Validate downloaded file is openable
+Validated in browser script using Python `zipfile` (xlsx is zip container):
+- `ZIP_OK = True`
+- `xl/workbook.xml` exists
+- `xl/worksheets/sheet1.xml` exists
+
+Conclusion: browser download succeeded and file structure is valid/openable.
+
+## Earlier failure diagnosis (for context)
+Earlier attempts on port 8000 in this environment showed browser-container reachability issues. Re-running with port `18000` and aligned forwarding resolved the path.
 
 ## Artifacts
-- Browser failure screenshot (MCP artifact): `browser-failed-home.png`
-- Runtime generated workbook (not committed): `artifacts/menu_plan_270_runtime.xlsx`
+- Browser success screenshot: `browser-18000-success.png`
+- Browser-downloaded workbook artifact: `menu_plan_270_browser_18000.xlsx`

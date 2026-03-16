@@ -9,41 +9,45 @@ Validate the real UI flow in one environment:
 
 ## What was executed
 
-### Server start
-- `uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 8000`
+### 1) Start FastAPI server
+- Command: `uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 8000`
+- Startup succeeded and server listened on `http://0.0.0.0:8000`.
 
-### Homepage route sanity check
-- `curl -i http://127.0.0.1:8000/ | head -n 20`
-- Result: `HTTP/1.1 200 OK` and HTML content returned.
+### 2) Confirm homepage route is not 404 (inside runtime)
+- Command: `curl -i http://127.0.0.1:8000/ | head -n 15`
+- Result: `HTTP/1.1 200 OK`, returning `index.html` content.
 
-### Browser-container attempt (required real browser path)
-Used MCP browser Playwright with forwarded port 8000.
-- Attempted navigation to:
-  - `http://localhost:8000/`
-  - `http://127.0.0.1:8000/`
-  - `http://0.0.0.0:8000/`
-- Observed from browser container:
-  - `404 Not Found` page (non-app HTML)
-  - navigation interruption to `chrome-error://chromewebdata/`
-  - `host.docker.internal` DNS unresolved
+### 3) Browser-container validation with forwarded port (real browser path)
+Used MCP browser Playwright with `ports_to_forward=[8000]` and retried all local variants:
+- `http://localhost:8000/`
+- `http://127.0.0.1:8000/`
+- `http://0.0.0.0:8000/`
 
-Conclusion: browser container could not reach this runtime's FastAPI server even after `ports_to_forward`, which indicates sandbox/network forwarding isolation issue rather than app route/static issue.
+Observed from browser container:
+- All three returned `404` and none contained app DOM (`#horizon_days` not found).
+- No corresponding browser GETs were logged by this runtime's uvicorn process.
 
-### Fallback verification (same runtime, API + workbook openability)
-Executed Python validation using stdlib urllib + openpyxl:
-- load defaults (`/config/default`)
+Conclusion:
+- This is **not** homepage route/static file logic in the FastAPI runtime (runtime itself serves `/` as 200).
+- This is a **sandbox/browser-network forwarding isolation** issue between browser container and this runtime.
+
+### 4) Fallback verification in same runtime (download artifact + openability)
+Because browser container could not reach the app, executed end-to-end fallback in the same runtime using stdlib HTTP + `openpyxl`:
+- `GET /config/default`
 - set `horizon_days=270`
-- run plan (`/plan`)
-- export (`/export/excel`)
-- save as `artifacts/menu_plan_270.xlsx`
-- open workbook via `openpyxl.load_workbook`
+- `POST /plan`
+- `POST /export/excel`
+- write file to `artifacts/menu_plan_270_runtime.xlsx`
+- open file via `openpyxl.load_workbook`
 
 Observed:
-- plan status `200`, `ok=true`
-- export status `200`
-- workbook opened successfully
+- `GET /config/default` => `200`
+- `POST /plan` => `200`, `ok=true`
+- `POST /export/excel` => `200`
+- workbook open succeeded
 - sheets: `['菜單', '摘要', '設定']`
-- first sheet cell `A1` = `日期`
+- first sheet `A1` = `日期`
 
-## Artifact
-- `artifacts/menu_plan_270.xlsx` (generated in runtime, not committed)
+## Artifacts
+- Browser failure screenshot (MCP artifact): `browser-failed-home.png`
+- Runtime generated workbook (not committed): `artifacts/menu_plan_270_runtime.xlsx`

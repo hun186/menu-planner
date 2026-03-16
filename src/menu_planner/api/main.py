@@ -100,10 +100,15 @@ def post_plan(
 
 @app.post("/export/excel")
 def post_export_excel(
-    cfg: Dict[str, Any] = Body(...),
+    payload: Dict[str, Any] = Body(...),
     db_path: str = Depends(get_db_path),
 ):
-    result = _run_plan_or_raise(cfg=cfg, db_path=db_path)
+    cfg = payload.get("cfg") if isinstance(payload.get("cfg"), dict) else payload
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else None
+
+    if result is None:
+        # backward-compatible: old clients only pass cfg, still allow export
+        result = _run_plan_or_raise(cfg=cfg, db_path=db_path)
 
     content = build_plan_workbook(cfg=cfg, result=result)
     filename = build_filename("menu_plan")

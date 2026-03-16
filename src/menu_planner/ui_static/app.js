@@ -487,11 +487,11 @@
     $("#result").html(html);
   } // ✅ renderResult 結束
   
-  async function downloadExcel(cfg) {
+  async function downloadExcel(cfg, result) {
     const res = await fetch(API.exportExcel, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cfg)
+      body: JSON.stringify({ cfg, result })
     });
     if (!res.ok) {
       let payload = {};
@@ -596,6 +596,7 @@
       $("#btn_load_defaults").on("click", async () => {
         await loadDefaults();
         lastResult = null;
+        lastCfg = null;
         $("#btn_export_excel").prop("disabled", true);
       });
 
@@ -672,10 +673,11 @@
 
       $("#btn_export_excel").on("click", async () => {
         try {
-          // 若使用者又改了表單，先同步一次
-          syncCfgTextareaFromForm();
-          const cfg = JSON.parse($("#cfg_json").val());
-          await downloadExcel(cfg);
+          if (!lastResult || !lastCfg) {
+            throw new Error("尚未產生菜單，請先按「產生菜單」。");
+          }
+          // 匯出以「上次成功產生」的 cfg/result 為準，避免與畫面結果不一致
+          await downloadExcel(lastCfg, lastResult);
           setMsg("Excel 已下載。");
         } catch (e) {
           setMsg(String(e.message || e), true);

@@ -23,7 +23,7 @@ jobs:
 
       - name: Start server
         run: |
-          python -m uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 8000 &
+          python -m uvicorn src.menu_planner.api.main:app --host 0.0.0.0 --port 18000 &
           sleep 5
 
       - name: Run tests

@@ -1,4 +1,4 @@
-import { deleteDish, deleteIngredient, deleteIngredientPrice, getDishIngredients, getIngredientInventory, getIngredientPrices, loadCatalog, putDishIngredients, putIngredientInventory, putIngredientPrice, upsertDish, upsertIngredient } from "./admin/api.js";
+import { deleteDish, deleteIngredient, deleteIngredientPrice, getDishIngredients, getIngredientInventory, getIngredientPrices, listDishCostPreview, loadCatalog, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, upsertDish, upsertIngredient } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -9,6 +9,7 @@ import { escapeHtml } from "./shared/html.js";
     msgIng: "#msg_ing",
     msgDish: "#msg_dish",
     msgDishIngredients: "#msg_di",
+    msgDishCost: "#msg_di_cost",
     msgIngMeta: "#msg_ing_meta",
     ingredientEditorFields: "#ing_id,#ing_name,#ing_category,#ing_protein,#ing_unit",
     dishEditorFields: "#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_tags",
@@ -19,6 +20,7 @@ import { escapeHtml } from "./shared/html.js";
   let editingDishId = null;
   let ingLabelToId = new Map();
   let editingIngId = null;
+  let dishCostById = new Map();
   
   function setMsg($el, text, isError) {
     $el.css("color", isError ? "#b42318" : "#1a7f37").text(text || "");
@@ -46,6 +48,24 @@ import { escapeHtml } from "./shared/html.js";
   async function reloadCatalog() {
     const { ingredients, dishes } = await loadCatalog();
     setCatalogCache(catalog, ingredients, dishes);
+    await reloadDishCostPreview();
+  }
+
+  async function reloadDishCostPreview() {
+    try {
+      const list = await listDishCostPreview();
+      dishCostById = new Map((Array.isArray(list) ? list : []).map(x => [x.dish_id, x]));
+    } catch (_e) {
+      dishCostById = new Map();
+    }
+  }
+
+  function formatDishCostText(dishId) {
+    const c = dishCostById.get(dishId);
+    if (!c) return "—";
+    const base = Number(c.per_serving_cost || 0).toFixed(2);
+    const warningCount = Number(c.warning_count || 0);
+    return warningCount > 0 ? `${base} ⚠️${warningCount}` : base;
   }
   
   function rebuildIngredientDatalist() {
@@ -154,6 +174,7 @@ import { escapeHtml } from "./shared/html.js";
           <td>${escapeHtml(x.role)}</td>
           <td>${escapeHtml(x.meat_type || "")}</td>
           <td>${escapeHtml(x.cuisine || "")}</td>
+          <td>${escapeHtml(formatDishCostText(x.id))}</td>
           <td>
             <button class="btn_edit">編輯</button>
             <button class="btn_ing">編輯食材</button>
@@ -322,30 +343,50 @@ import { escapeHtml } from "./shared/html.js";
 
   async function saveDishIngredients() {
     const dishId = editingDishId;
+    const rows = collectDishIngredientRows();
+    await putDishIngredients(dishId, rows);
+  }
+
+  function collectDishIngredientRows() {
     const rows = [];
     const bad = [];
-  
+
     $("#di_tbl tbody tr").each(function (i) {
       const $ing = $(this).find(".di_ing_input");
       const ingredient_id = $ing.data("ing_id") || resolveIngredientId($ing.val());
       const qty = parseFloat($(this).find(".di_qty").val() || "0");
       const unit = ($(this).find(".di_unit").val() || "").trim();
-  
+
       if (!ingredient_id) {
         bad.push(i + 1);
         $ing.css("border-color", "#ef4444");
         return;
       }
       if (!(qty > 0) || !unit) return;
-  
+
       rows.push({ ingredient_id, qty, unit });
     });
-  
+
     if (bad.length) {
       throw new Error(`第 ${bad.join(", ")} 列食材無法辨識，請從提示清單選或直接輸入正確 ID。`);
     }
-  
-    await putDishIngredients(dishId, rows);
+
+    return rows;
+  }
+
+  async function refreshDishCostPreview() {
+    const rows = collectDishIngredientRows();
+    if (!rows.length) {
+      setMsg($(DOM.msgDishCost), "尚無有效食材用量，無法估算成本。", true);
+      return;
+    }
+
+    const preview = await previewDishCost(rows, 1);
+    const warningCount = Array.isArray(preview.warnings) ? preview.warnings.length : 0;
+    const warningText = warningCount > 0
+      ? `（⚠️ ${warningCount} 項警示：可能是單位對不上或缺價格）`
+      : "";
+    setMsg($(DOM.msgDishCost), `預估 1 人份成本：${preview.per_serving_cost.toFixed(2)} ${warningText}`, warningCount > 0);
   }
 
 function todayStr() {
@@ -437,9 +478,16 @@ function todayStr() {
 
     $("#modal_close").on("click", () => $("#modal").addClass("hide"));
     $("#di_add").on("click", () => addDishIngRow(null));
+    $("#di_preview_cost").on("click", async () => {
+      await runWithMsg(DOM.msgDishCost, async () => {
+        await refreshDishCostPreview();
+      });
+    });
     $("#di_save").on("click", async () => {
       await runWithMsg(DOM.msgDishIngredients, async () => {
         await saveDishIngredients();
+        await reloadDishCostPreview();
+        renderDishes();
         $("#modal").addClass("hide");
       }, "已更新食材清單。");
     });
@@ -477,6 +525,8 @@ function todayStr() {
         for (const x of ops) {
           await putIngredientPrice(editingIngId, x.d, { price_per_unit: x.v, unit: x.u });
         }
+        await reloadDishCostPreview();
+        renderDishes();
 
       }, "已儲存價格。");
     });

@@ -67,6 +67,11 @@ class DishIngredientIn(BaseModel):
     unit: str = Field(min_length=1)
 
 
+class DishCostPreviewIn(BaseModel):
+    items: List[DishIngredientIn] = Field(default_factory=list)
+    servings: float = Field(default=1.0, gt=0)
+
+
 @router.put("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_key)])
 def upsert_ingredient(
     ingredient_id: str,
@@ -230,3 +235,20 @@ def put_dish_ingredients(
     repo = repo_with_backup(db_path)
     repo.replace_dish_ingredients(dish_id, [x.model_dump() for x in items])
     return {"ok": True}
+
+
+@router.post("/dishes/cost-preview", dependencies=[Depends(require_admin_key)])
+def dish_cost_preview(
+    body: DishCostPreviewIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    return repo.preview_dish_cost([x.model_dump() for x in body.items], servings=body.servings)
+
+
+@router.get("/dishes/cost-preview", dependencies=[Depends(require_admin_key)])
+def list_dish_cost_preview(
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    return repo.list_dish_cost_preview()

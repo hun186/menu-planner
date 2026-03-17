@@ -88,6 +88,7 @@
               <th style="width:80px;">角色</th>
               <th style="width:110px;">肉類</th>
               <th>菜系</th>
+              <th style="width:130px;">1人份成本(最新價)</th>
               <th style="width:160px;">操作</th>
             </tr>
           </thead>
@@ -145,9 +146,11 @@
 
       <div class="btns" style="margin-top:10px;">
         <button id="di_add">新增一列</button>
+        <button id="di_preview_cost">試算 1 人份成本</button>
         <button id="di_save" class="primary">儲存食材清單</button>
       </div>
       <div class="hint">儲存會「整批覆蓋」此菜色的食材清單。</div>
+      <div id="msg_di_cost" class="msg"></div>
       <div id="msg_di" class="msg"></div>
     </div>
   </div>

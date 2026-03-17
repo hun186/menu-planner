@@ -9,6 +9,7 @@ export const ADMIN_API = {
   dishDelete: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}`,
   dishIngGet: (dishId) => `/admin/catalog/dishes/${encodeURIComponent(dishId)}/ingredients`,
   dishIngPut: (dishId) => `/admin/catalog/dishes/${encodeURIComponent(dishId)}/ingredients`,
+  dishCostPreview: "/admin/catalog/dishes/cost-preview",
   ingPrices: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices`,
   ingPriceUpsert: (id, date) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices/${encodeURIComponent(date)}`,
   ingPriceDelete: (id, date) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices/${encodeURIComponent(date)}`,
@@ -45,6 +46,14 @@ export function getDishIngredients(dishId) {
 
 export function putDishIngredients(dishId, rows) {
   return httpJson(ADMIN_API.dishIngPut(dishId), { method: "PUT", body: JSON.stringify(rows) }, { includeAdminKey: true });
+}
+
+export function previewDishCost(rows, servings = 1) {
+  return httpJson(
+    ADMIN_API.dishCostPreview,
+    { method: "POST", body: JSON.stringify({ items: rows, servings }) },
+    { includeAdminKey: true }
+  );
 }
 
 export function getIngredientInventory(ingId) {

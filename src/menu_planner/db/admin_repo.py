@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 class SQLiteAdminRepo:
     def __init__(self, db_path: str):
@@ -196,3 +196,116 @@ class SQLiteAdminRepo:
             rows = conn.execute(f"SELECT id FROM ingredients WHERE id IN ({placeholders})", ids).fetchall()
         found = {r[0] for r in rows}
         return [x for x in ids if x not in found]
+
+    def _fetch_unit_conversions(self) -> Dict[Tuple[str, str], float]:
+        with self._conn() as conn:
+            rows = conn.execute("SELECT from_unit, to_unit, factor FROM unit_conversions").fetchall()
+        return {(r[0], r[1]): float(r[2]) for r in rows}
+
+    def _fetch_latest_prices(self, ingredient_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        if not ingredient_ids:
+            return {}
+        placeholders = ",".join(["?"] * len(ingredient_ids))
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT p.ingredient_id, p.price_date, p.price_per_unit, p.unit
+                FROM ingredient_prices p
+                JOIN (
+                    SELECT ingredient_id, MAX(price_date) AS max_date
+                    FROM ingredient_prices
+                    WHERE ingredient_id IN ({placeholders})
+                    GROUP BY ingredient_id
+                ) t
+                  ON t.ingredient_id = p.ingredient_id
+                 AND t.max_date = p.price_date
+                """,
+                ingredient_ids,
+            ).fetchall()
+        return {
+            r[0]: {
+                "price_date": r[1],
+                "price_per_unit": float(r[2]),
+                "unit": r[3],
+            }
+            for r in rows
+        }
+
+    def _fetch_ingredient_names(self, ingredient_ids: List[str]) -> Dict[str, str]:
+        if not ingredient_ids:
+            return {}
+        placeholders = ",".join(["?"] * len(ingredient_ids))
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"SELECT id, name FROM ingredients WHERE id IN ({placeholders})",
+                ingredient_ids,
+            ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def preview_dish_cost(self, items: List[Dict[str, Any]], servings: float = 1.0) -> Dict[str, Any]:
+        ingredient_ids = [str(x["ingredient_id"]) for x in items if x.get("ingredient_id")]
+        ingredient_names = self._fetch_ingredient_names(ingredient_ids)
+        prices = self._fetch_latest_prices(ingredient_ids)
+        conv = self._fetch_unit_conversions()
+
+        total = 0.0
+        rows: List[Dict[str, Any]] = []
+        for x in items:
+            ing_id = str(x.get("ingredient_id") or "")
+            qty = float(x.get("qty") or 0)
+            unit = str(x.get("unit") or "")
+            row = {
+                "ingredient_id": ing_id,
+                "ingredient_name": ingredient_names.get(ing_id),
+                "qty": qty,
+                "unit": unit,
+                "status": "ok",
+                "reason": None,
+                "price_date": None,
+                "price_per_unit": None,
+                "price_unit": None,
+                "cost": 0.0,
+            }
+            if not ingredient_names.get(ing_id):
+                row["status"] = "warning"
+                row["reason"] = "ingredient_not_found"
+                rows.append(row)
+                continue
+
+            p = prices.get(ing_id)
+            if not p:
+                row["status"] = "warning"
+                row["reason"] = "missing_price"
+                rows.append(row)
+                continue
+
+            price_unit = p["unit"]
+            qty_in_price_unit = qty
+            if unit != price_unit:
+                factor = conv.get((unit, price_unit))
+                if factor is None:
+                    row["status"] = "warning"
+                    row["reason"] = "unit_mismatch"
+                    row["price_date"] = p["price_date"]
+                    row["price_per_unit"] = p["price_per_unit"]
+                    row["price_unit"] = price_unit
+                    rows.append(row)
+                    continue
+                qty_in_price_unit = qty * factor
+
+            cost = qty_in_price_unit * float(p["price_per_unit"])
+            row["price_date"] = p["price_date"]
+            row["price_per_unit"] = p["price_per_unit"]
+            row["price_unit"] = price_unit
+            row["cost"] = round(cost, 4)
+            total += cost
+            rows.append(row)
+
+        per_serving = round(total, 2)
+        return {
+            "servings": servings,
+            "per_serving_cost": per_serving,
+            "total_cost": round(per_serving * servings, 2),
+            "rows": rows,
+            "warnings": [r for r in rows if r["status"] != "ok"],
+        }

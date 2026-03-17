@@ -4,3 +4,4 @@ __pycache__/
 .env.local
 data/menu_plan_360d.xlsx
 *.xlsx#
+/data/backups

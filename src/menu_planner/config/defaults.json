@@ -28,7 +28,7 @@
     },
 
     "repeat_limits": {
-      "max_same_main_in_30_days": 30,
+      "max_same_main_in_30_days": 1,
       "max_same_side_in_7_days": 1,
       "max_same_soup_in_7_days": 1,
 	  "max_same_fruit_in_7_days": 1

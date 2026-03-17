@@ -1,0 +1,81 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { createCatalogCache, setCatalogCache } from '../../src/menu_planner/ui_static/shared/catalog_cache.js';
+import { httpJson } from '../../src/menu_planner/ui_static/shared/http.js';
+import { loadCatalog, upsertIngredient } from '../../src/menu_planner/ui_static/admin/api.js';
+
+test('catalog cache + admin api smoke flow with mocked fetch', async () => {
+  const calls = [];
+
+  global.localStorage = {
+    getItem(key) {
+      if (key === 'menu_admin_key') return 'secret';
+      return null;
+    },
+  };
+
+  global.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+
+    if (url === '/catalog/ingredients') {
+      return {
+        ok: true,
+        json: async () => [{ id: 'ing_a', name: 'A' }],
+      };
+    }
+
+    if (url === '/catalog/dishes') {
+      return {
+        ok: true,
+        json: async () => [{ id: 'dish_a', name: 'Dish A', role: 'main' }],
+      };
+    }
+
+    if (url.includes('/admin/catalog/ingredients/ing_new') && options.method === 'PUT') {
+      return {
+        ok: true,
+        json: async () => ({ ok: true }),
+      };
+    }
+
+    return {
+      ok: false,
+      status: 404,
+      json: async () => ({ detail: { message: 'not found' } }),
+    };
+  };
+
+  const { ingredients, dishes } = await loadCatalog();
+
+  const cache = createCatalogCache();
+  setCatalogCache(cache, ingredients, dishes);
+
+  assert.equal(cache.ingredients.length, 1);
+  assert.equal(cache.dishes.length, 1);
+  assert.equal(cache.ingById.get('ing_a').name, 'A');
+
+  await upsertIngredient('ing_new', {
+    name: 'new',
+    category: 'vegetable',
+    protein_group: null,
+    default_unit: 'g',
+  });
+
+  const adminPut = calls.find((x) => String(x.url).includes('/admin/catalog/ingredients/ing_new'));
+  assert.ok(adminPut, 'expected admin ingredient PUT call');
+  assert.equal(adminPut.options.headers['X-Admin-Key'], 'secret');
+});
+
+test('httpJson throws detail message on non-2xx response', async () => {
+  global.fetch = async () => ({
+    ok: false,
+    status: 400,
+    json: async () => ({ detail: { message: 'bad request' } }),
+  });
+
+  await assert.rejects(
+    () => httpJson('/x', { method: 'GET' }),
+    /bad request/,
+  );
+});

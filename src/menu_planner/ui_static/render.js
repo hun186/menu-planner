@@ -1,5 +1,6 @@
 import { DOM } from "./dom.js";
 import { scoreLabel, scoreReason, summarizeBreakdown } from "./score_explain.js";
+import { escapeHtml as _escapeHtml } from "./shared/html.js";
 
 export function pretty(obj) {
   return JSON.stringify(obj, null, 2);
@@ -10,13 +11,7 @@ export function setMsg(text, isError = false) {
 }
 
 export function escapeHtml(s) {
-  return String(s || "").replace(/[&<>"']/g, (m) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;",
-  }[m]));
+  return _escapeHtml(s);
 }
 
 export function formatErrors(errs) {

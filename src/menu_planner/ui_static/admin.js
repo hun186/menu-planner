@@ -1,25 +1,9 @@
+import { deleteDish, deleteIngredient, deleteIngredientPrice, getDishIngredients, getIngredientInventory, getIngredientPrices, loadCatalog, putDishIngredients, putIngredientInventory, putIngredientPrice, upsertDish, upsertIngredient } from "./admin/api.js";
+import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
+import { adminKey } from "./shared/http.js";
+import { escapeHtml } from "./shared/html.js";
+
 (function () {
-  const API = {
-    // read（沿用你原本的 catalog）
-    ingredients: "/catalog/ingredients",
-    dishes: "/catalog/dishes",
-
-    // write（獨立到 /admin/catalog）
-    ingUpsert: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}`,
-    ingDelete: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}`,
-
-    dishUpsert: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}`,
-    dishDelete: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}`,
-
-    dishIngGet: (dishId) => `/admin/catalog/dishes/${encodeURIComponent(dishId)}/ingredients`,
-    dishIngPut: (dishId) => `/admin/catalog/dishes/${encodeURIComponent(dishId)}/ingredients`,
-	
-    ingPrices: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices`,
-    ingPriceUpsert: (id, date) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices/${encodeURIComponent(date)}`,
-    ingPriceDelete: (id, date) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices/${encodeURIComponent(date)}`,
-    ingInventory: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/inventory`,
-
-  };
 
   const DOM = {
     msgIng: "#msg_ing",
@@ -30,25 +14,12 @@
     dishEditorFields: "#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_tags",
   };
 
-  let ING = [];
-  let DISHES = [];
-  let ingById = new Map();
-  let dishById = new Map();
+  const catalog = createCatalogCache();
 
   let editingDishId = null;
   let ingLabelToId = new Map();
   let editingIngId = null;
   
-  function escapeHtml(s) {
-    return String(s || "").replace(/[&<>"']/g, m => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
-    }[m]));
-  }
-
-  function adminKey() {
-    return localStorage.getItem("menu_admin_key") || "";
-  }
-
   function setMsg($el, text, isError) {
     $el.css("color", isError ? "#b42318" : "#1a7f37").text(text || "");
   }
@@ -72,43 +43,16 @@
     }
   }
 
-  async function reqJson(url, options) {
-    const headers = Object.assign({ "Content-Type": "application/json" }, (options && options.headers) || {});
-    const k = adminKey();
-    if (k) headers["X-Admin-Key"] = k;
-
-    const res = await fetch(url, Object.assign({}, options || {}, { headers }));
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const detail = payload?.detail;
-      const msg =
-        (typeof detail === "string" && detail) ||
-        detail?.message ||
-        JSON.stringify(detail || payload || {}, null, 0) ||
-        `HTTP ${res.status}`;
-      throw new Error(msg);
-    }
-    return payload;
-  }
-
-  async function loadCatalog() {
-    const [ings, dishes] = await Promise.all([
-      fetch(API.ingredients).then(r => r.json()),
-      fetch(API.dishes).then(r => r.json())
-    ]);
-
-    ING = Array.isArray(ings) ? ings : [];
-    DISHES = Array.isArray(dishes) ? dishes : [];
-
-    ingById = new Map(ING.map(x => [x.id, x]));
-    dishById = new Map(DISHES.map(x => [x.id, x]));
+  async function reloadCatalog() {
+    const { ingredients, dishes } = await loadCatalog();
+    setCatalogCache(catalog, ingredients, dishes);
   }
   
   function rebuildIngredientDatalist() {
     ingLabelToId = new Map();
     const $dl = $("#dl_ingredients").empty();
   
-    ING.forEach(x => {
+    catalog.ingredients.forEach(x => {
       // 顯示用：分類｜名稱 (id) 讓人更好辨認
       const label = `${x.category}｜${x.name} (${x.id})`;
       ingLabelToId.set(label, x.id);
@@ -140,7 +84,7 @@
 
   function renderIngredients() {
     const q = ($("#ing_q").val() || "").trim().toLowerCase();
-    const list = ING.filter(x =>
+    const list = catalog.ingredients.filter(x =>
       !q ||
       (x.id || "").toLowerCase().includes(q) ||
       (x.name || "").toLowerCase().includes(q)
@@ -181,8 +125,8 @@
       $tr.find(".btn_del").on("click", async () => {
         if (!confirm(`確定刪除食材：${x.name}（${x.id}）？`)) return;
         await runWithMsg(DOM.msgIng, async () => {
-          await reqJson(API.ingDelete(x.id), { method: "DELETE" });
-          await loadCatalog();
+          await deleteIngredient(x.id);
+          await reloadCatalog();
 		  rebuildIngredientDatalist();
           renderAll();
         }, "已刪除食材。");
@@ -195,7 +139,7 @@
 
   function renderDishes() {
     const q = ($("#dish_q").val() || "").trim().toLowerCase();
-    const list = DISHES.filter(x =>
+    const list = catalog.dishes.filter(x =>
       !q ||
       (x.id || "").toLowerCase().includes(q) ||
       (x.name || "").toLowerCase().includes(q)
@@ -236,8 +180,8 @@
       $tr.find(".btn_del").on("click", async () => {
         if (!confirm(`確定刪除菜色：${x.name}（${x.id}）？`)) return;
         await runWithMsg(DOM.msgDish, async () => {
-          await reqJson(API.dishDelete(x.id), { method: "DELETE" });
-          await loadCatalog();
+          await deleteDish(x.id);
+          await reloadCatalog();
           renderAll();
         }, "已刪除菜色。");
       });
@@ -262,17 +206,17 @@
     if (!t) return null;
   
     // 1) 直接輸入 ID
-    if (ingById.has(t)) return t;
+    if (catalog.ingById.has(t)) return t;
   
     // 2) 從 "... (id)" 抓 id
     const m = t.match(/\(([^()]+)\)\s*$/);
-    if (m && ingById.has(m[1])) return m[1];
+    if (m && catalog.ingById.has(m[1])) return m[1];
   
     // 3) 完整 label
     if (ingLabelToId.has(t)) return ingLabelToId.get(t);
   
     // 4) 最後：若只輸入名稱，嘗試唯一匹配
-    const exact = ING.filter(x => x.name === t);
+    const exact = catalog.ingredients.filter(x => x.name === t);
     if (exact.length === 1) return exact[0].id;
   
     return null;
@@ -291,10 +235,10 @@
       throw new Error("食材：名稱 / 分類 / 預設單位 為必填。");
     }
 
-    await reqJson(API.ingUpsert(id), { method: "PUT", body: JSON.stringify(body) });
+    await upsertIngredient(id, body);
 
     $("#ing_id").val(id); // 若自動產生，回填給使用者
-    await loadCatalog();
+    await reloadCatalog();
     renderAll();
   }
 
@@ -312,16 +256,16 @@
       throw new Error("菜色：名稱 / 角色 為必填。");
     }
 
-    await reqJson(API.dishUpsert(id), { method: "PUT", body: JSON.stringify(body) });
+    await upsertDish(id, body);
 
     $("#dish_id").val(id);
-    await loadCatalog();
+    await reloadCatalog();
     renderAll();
   }
 
   function ingSelect(value) {
     const $sel = $(`<select class="di_ing"></select>`);
-    ING.forEach(x => {
+    catalog.ingredients.forEach(x => {
       const $op = $(`<option></option>`)
         .val(x.id)
         .text(`${x.name} (${x.id})`);
@@ -335,7 +279,7 @@
     const $tr = $(`<tr></tr>`);
   
     const initId = row?.ingredient_id || "";
-    const initIng = initId ? ingById.get(initId) : null;
+    const initIng = initId ? catalog.ingById.get(initId) : null;
     const initLabel = initIng ? `${initIng.category}｜${initIng.name} (${initIng.id})` : "";
   
     const $ing = $(`<input class="di_ing_input" list="dl_ingredients" placeholder="輸入食材名稱或ID">`)
@@ -364,12 +308,12 @@
   
   async function openDishIngredients(dishId) {
     editingDishId = dishId;
-    const dish = dishById.get(dishId);
+    const dish = catalog.dishById.get(dishId);
     $("#modal_title").text(`編輯菜色食材：${dish?.name || ""}（${dishId}）`);
     $("#di_tbl tbody").empty();
     clearMsg(DOM.msgDishIngredients);
 
-    const items = await reqJson(API.dishIngGet(dishId), { method: "GET", headers: {} });
+    const items = await getDishIngredients(dishId);
     (Array.isArray(items) ? items : []).forEach(r => addDishIngRow(r));
     if (!items || !items.length) addDishIngRow(null);
 
@@ -401,7 +345,7 @@
       throw new Error(`第 ${bad.join(", ")} 列食材無法辨識，請從提示清單選或直接輸入正確 ID。`);
     }
   
-    await reqJson(API.dishIngPut(dishId), { method: "PUT", body: JSON.stringify(rows) });
+    await putDishIngredients(dishId, rows);
   }
 
 function todayStr() {
@@ -429,7 +373,7 @@ function todayStr() {
       const date = $tr.find(".p_date").val();
       if (date && confirm(`刪除 ${date} 的價格紀錄？`)) {
         try {
-          await reqJson(API.ingPriceDelete(editingIngId, date), { method: "DELETE" });
+          await deleteIngredientPrice(editingIngId, date);
           $tr.remove();
         } catch (e) {
           setMsg($(DOM.msgIngMeta), e.message || String(e), true);
@@ -444,12 +388,12 @@ function todayStr() {
   
   async function openIngMeta(ingId) {
     editingIngId = ingId;
-    const ing = ingById.get(ingId);
+    const ing = catalog.ingById.get(ingId);
     $("#modal_ing_title").text(`價格/庫存：${ing?.name || ""}（${ingId}）`);
     clearMsg(DOM.msgIngMeta);
   
     // inventory
-    const inv = await reqJson(API.ingInventory(ingId), { method: "GET", headers: {} }).catch(() => null);
+    const inv = await getIngredientInventory(ingId).catch(() => null);
     $("#inv_qty").val(inv?.qty_on_hand ?? 0);
     $("#inv_unit").val(inv?.unit ?? (ing?.default_unit || "g"));
     $("#inv_updated").val(inv?.updated_at ?? todayStr());
@@ -457,7 +401,7 @@ function todayStr() {
   
     // prices
     $("#price_tbl tbody").empty();
-    const prices = await reqJson(API.ingPrices(ingId) + "?limit=30", { method: "GET", headers: {} });
+    const prices = await getIngredientPrices(ingId, 30);
     (Array.isArray(prices) ? prices : []).reverse().forEach(p => addPriceRow(p));
     if (!prices || !prices.length) addPriceRow(null);
   
@@ -511,7 +455,7 @@ function todayStr() {
           expiry_date: $("#inv_expiry").val() || null
         };
         if (!body.unit) throw new Error("庫存單位必填。");
-        await reqJson(API.ingInventory(editingIngId), { method: "PUT", body: JSON.stringify(body) });
+        await putIngredientInventory(editingIngId, body);
       }, "已儲存庫存。");
     });
     
@@ -531,10 +475,7 @@ function todayStr() {
         if (!ops.length) throw new Error("請至少填一筆有效價格（日期/單價/單位）。");
     
         for (const x of ops) {
-          await reqJson(API.ingPriceUpsert(editingIngId, x.d), {
-            method: "PUT",
-            body: JSON.stringify({ price_per_unit: x.v, unit: x.u })
-          });
+          await putIngredientPrice(editingIngId, x.d, { price_per_unit: x.v, unit: x.u });
         }
 
       }, "已儲存價格。");
@@ -555,7 +496,7 @@ function todayStr() {
 
   $(async function () {
     bindUI();
-    await loadCatalog();
+    await reloadCatalog();
 	rebuildIngredientDatalist();
     renderAll();
   });

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import random
 import time
 from dataclasses import dataclass
@@ -102,6 +103,83 @@ def _split_dishes_by_role(all_dishes: List[Dish]) -> Tuple[List[Dish], List[Dish
     return mains, sides, soups, fruits
 
 
+def _max_active_days_in_window(active_mask: List[bool], window_days: int = 30) -> int:
+    if not active_mask:
+        return 0
+
+    w = max(1, int(window_days))
+    best = 0
+    cur = 0
+    left = 0
+
+    for right, is_active in enumerate(active_mask):
+        cur += 1 if is_active else 0
+        while right - left + 1 > w:
+            cur -= 1 if active_mask[left] else 0
+            left += 1
+        if cur > best:
+            best = cur
+    return best
+
+
+def _count_eligible_mains(mains: List[Dish], feat: Dict[str, Any], hard: Dict[str, Any]) -> int:
+    excluded = set(hard.get("exclude_dish_ids", []) or [])
+    allowed_meats = set(hard.get("allowed_main_meat_types", []) or [])
+
+    count = 0
+    for d in mains:
+        if d.id not in feat:
+            continue
+        if d.id in excluded:
+            continue
+
+        meat = feat[d.id].meat_type
+        if allowed_meats and meat not in allowed_meats:
+            continue
+
+        count += 1
+    return count
+
+
+def _auto_relax_main_repeat_limit(
+    hard: Dict[str, Any],
+    active_mask: List[bool],
+    mains: List[Dish],
+    feat: Dict[str, Any],
+) -> Dict[str, Any]:
+    rep = dict(hard.get("repeat_limits", {}) or {})
+    cur = rep.get("max_same_main_in_30_days")
+    if cur is None:
+        return {}
+
+    try:
+        cur_limit = int(cur)
+    except Exception:
+        return {}
+
+    eligible_mains = _count_eligible_mains(mains, feat, hard)
+    if eligible_mains <= 0:
+        return {}
+
+    max_active_30 = _max_active_days_in_window(active_mask, window_days=30)
+    min_needed = max(1, math.ceil(max_active_30 / eligible_mains))
+
+    if cur_limit >= min_needed:
+        return {}
+
+    rep["max_same_main_in_30_days"] = min_needed
+    hard["repeat_limits"] = rep
+    return {
+        "max_same_main_in_30_days": {
+            "from": cur_limit,
+            "to": min_needed,
+            "reason": "auto_relaxed_for_feasibility",
+            "eligible_mains": eligible_mains,
+            "max_active_days_in_30": max_active_30,
+        }
+    }
+
+
 def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
     repo = SQLiteRepo(db_path)
 
@@ -135,6 +213,16 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
     )
 
     mains, sides, soups, fruits = _split_dishes_by_role(all_dishes)
+    auto_relaxed = _auto_relax_main_repeat_limit(
+        hard=hard,
+        active_mask=active_mask,
+        mains=mains,
+        feat=feat,
+    )
+    if auto_relaxed:
+        hard.setdefault("_auto_relaxed", {}).update(auto_relaxed)
+        logger.info("Auto-relaxed repeat limits: %s", auto_relaxed)
+
     logger.info(
         "Catalog counts: all=%d mains=%d sides=%d soups=%d fruits=%d",
         len(all_dishes),
@@ -278,6 +366,7 @@ def _build_debug_info(ctx: PlanContext, comp: PlanComputation) -> Dict[str, Any]
         "active_days": sum(1 for x in ctx.active_mask if x),
         "failed_days": [e.get("day_index") for e in comp.errors if e.get("day_index") is not None],
         "incomplete_days": comp.incomplete_days,
+        "auto_relaxed": ctx.hard.get("_auto_relaxed", {}),
         "base_fill_score": comp.base_score,
         "final_score": comp.final_score,
         "start_date": ctx.start_date.isoformat(),

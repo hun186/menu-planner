@@ -242,12 +242,43 @@ class SQLiteAdminRepo:
             ).fetchall()
         return {r[0]: r[1] for r in rows}
 
-    def preview_dish_cost(self, items: List[Dict[str, Any]], servings: float = 1.0) -> Dict[str, Any]:
-        ingredient_ids = [str(x["ingredient_id"]) for x in items if x.get("ingredient_id")]
-        ingredient_names = self._fetch_ingredient_names(ingredient_ids)
-        prices = self._fetch_latest_prices(ingredient_ids)
-        conv = self._fetch_unit_conversions()
+    def _fetch_dish_ingredients(self, dish_ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        where = ""
+        params: List[Any] = []
+        if dish_ids is not None:
+            if not dish_ids:
+                return []
+            placeholders = ",".join(["?"] * len(dish_ids))
+            where = f"WHERE dish_id IN ({placeholders})"
+            params = list(dish_ids)
 
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT dish_id, ingredient_id, qty, unit
+                FROM dish_ingredients
+                {where}
+                ORDER BY dish_id, ingredient_id
+                """,
+                params,
+            ).fetchall()
+        return [
+            {
+                "dish_id": r[0],
+                "ingredient_id": r[1],
+                "qty": float(r[2]),
+                "unit": r[3],
+            }
+            for r in rows
+        ]
+
+    def _build_cost_preview_rows(
+        self,
+        items: List[Dict[str, Any]],
+        ingredient_names: Dict[str, str],
+        prices: Dict[str, Dict[str, Any]],
+        conv: Dict[Tuple[str, str], float],
+    ) -> Dict[str, Any]:
         total = 0.0
         rows: List[Dict[str, Any]] = []
         for x in items:
@@ -302,10 +333,55 @@ class SQLiteAdminRepo:
             rows.append(row)
 
         per_serving = round(total, 2)
+        warnings = [r for r in rows if r["status"] != "ok"]
+        return {
+            "per_serving_cost": per_serving,
+            "rows": rows,
+            "warnings": warnings,
+        }
+
+    def preview_dish_cost(self, items: List[Dict[str, Any]], servings: float = 1.0) -> Dict[str, Any]:
+        ingredient_ids = [str(x["ingredient_id"]) for x in items if x.get("ingredient_id")]
+        ingredient_names = self._fetch_ingredient_names(ingredient_ids)
+        prices = self._fetch_latest_prices(ingredient_ids)
+        conv = self._fetch_unit_conversions()
+
+        preview = self._build_cost_preview_rows(items, ingredient_names, prices, conv)
+        per_serving = preview["per_serving_cost"]
         return {
             "servings": servings,
             "per_serving_cost": per_serving,
             "total_cost": round(per_serving * servings, 2),
-            "rows": rows,
-            "warnings": [r for r in rows if r["status"] != "ok"],
+            "rows": preview["rows"],
+            "warnings": preview["warnings"],
         }
+
+    def list_dish_cost_preview(self) -> List[Dict[str, Any]]:
+        rows = self._fetch_dish_ingredients(dish_ids=None)
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        ingredient_ids: List[str] = []
+        for x in rows:
+            dish_id = x["dish_id"]
+            grouped.setdefault(dish_id, []).append({
+                "ingredient_id": x["ingredient_id"],
+                "qty": x["qty"],
+                "unit": x["unit"],
+            })
+            ingredient_ids.append(x["ingredient_id"])
+
+        ingredient_ids = sorted(set(ingredient_ids))
+        ingredient_names = self._fetch_ingredient_names(ingredient_ids)
+        prices = self._fetch_latest_prices(ingredient_ids)
+        conv = self._fetch_unit_conversions()
+
+        out: List[Dict[str, Any]] = []
+        for dish_id, items in grouped.items():
+            preview = self._build_cost_preview_rows(items, ingredient_names, prices, conv)
+            out.append({
+                "dish_id": dish_id,
+                "per_serving_cost": preview["per_serving_cost"],
+                "warning_count": len(preview["warnings"]),
+                "warnings": preview["warnings"],
+            })
+
+        return out

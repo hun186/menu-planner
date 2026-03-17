@@ -56,6 +56,10 @@ export function previewDishCost(rows, servings = 1) {
   );
 }
 
+export function listDishCostPreview() {
+  return httpArray(ADMIN_API.dishCostPreview, { method: "GET", headers: {} }, { includeAdminKey: true });
+}
+
 export function getIngredientInventory(ingId) {
   return httpJson(ADMIN_API.ingInventory(ingId), { method: "GET", headers: {} }, { includeAdminKey: true });
 }

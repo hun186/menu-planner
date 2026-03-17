@@ -1,4 +1,4 @@
-import { deleteDish, deleteIngredient, deleteIngredientPrice, getDishIngredients, getIngredientInventory, getIngredientPrices, loadCatalog, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, upsertDish, upsertIngredient } from "./admin/api.js";
+import { deleteDish, deleteIngredient, deleteIngredientPrice, getDishIngredients, getIngredientInventory, getIngredientPrices, listDishCostPreview, loadCatalog, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, upsertDish, upsertIngredient } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -20,6 +20,7 @@ import { escapeHtml } from "./shared/html.js";
   let editingDishId = null;
   let ingLabelToId = new Map();
   let editingIngId = null;
+  let dishCostById = new Map();
   
   function setMsg($el, text, isError) {
     $el.css("color", isError ? "#b42318" : "#1a7f37").text(text || "");
@@ -47,6 +48,24 @@ import { escapeHtml } from "./shared/html.js";
   async function reloadCatalog() {
     const { ingredients, dishes } = await loadCatalog();
     setCatalogCache(catalog, ingredients, dishes);
+    await reloadDishCostPreview();
+  }
+
+  async function reloadDishCostPreview() {
+    try {
+      const list = await listDishCostPreview();
+      dishCostById = new Map((Array.isArray(list) ? list : []).map(x => [x.dish_id, x]));
+    } catch (_e) {
+      dishCostById = new Map();
+    }
+  }
+
+  function formatDishCostText(dishId) {
+    const c = dishCostById.get(dishId);
+    if (!c) return "—";
+    const base = Number(c.per_serving_cost || 0).toFixed(2);
+    const warningCount = Number(c.warning_count || 0);
+    return warningCount > 0 ? `${base} ⚠️${warningCount}` : base;
   }
   
   function rebuildIngredientDatalist() {
@@ -155,6 +174,7 @@ import { escapeHtml } from "./shared/html.js";
           <td>${escapeHtml(x.role)}</td>
           <td>${escapeHtml(x.meat_type || "")}</td>
           <td>${escapeHtml(x.cuisine || "")}</td>
+          <td>${escapeHtml(formatDishCostText(x.id))}</td>
           <td>
             <button class="btn_edit">編輯</button>
             <button class="btn_ing">編輯食材</button>
@@ -466,6 +486,8 @@ function todayStr() {
     $("#di_save").on("click", async () => {
       await runWithMsg(DOM.msgDishIngredients, async () => {
         await saveDishIngredients();
+        await reloadDishCostPreview();
+        renderDishes();
         $("#modal").addClass("hide");
       }, "已更新食材清單。");
     });
@@ -503,6 +525,8 @@ function todayStr() {
         for (const x of ops) {
           await putIngredientPrice(editingIngId, x.d, { price_per_unit: x.v, unit: x.u });
         }
+        await reloadDishCostPreview();
+        renderDishes();
 
       }, "已儲存價格。");
     });

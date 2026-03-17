@@ -244,3 +244,11 @@ def dish_cost_preview(
 ):
     repo = SQLiteAdminRepo(db_path)
     return repo.preview_dish_cost([x.model_dump() for x in body.items], servings=body.servings)
+
+
+@router.get("/dishes/cost-preview", dependencies=[Depends(require_admin_key)])
+def list_dish_cost_preview(
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    return repo.list_dish_cost_preview()

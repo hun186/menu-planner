@@ -8,6 +8,9 @@ class _FakeRepo:
     def preview_dish_cost(self, items, servings=1.0):
         return {"items": items, "servings": servings, "ok": True}
 
+    def list_dish_cost_preview(self):
+        return [{"dish_id": "dish-1", "per_serving_cost": 12.3, "warning_count": 1, "warnings": []}]
+
 
 def test_dish_cost_preview_passthrough(monkeypatch):
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
@@ -21,3 +24,11 @@ def test_dish_cost_preview_passthrough(monkeypatch):
     assert resp["ok"] is True
     assert resp["servings"] == 2
     assert resp["items"] == [{"ingredient_id": "ing-1", "qty": 10.0, "unit": "g"}]
+
+
+def test_list_dish_cost_preview_passthrough(monkeypatch):
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    resp = admin_catalog.list_dish_cost_preview(db_path="/tmp/menu.db")
+
+    assert resp == [{"dish_id": "dish-1", "per_serving_cost": 12.3, "warning_count": 1, "warnings": []}]

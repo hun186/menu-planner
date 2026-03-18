@@ -23,6 +23,10 @@ const SCORE_ITEM_META = {
     label: "湯/配菜使用庫存（加分）",
     tip: "湯與配菜命中庫存也會加分（權重較低）。",
   },
+  prefer_ingredient_bonus: {
+    label: "命中偏好食材（加分）",
+    tip: "當天菜色若命中你選的偏好食材，會再給額外加分。",
+  },
   near_expiry_bonus: {
     label: "使用近到期食材（加分）",
     tip: "越接近到期（天數越小）加分越多，促進先進先出。",
@@ -108,6 +112,20 @@ export function scoreReason(key, value, day, cfg) {
   if (key === "near_expiry_bonus") {
     const hints = collectNearExpiryHints(day);
     if (hints.length) return `近到期：${hints.join("、")}`;
+  }
+
+  if (key === "prefer_ingredient_bonus") {
+    const preferred = new Set((cfg?.soft?.inventory_prefer_ingredient_ids || []).map((x) => String(x || "").trim()).filter(Boolean));
+    if (!preferred.size) return "未設定偏好食材";
+    const used = [];
+    const push = (dish) => (dish?.used_inventory_ingredients || []).forEach((id) => used.push(String(id || "").trim()));
+    push(day?.items?.main);
+    push(day?.items?.soup);
+    push(day?.items?.veg);
+    (day?.items?.sides || []).forEach(push);
+    const hitCount = used.filter((id) => preferred.has(id)).length;
+    if (hitCount > 0) return `命中偏好食材 ${hitCount} 項`;
+    return "當日未命中偏好食材";
   }
 
   return SCORE_ITEM_META[key]?.tip || (v === 0 ? "" : "");

@@ -62,6 +62,29 @@ def score_day(
             chosen["veg"].inventory_hit_ratio
         ) * 0.5
 
+        # 偏好食材（多選）：若當日菜色命中偏好食材，額外給一點 bonus。
+        # 注意：這是 soft 偏好，不是 hard 排除；即使不在偏好清單，仍可能被排到。
+        preferred_ids = {
+            str(x).strip()
+            for x in (context.get("inventory_prefer_ingredient_ids") or [])
+            if str(x).strip()
+        }
+        if preferred_ids:
+            dishes = [
+                chosen["main"],
+                chosen["soup"],
+                chosen["side1"],
+                chosen["side2"],
+                chosen["veg"],
+            ]
+            prefer_hits = 0
+            for d in dishes:
+                used = set(d.used_inventory_ingredients or [])
+                prefer_hits += len(used & preferred_ids)
+            if prefer_hits > 0:
+                # 比一般庫存命中弱一些，避免壓過成本/重複等目標。
+                items["prefer_ingredient_bonus"] = inv_bonus * (prefer_hits * 0.35)
+
     if context.get("prefer_near_expiry", False):
         near_bonus = float(weights.get("near_expiry_bonus", 0))  # 預期是負數
         # 越接近到期（days 越小）加分越多；<0 代表過期，仍加分但你也可改成 hard 禁止

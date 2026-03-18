@@ -74,7 +74,7 @@ export function renderResult(result, cfg) {
   html += `<table class="tbl">
     <thead>
       <tr>
-        <th>日期</th><th>主菜</th><th>配菜</th><th>湯</th><th>水果</th><th>成本</th><th>符合度</th>
+        <th>日期</th><th>主菜</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>符合度</th>
       </tr>
     </thead>
     <tbody>`;
@@ -90,14 +90,14 @@ export function renderResult(result, cfg) {
       html += `<tr class="row-failed">
         <td>${d.date || ""}</td>
         <td>${escapeHtml(mainName)}</td>
-        <td colspan="3"><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
+        <td colspan="4"><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
         <td>${d.day_cost ?? ""}</td>
         <td></td>
       </tr>`;
 
       const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason });
       html += `<tr class="explain">
-        <td colspan="7">
+        <td colspan="8">
           <details open>
             <summary>原因與建議</summary>
             <pre class="pre">${escapeHtml(detailJson)}</pre>
@@ -109,6 +109,7 @@ export function renderResult(result, cfg) {
 
     const main = d.items?.main?.name || "";
     const sides = (d.items?.sides || []).map((x) => x?.name).filter(Boolean).join("、");
+    const veg = d.items?.veg?.name || "";
     const soup = d.items?.soup?.name || "";
     const fruit = d.items?.fruit?.name || "";
     const cost = d.day_cost ?? "";
@@ -119,6 +120,7 @@ export function renderResult(result, cfg) {
       <td>${d.date}</td>
       <td>${escapeHtml(main)}</td>
       <td>${escapeHtml(sides)}</td>
+      <td>${escapeHtml(veg)}</td>
       <td>${escapeHtml(soup)}</td>
       <td>${escapeHtml(fruit)}</td>
       <td>${cost}</td>
@@ -154,7 +156,7 @@ export function renderResult(result, cfg) {
     const daySummary = `今日小結：加分 ${sum.bonus.toFixed(1)} ／ 扣分 ${sum.penalty.toFixed(1)} ／ 原始 ${sum.raw.toFixed(1)}（符合度 ${sum.fitness.toFixed(1)}）`;
 
     html += `<tr class="explain">
-      <td colspan="7">
+      <td colspan="8">
         <details>
           <summary>可解釋明細</summary>
           <div class="explain-box">
@@ -165,6 +167,7 @@ export function renderResult(result, cfg) {
             <pre class="pre">${escapeHtml(pretty({
               main: d.items?.main?.used_inventory_ingredients,
               soup: d.items?.soup?.used_inventory_ingredients,
+              veg: d.items?.veg?.used_inventory_ingredients,
               sides: (d.items?.sides || []).map((x) => x?.used_inventory_ingredients),
             }))}</pre>
           </div>

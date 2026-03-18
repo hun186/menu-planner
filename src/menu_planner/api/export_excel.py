@@ -154,7 +154,10 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
         fruit = (items.get("fruit") or {}).get("name", "")
     
         sides = items.get("sides") or []
+        veg = items.get("veg") or {}
         side_names = [x.get("name", "") for x in sides]
+        if veg.get("name"):
+            side_names.append(veg.get("name", ""))
         while len(side_names) < 3:
             side_names.append("")
     

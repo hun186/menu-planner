@@ -5,8 +5,21 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
 .hdr h1{ margin:0 0 6px 0; font-size:22px; }
 .sub{ color:#555; font-size:13px; }
 
-.grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; }
-.card{ background:#fff; border:1px solid var(--bd); border-radius:12px; padding:14px; }
+.grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:12px;
+  margin-top:12px;
+  align-items:stretch;
+}
+.card{
+  background:#fff;
+  border:1px solid var(--bd);
+  border-radius:12px;
+  padding:14px;
+  min-width:0;
+  height:100%;
+}
 .card.full{ grid-column: 1 / -1; }
 h2{ margin:0 0 10px 0; font-size:16px; }
 
@@ -36,6 +49,7 @@ textarea{
 .tbl{ width:100%; border-collapse:collapse; font-size:13px; }
 
 .tbl-scroll{ width:100%; overflow-x:auto; }
+.ing-tbl{ min-width:620px; }
 .dish-tbl{ min-width:760px; }
 .tbl th, .tbl td{ border:1px solid var(--bd); padding:8px; vertical-align:top; }
 .tbl th{ background:#f6f6f6; }

@@ -44,7 +44,12 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                 errs.append("cost_range min/max 必須是數字")
 
     rep = hard.get("repeat_limits", {}) or {}
-    for k in ["max_same_main_in_30_days", "max_same_side_in_7_days", "max_same_soup_in_7_days"]:
+    for k in [
+        "max_same_main_in_30_days",
+        "max_same_side_in_7_days",
+        "max_same_soup_in_7_days",
+        "max_same_ingredient_in_7_days",
+    ]:
         if k in rep:
             try:
                 if int(rep[k]) < 1:

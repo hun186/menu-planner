@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Tuple
 
-from ..db.repo import Dish, SQLiteRepo
+from ..db.repo import Dish, DishIngredient, SQLiteRepo
 from .backtracking import fill_days_after_mains, plan_mains_beam
 from .constraints import PlanDay
 from .explain import build_explanations
@@ -105,6 +105,27 @@ def _split_dishes_by_role(all_dishes: List[Dish]) -> Tuple[List[Dish], List[Dish
     return mains, sides, vegs, soups, fruits
 
 
+def _filter_dishes_by_excluded_ingredients(
+    dishes: List[Dish],
+    dish_ingredients: List[DishIngredient],
+    hard: Dict[str, Any],
+) -> List[Dish]:
+    excluded_ingredient_ids = {
+        str(x).strip()
+        for x in (hard.get("exclude_ingredient_ids") or [])
+        if str(x).strip()
+    }
+    if not excluded_ingredient_ids:
+        return dishes
+
+    dish_has_excluded: Dict[str, bool] = {}
+    for di in dish_ingredients:
+        if di.ingredient_id in excluded_ingredient_ids:
+            dish_has_excluded[di.dish_id] = True
+
+    return [d for d in dishes if not dish_has_excluded.get(d.id, False)]
+
+
 def _max_active_days_in_window(active_mask: List[bool], window_days: int = 30) -> int:
     if not active_mask:
         return 0
@@ -197,8 +218,12 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
     hard["seed"] = seed
 
     ingredients = repo.fetch_ingredients()
-    all_dishes = repo.fetch_dishes()
     dish_ingredients = repo.fetch_dish_ingredients()
+    all_dishes = _filter_dishes_by_excluded_ingredients(
+        dishes=repo.fetch_dishes(),
+        dish_ingredients=dish_ingredients,
+        hard=hard,
+    )
     inventory = repo.fetch_inventory()
     conv = repo.fetch_unit_conversions()
     prices = repo.fetch_latest_prices(price_date=start_date.isoformat())

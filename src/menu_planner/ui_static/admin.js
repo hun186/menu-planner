@@ -1,4 +1,4 @@
-import { deleteDish, deleteIngredient, deleteIngredientPrice, getDishIngredients, getIngredientInventory, getIngredientPrices, listDishCostPreview, loadCatalog, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, upsertDish, upsertIngredient } from "./admin/api.js";
+import { deleteDish, deleteIngredient, deleteIngredientPrice, getDishIngredients, getIngredientInventory, getIngredientPrices, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, searchIngredients, upsertDish, upsertIngredient } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -21,6 +21,10 @@ import { escapeHtml } from "./shared/html.js";
   let ingLabelToId = new Map();
   let editingIngId = null;
   let dishCostById = new Map();
+  const ingredientPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
+  const dishPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
+  let catalogLoadSeq = 0;
+  let ingredientSuggestSeq = 0;
   
   function setMsg($el, text, isError) {
     $el.css("color", isError ? "#b42318" : "#1a7f37").text(text || "");
@@ -45,15 +49,48 @@ import { escapeHtml } from "./shared/html.js";
     }
   }
 
-  async function reloadCatalog() {
-    const { ingredients, dishes } = await loadCatalog();
-    setCatalogCache(catalog, ingredients, dishes);
-    await reloadDishCostPreview();
+  function debounce(fn, wait = 300) {
+    let timer = null;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), wait);
+    };
   }
 
-  async function reloadDishCostPreview() {
+  async function reloadCatalog() {
+    const requestSeq = ++catalogLoadSeq;
+    const { ingredients, dishes } = await loadCatalogPage({
+      ingredientPage: ingredientPager.page,
+      ingredientPageSize: ingredientPager.pageSize,
+      ingredientQ: ingredientPager.q,
+      dishPage: dishPager.page,
+      dishPageSize: dishPager.pageSize,
+      dishQ: dishPager.q,
+    });
+    if (requestSeq !== catalogLoadSeq) return;
+
+    const ingItems = Array.isArray(ingredients?.items) ? ingredients.items : [];
+    const dishItems = Array.isArray(dishes?.items) ? dishes.items : [];
+    setCatalogCache(catalog, ingItems, dishItems);
+    ingredientPager.total = Number(ingredients?.total || 0);
+    ingredientPager.totalPages = Math.max(1, Number(ingredients?.total_pages || 1));
+    dishPager.total = Number(dishes?.total || 0);
+    dishPager.totalPages = Math.max(1, Number(dishes?.total_pages || 1));
+
+    $("#ing_page_info").text(`第 ${ingredientPager.page} / ${ingredientPager.totalPages} 頁，共 ${ingredientPager.total} 筆`);
+    $("#dish_page_info").text(`第 ${dishPager.page} / ${dishPager.totalPages} 頁，共 ${dishPager.total} 筆`);
+    $("#ing_prev_page").prop("disabled", ingredientPager.page <= 1);
+    $("#ing_next_page").prop("disabled", ingredientPager.page >= ingredientPager.totalPages);
+    $("#dish_prev_page").prop("disabled", dishPager.page <= 1);
+    $("#dish_next_page").prop("disabled", dishPager.page >= dishPager.totalPages);
+    $("#ing_page_jump").val(ingredientPager.page);
+    $("#dish_page_jump").val(dishPager.page);
+    await reloadDishCostPreview(dishItems.map(x => x.id));
+  }
+
+  async function reloadDishCostPreview(dishIds = []) {
     try {
-      const list = await listDishCostPreview();
+      const list = await listDishCostPreview(dishIds);
       dishCostById = new Map((Array.isArray(list) ? list : []).map(x => [x.dish_id, x]));
     } catch (_e) {
       dishCostById = new Map();
@@ -68,11 +105,11 @@ import { escapeHtml } from "./shared/html.js";
     return warningCount > 0 ? `${base} ⚠️${warningCount}` : base;
   }
   
-  function rebuildIngredientDatalist() {
+  function rebuildIngredientDatalist(items = []) {
     ingLabelToId = new Map();
     const $dl = $("#dl_ingredients").empty();
   
-    catalog.ingredients.forEach(x => {
+    items.forEach(x => {
       // 顯示用：分類｜名稱 (id) 讓人更好辨認
       const label = `${x.category}｜${x.name} (${x.id})`;
       ingLabelToId.set(label, x.id);
@@ -103,12 +140,7 @@ import { escapeHtml } from "./shared/html.js";
   }
 
   function renderIngredients() {
-    const q = ($("#ing_q").val() || "").trim().toLowerCase();
-    const list = catalog.ingredients.filter(x =>
-      !q ||
-      (x.id || "").toLowerCase().includes(q) ||
-      (x.name || "").toLowerCase().includes(q)
-    );
+    const list = catalog.ingredients;
 
     const $tb = $("#ing_tbl tbody").empty();
     list.forEach(x => {
@@ -147,7 +179,6 @@ import { escapeHtml } from "./shared/html.js";
         await runWithMsg(DOM.msgIng, async () => {
           await deleteIngredient(x.id);
           await reloadCatalog();
-		  rebuildIngredientDatalist();
           renderAll();
         }, "已刪除食材。");
       });
@@ -158,12 +189,7 @@ import { escapeHtml } from "./shared/html.js";
   }
 
   function renderDishes() {
-    const q = ($("#dish_q").val() || "").trim().toLowerCase();
-    const list = catalog.dishes.filter(x =>
-      !q ||
-      (x.id || "").toLowerCase().includes(q) ||
-      (x.name || "").toLowerCase().includes(q)
-    );
+    const list = catalog.dishes;
 
     const $tb = $("#dish_tbl tbody").empty();
     list.forEach(x => {
@@ -231,17 +257,25 @@ import { escapeHtml } from "./shared/html.js";
   
     // 2) 從 "... (id)" 抓 id
     const m = t.match(/\(([^()]+)\)\s*$/);
-    if (m && catalog.ingById.has(m[1])) return m[1];
+    if (m) return m[1];
   
     // 3) 完整 label
     if (ingLabelToId.has(t)) return ingLabelToId.get(t);
-  
-    // 4) 最後：若只輸入名稱，嘗試唯一匹配
+
+    // 4) 最後：若只輸入名稱，嘗試唯一匹配（僅當前頁資料）
     const exact = catalog.ingredients.filter(x => x.name === t);
     if (exact.length === 1) return exact[0].id;
-  
-    return null;
+
+    // 5) 退而求其次：允許看起來像 ID 的值（後端會最終驗證）
+    return /^[\w.-]+$/u.test(t) ? t : null;
   }
+
+  const debouncedSuggestIngredients = debounce(async (keyword) => {
+    const requestSeq = ++ingredientSuggestSeq;
+    const items = await searchIngredients(keyword, 20).catch(() => []);
+    if (requestSeq !== ingredientSuggestSeq) return;
+    rebuildIngredientDatalist(items);
+  }, 250);
   
   async function saveIngredient() {
     const id = ($("#ing_id").val() || "").trim() || genId("ing");
@@ -301,7 +335,7 @@ import { escapeHtml } from "./shared/html.js";
   
     const initId = row?.ingredient_id || "";
     const initIng = initId ? catalog.ingById.get(initId) : null;
-    const initLabel = initIng ? `${initIng.category}｜${initIng.name} (${initIng.id})` : "";
+    const initLabel = initIng ? `${initIng.category}｜${initIng.name} (${initIng.id})` : initId;
   
     const $ing = $(`<input class="di_ing_input" list="dl_ingredients" placeholder="輸入食材名稱或ID">`)
       .val(initLabel)
@@ -309,9 +343,11 @@ import { escapeHtml } from "./shared/html.js";
   
     // 當使用者改輸入時，嘗試解析成 id，存到 data
     $ing.on("input change blur", function () {
-      const id = resolveIngredientId($(this).val());
+      const rawText = $(this).val();
+      const id = resolveIngredientId(rawText);
       $(this).data("ing_id", id || "");
       $(this).css("border-color", id ? "" : "#ef4444");
+      debouncedSuggestIngredients((rawText || "").trim());
     });
   
     const $qty = $(`<input class="di_qty" type="number" step="0.1">`).val(row?.qty ?? 100);
@@ -450,8 +486,78 @@ function todayStr() {
   }
   
   function bindUI() {
-    $("#ing_q").on("input", renderIngredients);
-    $("#dish_q").on("input", renderDishes);
+    const onIngredientSearchInput = debounce(async () => {
+      ingredientPager.q = ($("#ing_q").val() || "").trim();
+      ingredientPager.page = 1;
+      await reloadCatalog();
+      renderIngredients();
+    }, 250);
+
+    const onDishSearchInput = debounce(async () => {
+      dishPager.q = ($("#dish_q").val() || "").trim();
+      dishPager.page = 1;
+      await reloadCatalog();
+      renderDishes();
+    }, 250);
+
+    $("#ing_q").on("input", onIngredientSearchInput);
+    $("#dish_q").on("input", onDishSearchInput);
+
+    $("#ing_page_size").on("change", async function () {
+      ingredientPager.pageSize = Number($(this).val() || 50);
+      ingredientPager.page = 1;
+      await reloadCatalog();
+      renderIngredients();
+    });
+
+    $("#dish_page_size").on("change", async function () {
+      dishPager.pageSize = Number($(this).val() || 50);
+      dishPager.page = 1;
+      await reloadCatalog();
+      renderDishes();
+    });
+
+    $("#ing_prev_page").on("click", async () => {
+      if (ingredientPager.page <= 1) return;
+      ingredientPager.page -= 1;
+      await reloadCatalog();
+      renderIngredients();
+    });
+
+    $("#ing_next_page").on("click", async () => {
+      if (ingredientPager.page >= ingredientPager.totalPages) return;
+      ingredientPager.page += 1;
+      await reloadCatalog();
+      renderIngredients();
+    });
+
+    $("#dish_prev_page").on("click", async () => {
+      if (dishPager.page <= 1) return;
+      dishPager.page -= 1;
+      await reloadCatalog();
+      renderDishes();
+    });
+
+    $("#dish_next_page").on("click", async () => {
+      if (dishPager.page >= dishPager.totalPages) return;
+      dishPager.page += 1;
+      await reloadCatalog();
+      renderDishes();
+    });
+
+    $("#ing_jump_btn").on("click", async () => {
+      const target = Number($("#ing_page_jump").val() || 1);
+      ingredientPager.page = Math.min(Math.max(1, target), ingredientPager.totalPages);
+      await reloadCatalog();
+      renderIngredients();
+    });
+
+    $("#dish_jump_btn").on("click", async () => {
+      const target = Number($("#dish_page_jump").val() || 1);
+      dishPager.page = Math.min(Math.max(1, target), dishPager.totalPages);
+      await reloadCatalog();
+      renderDishes();
+    });
 
     $("#ing_clear").on("click", () => {
       clearFields(DOM.ingredientEditorFields);
@@ -486,7 +592,7 @@ function todayStr() {
     $("#di_save").on("click", async () => {
       await runWithMsg(DOM.msgDishIngredients, async () => {
         await saveDishIngredients();
-        await reloadDishCostPreview();
+        await reloadDishCostPreview(catalog.dishes.map(x => x.id));
         renderDishes();
         $("#modal").addClass("hide");
       }, "已更新食材清單。");
@@ -525,7 +631,7 @@ function todayStr() {
         for (const x of ops) {
           await putIngredientPrice(editingIngId, x.d, { price_per_unit: x.v, unit: x.u });
         }
-        await reloadDishCostPreview();
+        await reloadDishCostPreview(catalog.dishes.map(x => x.id));
         renderDishes();
 
       }, "已儲存價格。");
@@ -547,7 +653,8 @@ function todayStr() {
   $(async function () {
     bindUI();
     await reloadCatalog();
-	rebuildIngredientDatalist();
+    const initialSuggestions = await searchIngredients("", 20).catch(() => []);
+    rebuildIngredientDatalist(initialSuggestions);
     renderAll();
   });
 })();

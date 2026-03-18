@@ -72,6 +72,29 @@ class DishCostPreviewIn(BaseModel):
     servings: float = Field(default=1.0, gt=0)
 
 
+@router.get("/ingredients", dependencies=[Depends(require_admin_key)])
+def list_ingredients(
+    q: Optional[str] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    return repo.list_ingredients(q=q, page=page, page_size=page_size)
+
+
+@router.get("/dishes", dependencies=[Depends(require_admin_key)])
+def list_dishes(
+    q: Optional[str] = Query(default=None),
+    role: Optional[str] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    return repo.list_dishes(q=q, role=role, page=page, page_size=page_size)
+
+
 @router.put("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_key)])
 def upsert_ingredient(
     ingredient_id: str,
@@ -248,7 +271,12 @@ def dish_cost_preview(
 
 @router.get("/dishes/cost-preview", dependencies=[Depends(require_admin_key)])
 def list_dish_cost_preview(
+    dish_id: List[str] = Query(default=[]),
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    return repo.list_dish_cost_preview()
+    dish_ids = dish_id if isinstance(dish_id, list) else []
+    target_dish_ids = dish_ids or None
+    if target_dish_ids is None:
+        return repo.list_dish_cost_preview()
+    return repo.list_dish_cost_preview(target_dish_ids)

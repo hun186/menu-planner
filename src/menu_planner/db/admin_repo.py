@@ -43,6 +43,59 @@ class SQLiteAdminRepo:
         with self._conn() as conn:
             r = conn.execute("SELECT 1 FROM ingredients WHERE id=? LIMIT 1", (ingredient_id,)).fetchone()
         return r is not None
+
+    def list_ingredients(
+        self,
+        *,
+        q: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        where_sql = ""
+        params: List[Any] = []
+        keyword = (q or "").strip()
+        if keyword:
+            where_sql = "WHERE LOWER(id) LIKE ? OR LOWER(name) LIKE ?"
+            like = f"%{keyword.lower()}%"
+            params.extend([like, like])
+
+        limit = max(1, int(page_size))
+        offset = (max(1, int(page)) - 1) * limit
+
+        with self._conn() as conn:
+            total = conn.execute(
+                f"SELECT COUNT(1) FROM ingredients {where_sql}",
+                params,
+            ).fetchone()[0]
+            rows = conn.execute(
+                f"""
+                SELECT id, name, category, protein_group, default_unit
+                FROM ingredients
+                {where_sql}
+                ORDER BY name, id
+                LIMIT ? OFFSET ?
+                """,
+                [*params, limit, offset],
+            ).fetchall()
+
+        total = int(total or 0)
+        total_pages = max(1, (total + limit - 1) // limit) if total else 1
+        return {
+            "items": [
+                {
+                    "id": r[0],
+                    "name": r[1],
+                    "category": r[2],
+                    "protein_group": r[3],
+                    "default_unit": r[4],
+                }
+                for r in rows
+            ],
+            "page": max(1, int(page)),
+            "page_size": limit,
+            "total": total,
+            "total_pages": total_pages,
+        }
     
     # ---------- prices ----------
     def list_prices(self, ingredient_id: str, limit: int = 30):
@@ -164,6 +217,75 @@ class SQLiteAdminRepo:
         with self._conn() as conn:
             r = conn.execute("SELECT 1 FROM dishes WHERE id=? LIMIT 1", (dish_id,)).fetchone()
         return r is not None
+
+    def list_dishes(
+        self,
+        *,
+        q: Optional[str] = None,
+        role: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> Dict[str, Any]:
+        where_parts: List[str] = []
+        params: List[Any] = []
+
+        keyword = (q or "").strip()
+        if keyword:
+            where_parts.append("(LOWER(id) LIKE ? OR LOWER(name) LIKE ?)")
+            like = f"%{keyword.lower()}%"
+            params.extend([like, like])
+
+        if role:
+            where_parts.append("role = ?")
+            params.append(role)
+
+        where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
+        limit = max(1, int(page_size))
+        offset = (max(1, int(page)) - 1) * limit
+
+        with self._conn() as conn:
+            total = conn.execute(
+                f"SELECT COUNT(1) FROM dishes {where_sql}",
+                params,
+            ).fetchone()[0]
+            rows = conn.execute(
+                f"""
+                SELECT id, name, role, cuisine, meat_type, tags_json
+                FROM dishes
+                {where_sql}
+                ORDER BY role, name, id
+                LIMIT ? OFFSET ?
+                """,
+                [*params, limit, offset],
+            ).fetchall()
+
+        total = int(total or 0)
+        total_pages = max(1, (total + limit - 1) // limit) if total else 1
+        return {
+            "items": [
+                {
+                    "id": r[0],
+                    "name": r[1],
+                    "role": r[2],
+                    "cuisine": r[3],
+                    "meat_type": r[4],
+                    "tags": self._safe_json_list(r[5]),
+                }
+                for r in rows
+            ],
+            "page": max(1, int(page)),
+            "page_size": limit,
+            "total": total,
+            "total_pages": total_pages,
+        }
+
+    @staticmethod
+    def _safe_json_list(raw: Optional[str]) -> List[Any]:
+        try:
+            data = json.loads(raw or "[]")
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
 
     # ---------- dish_ingredients ----------
     def get_dish_ingredients(self, dish_id: str) -> List[Dict[str, Any]]:
@@ -356,8 +478,8 @@ class SQLiteAdminRepo:
             "warnings": preview["warnings"],
         }
 
-    def list_dish_cost_preview(self) -> List[Dict[str, Any]]:
-        rows = self._fetch_dish_ingredients(dish_ids=None)
+    def list_dish_cost_preview(self, dish_ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        rows = self._fetch_dish_ingredients(dish_ids=dish_ids)
         grouped: Dict[str, List[Dict[str, Any]]] = {}
         ingredient_ids: List[str] = []
         for x in rows:

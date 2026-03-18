@@ -31,7 +31,8 @@
       "max_same_main_in_30_days": 1,
       "max_same_side_in_7_days": 1,
       "max_same_soup_in_7_days": 1,
-	  "max_same_fruit_in_7_days": 1
+	  "max_same_fruit_in_7_days": 1,
+      "max_same_ingredient_in_7_days": 3
     },
 
     "cost_range_per_person_per_day": { "min": 1, "max": 200 }

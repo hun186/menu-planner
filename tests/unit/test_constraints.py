@@ -3,6 +3,7 @@ from datetime import date
 from src.menu_planner.engine.constraints import (
     PlanDay,
     _fixed_main_allowed_meats,
+    check_ingredient_window_repeat,
     check_main_hard,
     check_side_window_repeat,
     check_veg_window_repeat,
@@ -88,3 +89,67 @@ def test_check_veg_window_repeat_skips_offdays():
 
     assert check_veg_window_repeat(3, "v1", plan_days, max_repeat_in_7=2) is False
     assert check_veg_window_repeat(3, "v3", plan_days, max_repeat_in_7=2) is True
+
+
+def test_check_ingredient_window_repeat_blocks_fourth_day_occurrence():
+    plan_days = [
+        PlanDay(main="m1", sides=["s1", "s2"], veg="v1", soup="sp1", fruit="f1"),
+        PlanDay(main="m2", sides=["s3", "s4"], veg="v2", soup="sp2", fruit="f2"),
+        PlanDay(main="m3", sides=["s5", "s6"], veg="v3", soup="sp3", fruit="f3"),
+    ]
+    dish_ingredient_ids = {
+        "m1": {"ing_chicken"},
+        "m2": {"ing_pork"},
+        "m3": {"ing_beef"},
+        "s1": {"ing_tofu"},
+        "s3": {"ing_tofu"},
+        "sp3": {"ing_tofu"},
+        "s2": {"ing_cabbage"},
+        "s4": {"ing_bokchoy"},
+        "s5": {"ing_carrot"},
+        "s6": {"ing_egg"},
+        "v1": {"ing_spinach"},
+        "v2": {"ing_bean"},
+        "v3": {"ing_choy"},
+        "sp1": {"ing_daikon"},
+        "sp2": {"ing_tomato"},
+        "f1": {"ing_apple"},
+        "f2": {"ing_orange"},
+        "f3": {"ing_banana"},
+        "new_soup": {"ing_tofu"},
+    }
+
+    ok = check_ingredient_window_repeat(
+        day_idx=3,
+        dish_ids_today=["m4", "new_soup", "f4", "v4", "s7", "s8"],
+        plan_days=plan_days,
+        dish_ingredient_ids=dish_ingredient_ids,
+        max_repeat_in_7=3,
+    )
+    assert ok is False
+
+
+def test_check_ingredient_window_repeat_counts_once_per_day():
+    plan_days = [
+        PlanDay(main="m1", sides=["s1", "s2"], veg="v1", soup="sp1", fruit="f1"),
+    ]
+    dish_ingredient_ids = {
+        "m1": {"ing_tofu"},
+        "s1": {"ing_tofu"},
+        "s2": {"ing_tofu"},
+        "v1": {"ing_cabbage"},
+        "sp1": {"ing_tomato"},
+        "f1": {"ing_apple"},
+        "m2": {"ing_pork"},
+        "sp2": {"ing_tofu"},
+    }
+
+    ok = check_ingredient_window_repeat(
+        day_idx=1,
+        dish_ids_today=["m2", "sp2"],
+        plan_days=plan_days,
+        dish_ingredient_ids=dish_ingredient_ids,
+        max_repeat_in_7=1,
+    )
+    # 前一天雖有多道豆腐，仍只算 1 天；因此今天再出現豆腐就超限
+    assert ok is False

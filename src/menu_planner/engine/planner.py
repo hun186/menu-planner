@@ -7,9 +7,9 @@ import random
 import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
-from ..db.repo import Dish, SQLiteRepo
+from ..db.repo import Dish, DishIngredient, SQLiteRepo
 from .backtracking import fill_days_after_mains, plan_mains_beam
 from .constraints import PlanDay
 from .explain import build_explanations
@@ -31,6 +31,7 @@ class PlanContext:
     seed: int
     all_dishes: List[Dish]
     dishes_by_id: Dict[str, Dish]
+    dish_ingredient_ids: Dict[str, Set[str]]
     feat: Dict[str, Any]
     mains: List[Dish]
     sides: List[Dish]
@@ -103,6 +104,34 @@ def _split_dishes_by_role(all_dishes: List[Dish]) -> Tuple[List[Dish], List[Dish
     soups = [d for d in all_dishes if d.role == "soup"]
     fruits = [d for d in all_dishes if d.role == "fruit"]
     return mains, sides, vegs, soups, fruits
+
+
+def _filter_dishes_by_excluded_ingredients(
+    dishes: List[Dish],
+    dish_ingredients: List[DishIngredient],
+    hard: Dict[str, Any],
+) -> List[Dish]:
+    excluded_ingredient_ids = {
+        str(x).strip()
+        for x in (hard.get("exclude_ingredient_ids") or [])
+        if str(x).strip()
+    }
+    if not excluded_ingredient_ids:
+        return dishes
+
+    dish_has_excluded: Dict[str, bool] = {}
+    for di in dish_ingredients:
+        if di.ingredient_id in excluded_ingredient_ids:
+            dish_has_excluded[di.dish_id] = True
+
+    return [d for d in dishes if not dish_has_excluded.get(d.id, False)]
+
+
+def _build_dish_ingredient_ids(dish_ingredients: List[DishIngredient]) -> Dict[str, Set[str]]:
+    out: Dict[str, Set[str]] = {}
+    for di in dish_ingredients:
+        out.setdefault(di.dish_id, set()).add(di.ingredient_id)
+    return out
 
 
 def _max_active_days_in_window(active_mask: List[bool], window_days: int = 30) -> int:
@@ -197,8 +226,12 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
     hard["seed"] = seed
 
     ingredients = repo.fetch_ingredients()
-    all_dishes = repo.fetch_dishes()
     dish_ingredients = repo.fetch_dish_ingredients()
+    all_dishes = _filter_dishes_by_excluded_ingredients(
+        dishes=repo.fetch_dishes(),
+        dish_ingredients=dish_ingredients,
+        hard=hard,
+    )
     inventory = repo.fetch_inventory()
     conv = repo.fetch_unit_conversions()
     prices = repo.fetch_latest_prices(price_date=start_date.isoformat())
@@ -246,6 +279,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         seed=seed,
         all_dishes=all_dishes,
         dishes_by_id=dishes_by_id,
+        dish_ingredient_ids=_build_dish_ingredient_ids(dish_ingredients),
         feat=feat,
         mains=mains,
         sides=sides,
@@ -305,6 +339,7 @@ def _run_backtracking(ctx: PlanContext) -> Tuple[List[PlanDay], float, List[Dict
         hard=ctx.hard,
         weights=ctx.weights,
         soft=ctx.soft,
+        dish_ingredient_ids=ctx.dish_ingredient_ids,
         start_date=ctx.start_date,
         active_mask=ctx.active_mask,
     )
@@ -338,6 +373,7 @@ def _run_local_search(
             hard=ctx.hard,
             weights=ctx.weights,
             soft=ctx.soft,
+            dish_ingredient_ids=ctx.dish_ingredient_ids,
             iterations=int(ls.get("iterations", 800)),
             accept_worse_probability=float(ls.get("accept_worse_probability", 0.03)),
             seed=ctx.seed,

@@ -254,6 +254,49 @@ def check_veg_window_repeat(
                 return False
     return True
 
+
+def _day_ingredient_ids(
+    day: PlanDay,
+    dish_ingredient_ids: Dict[str, Set[str]],
+) -> Set[str]:
+    dish_ids = [day.main, day.soup, day.veg, day.fruit] + list(day.sides or [])
+    out: Set[str] = set()
+    for did in dish_ids:
+        if did:
+            out.update(dish_ingredient_ids.get(did, set()))
+    return out
+
+
+def check_ingredient_window_repeat(
+    day_idx: int,
+    dish_ids_today: List[str],
+    plan_days: List[PlanDay],
+    dish_ingredient_ids: Dict[str, Set[str]],
+    max_repeat_in_7: int,
+) -> bool:
+    """
+    最近 7 個「有排餐日」內，同一食材出現天數 <= max_repeat_in_7。
+    計數單位是「天」：同一天即使多道菜都有豆腐，也只記 1 次。
+    """
+    if max_repeat_in_7 >= 10**9:
+        return True
+
+    counts: Dict[str, int] = {}
+    for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days=7):
+        day_ings = _day_ingredient_ids(plan_days[i], dish_ingredient_ids)
+        for ing in day_ings:
+            counts[ing] = counts.get(ing, 0) + 1
+
+    today_ings: Set[str] = set()
+    for did in dish_ids_today:
+        if did:
+            today_ings.update(dish_ingredient_ids.get(did, set()))
+
+    for ing in today_ings:
+        if counts.get(ing, 0) + 1 > max_repeat_in_7:
+            return False
+    return True
+
 def check_cost_range(
     total_cost: float,
     hard: Dict

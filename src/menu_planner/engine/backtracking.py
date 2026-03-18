@@ -4,13 +4,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from datetime import timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 import random
 
 from ..db.repo import Dish
 from .features import DishFeatures
 from .constraints import PlanDay, check_main_hard 
-from .constraints import check_side_window_repeat, check_soup_window_repeat, check_fruit_window_repeat, check_veg_window_repeat
+from .constraints import (
+    check_side_window_repeat,
+    check_soup_window_repeat,
+    check_fruit_window_repeat,
+    check_veg_window_repeat,
+    check_ingredient_window_repeat,
+)
 from .constraints import check_cost_range
 from .scoring import score_day
 
@@ -192,9 +198,12 @@ def _pick_fruit(
     plan_days: List[PlanDay],
     feat: Dict[str, DishFeatures],
     hard: Dict,
+    dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
+    selected_dish_ids: Optional[List[str]] = None,
 ) -> str:
     rep = hard.get("repeat_limits", {}) or {}
     max_fruit_7 = int(rep.get("max_same_fruit_in_7_days", 10**9))  # 預設幾乎不限制
+    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
 
     fruit_ids = [d.id for d in fruits if d.id in feat]
     if not fruit_ids:
@@ -202,6 +211,10 @@ def _pick_fruit(
 
     # ✅ 不要 sort，保留外部傳入的順序（你已在外面 shuffle）
     for fid in fruit_ids:
+        if dish_ingredient_ids is not None:
+            base = list(selected_dish_ids or [])
+            if not check_ingredient_window_repeat(day_idx, base + [fid], plan_days, dish_ingredient_ids, max_ing_7):
+                continue
         if check_fruit_window_repeat(day_idx, fid, plan_days, max_fruit_7):
             return fid
 
@@ -214,11 +227,14 @@ def _choose_soup(
     plan_days: List[PlanDay],
     feat: Dict[str, DishFeatures],
     hard: Dict,
+    main_id: str,
+    dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
     rng: Optional[random.Random] = None,
     topk: int = 25,
 ) -> Optional[str]:
     rep = hard.get("repeat_limits", {}) or {}
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
+    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
     soup_ids = [d.id for d in soups if d.id in feat]
 
     soup_ids.sort(key=lambda did: (
@@ -234,6 +250,14 @@ def _choose_soup(
         soup_ids = head + soup_ids[topk:]
 
     for sid in soup_ids:
+        if dish_ingredient_ids is not None and not check_ingredient_window_repeat(
+            day_idx,
+            [main_id, sid],
+            plan_days,
+            dish_ingredient_ids,
+            max_ing_7,
+        ):
+            continue
         if check_soup_window_repeat(day_idx, sid, plan_days, max_soup_7):
             return sid
     return None
@@ -245,12 +269,17 @@ def _choose_sides_backtrack(
     plan_days: List[PlanDay],
     feat: Dict[str, DishFeatures],
     hard: Dict,
+    main_id: str,
+    soup_id: str,
+    fruit_id: str,
+    dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
     rng: Optional[random.Random] = None,
     topk: int = 120,
     pick_count: int = 2,
 ) -> Optional[List[str]]:
     rep = hard.get("repeat_limits", {}) or {}
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
+    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
     side_ids = [d.id for d in sides if d.id in feat]
 
     side_ids.sort(key=lambda did: (
@@ -269,7 +298,17 @@ def _choose_sides_backtrack(
 
     def dfs(start_idx: int) -> Optional[List[str]]:
         if len(chosen) == pick_count:
-            return list(chosen) if check_side_window_repeat(day_idx, chosen, plan_days, max_side_7) else None
+            if not check_side_window_repeat(day_idx, chosen, plan_days, max_side_7):
+                return None
+            if dish_ingredient_ids is not None and not check_ingredient_window_repeat(
+                day_idx,
+                [main_id, soup_id, fruit_id] + list(chosen),
+                plan_days,
+                dish_ingredient_ids,
+                max_ing_7,
+            ):
+                return None
+            return list(chosen)
 
         for i in range(start_idx, len(side_ids)):
             did = side_ids[i]
@@ -291,11 +330,14 @@ def _choose_veg(
     plan_days: List[PlanDay],
     feat: Dict[str, DishFeatures],
     hard: Dict,
+    selected_dish_ids: List[str],
+    dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
     rng: Optional[random.Random] = None,
     topk: int = 80,
 ) -> Optional[str]:
     rep = hard.get("repeat_limits", {}) or {}
     max_veg_7 = int(rep.get("max_same_veg_in_7_days", rep.get("max_same_side_in_7_days", 1)))
+    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
     veg_ids = [d.id for d in vegs if d.id in feat]
 
     veg_ids.sort(key=lambda did: (
@@ -310,6 +352,14 @@ def _choose_veg(
         veg_ids = head + veg_ids[topk:]
 
     for vid in veg_ids:
+        if dish_ingredient_ids is not None and not check_ingredient_window_repeat(
+            day_idx,
+            list(selected_dish_ids) + [vid],
+            plan_days,
+            dish_ingredient_ids,
+            max_ing_7,
+        ):
+            continue
         if check_veg_window_repeat(day_idx, vid, plan_days, max_veg_7):
             return vid
     return None
@@ -326,6 +376,7 @@ def fill_days_after_mains(
     hard: Dict,
     weights: Dict,
     soft: Dict,
+    dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
     start_date: Optional[date] = None,          # ✅ 新增（可選）
     active_mask: Optional[List[bool]] = None,   # ✅ 新增（可選）
 ) -> Tuple[List[PlanDay], float, List[Dict], List[Dict]]:
@@ -393,7 +444,15 @@ def fill_days_after_mains(
         try:
             #fruit_id = _pick_fruit(fruits, day, feat)
             #fruit_id = _pick_fruit(fruit_pool, day, feat)
-            fruit_id = _pick_fruit(fruit_pool, day, plan_days, feat, hard)
+            fruit_id = _pick_fruit(
+                fruit_pool,
+                day,
+                plan_days,
+                feat,
+                hard,
+                dish_ingredient_ids=dish_ingredient_ids,
+                selected_dish_ids=[main_id],
+            )
         except PlanError as e:
             # 系統性缺水果：仍可回傳 errors + placeholder 後繼續
             errors.append(e.to_dict())
@@ -411,7 +470,16 @@ def fill_days_after_mains(
         # ===== soup =====
         #soup_id = _choose_soup(day, soups, plan_days, feat, hard)
         #soup_id  = _choose_soup(day, soup_pool, plan_days, feat, hard)
-        soup_id  = _choose_soup(day, soup_pool, plan_days, feat, hard, rng=rng)
+        soup_id  = _choose_soup(
+            day,
+            soup_pool,
+            plan_days,
+            feat,
+            hard,
+            main_id=main_id,
+            dish_ingredient_ids=dish_ingredient_ids,
+            rng=rng,
+        )
         if not soup_id:
             err = PlanError(
                 code="SOUP_NO_SOLUTION",
@@ -438,7 +506,19 @@ def fill_days_after_mains(
         # ===== sides =====
         #side_ids = _choose_sides_backtrack(day, sides, plan_days, feat, hard)
         #side_ids = _choose_sides_backtrack(day, side_pool, plan_days, feat, hard)
-        side_ids = _choose_sides_backtrack(day, side_pool, plan_days, feat, hard, rng=rng, pick_count=2)
+        side_ids = _choose_sides_backtrack(
+            day,
+            side_pool,
+            plan_days,
+            feat,
+            hard,
+            main_id=main_id,
+            soup_id=soup_id,
+            fruit_id=fruit_id,
+            dish_ingredient_ids=dish_ingredient_ids,
+            rng=rng,
+            pick_count=2,
+        )
         if not side_ids:
             side_candidates = [d.id for d in sides if d.id in feat]
             err = PlanError(
@@ -463,7 +543,16 @@ def fill_days_after_mains(
             )
             continue
 
-        veg_id = _choose_veg(day, veg_pool, plan_days, feat, hard, rng=rng)
+        veg_id = _choose_veg(
+            day,
+            veg_pool,
+            plan_days,
+            feat,
+            hard,
+            selected_dish_ids=[main_id, soup_id, fruit_id] + list(side_ids),
+            dish_ingredient_ids=dish_ingredient_ids,
+            rng=rng,
+        )
         if not veg_id:
             err = PlanError(
                 code="VEG_NO_SOLUTION",
@@ -526,7 +615,18 @@ def fill_days_after_mains(
                 alt_pool = side_pool[:]
                 rng.shuffle(alt_pool)
                 #alt = _choose_sides_backtrack(day, alt_pool, plan_days, feat, hard)
-                alt = _choose_sides_backtrack(day, alt_pool, plan_days, feat, hard, rng=rng)
+                alt = _choose_sides_backtrack(
+                    day,
+                    alt_pool,
+                    plan_days,
+                    feat,
+                    hard,
+                    main_id=main_id,
+                    soup_id=soup_id,
+                    fruit_id=fruit_id,
+                    dish_ingredient_ids=dish_ingredient_ids,
+                    rng=rng,
+                )
                 if alt:
                     side_ids = alt
                     day_cost = (

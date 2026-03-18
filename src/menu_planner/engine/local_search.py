@@ -7,7 +7,15 @@ import random
 from datetime import date, timedelta
 
 from ..db.repo import Dish
-from .constraints import PlanDay, check_cost_range, check_soup_window_repeat, check_side_window_repeat, check_veg_window_repeat, check_main_hard
+from .constraints import (
+    PlanDay,
+    check_cost_range,
+    check_soup_window_repeat,
+    check_side_window_repeat,
+    check_veg_window_repeat,
+    check_main_hard,
+    check_ingredient_window_repeat,
+)
 from .features import DishFeatures
 from .scoring import score_day
 
@@ -97,6 +105,7 @@ def _hard_ok_for_plan(
     mains: List[Dish],
     feat: Dict[str, DishFeatures],
     hard: Dict,
+    dish_ingredient_ids: Optional[Dict[str, set]] = None,
     start_date: Optional[date] = None,   # ✅ 新增
 ) -> bool:
     # 重新走一次 main hard（週配額/連續肉/重複主菜）
@@ -143,6 +152,7 @@ def _hard_ok_for_plan(
     rep = hard.get("repeat_limits", {}) or {}
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
+    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
 
     for day_idx, d in enumerate(plan_days):
         if not d.main:
@@ -159,6 +169,14 @@ def _hard_ok_for_plan(
         if not check_soup_window_repeat(day_idx, d.soup, plan_days[:day_idx], max_soup_7):
             return False
         if not check_veg_window_repeat(day_idx, d.veg, plan_days[:day_idx], max_side_7):
+            return False
+        if dish_ingredient_ids is not None and not check_ingredient_window_repeat(
+            day_idx,
+            [d.main, d.soup, d.fruit, d.veg] + list(d.sides or []),
+            plan_days[:day_idx],
+            dish_ingredient_ids,
+            max_ing_7,
+        ):
             return False
 
     return True
@@ -177,6 +195,7 @@ def improve_by_local_search(
     soft: Dict,
     iterations: int,
     accept_worse_probability: float,
+    dish_ingredient_ids: Optional[Dict[str, set]] = None,
     seed: int = 7,
     start_date: Optional[date] = None,
     active_mask: Optional[List[bool]] = None,   # ✅ 新增：接住 planner.py 傳入
@@ -289,7 +308,14 @@ def improve_by_local_search(
             cand[day_a].veg = rng.choice(veg_ids_all)
 
         # ✅ 關鍵：硬限制檢查（含 ISO week）+ 不排日跳過（在 _hard_ok_for_plan 內做）
-        if not _hard_ok_for_plan(cand, mains, feat, hard, start_date=start_date):
+        if not _hard_ok_for_plan(
+            cand,
+            mains,
+            feat,
+            hard,
+            dish_ingredient_ids=dish_ingredient_ids,
+            start_date=start_date,
+        ):
             continue
 
         cand_score, cand_details = compute_total_score(cand, feat, hard, weights, soft)

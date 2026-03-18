@@ -21,6 +21,22 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
   height:100%;
 }
 .card.full{ grid-column: 1 / -1; }
+
+.manage-card{
+  border:2px solid #d6dbe5;
+  box-shadow:0 2px 10px rgba(17,24,39,.05);
+}
+
+.section-pane{
+  border:2px solid #dfe6f1;
+  border-radius:12px;
+  padding:10px 12px 12px;
+  background:#fcfdff;
+}
+
+.editor-pane{
+  min-height:0;
+}
 h2{ margin:0 0 10px 0; font-size:16px; }
 
 .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; }
@@ -83,7 +99,7 @@ textarea{
 .switch input:checked + .slider { background:#111; }
 .switch input:checked + .slider:before { transform: translateX(20px); }
 
-.hr{ border:none; border-top:1px solid #eee; margin:12px 0; }
+.hr{ border:none; border-top:4px solid #24a148; margin:12px 0; border-radius:999px; }
 .h3{ margin:0 0 8px 0; font-size:14px; }
 .row.top{ align-items:flex-start; }
 .grow{ width:100%; position:relative; }

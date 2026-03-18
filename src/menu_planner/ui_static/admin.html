@@ -35,6 +35,20 @@
       <section class="card">
         <h2>食材管理</h2>
 
+        <h3 class="h3">新增 / 編輯</h3>
+        <div class="row"><label>ID</label><input id="ing_id" type="text" placeholder="留空會自動產生" /></div>
+        <div class="row"><label>名稱</label><input id="ing_name" type="text" /></div>
+        <div class="row"><label>分類</label><input id="ing_category" type="text" placeholder="蔬菜/肉類/豆製品..." /></div>
+        <div class="row"><label>蛋白群組</label><input id="ing_protein" type="text" placeholder="optional" /></div>
+        <div class="row"><label>預設單位</label><input id="ing_unit" type="text" placeholder="g/ml/顆/份" /></div>
+        <div class="btns">
+          <button id="ing_clear">清空</button>
+          <button id="ing_save" class="primary">儲存</button>
+        </div>
+        <div id="msg_ing" class="msg"></div>
+
+        <hr class="hr" />
+        <h3 class="h3">清單</h3>
         <div class="row">
           <label>搜尋</label>
           <input id="ing_q" type="text" placeholder="名稱或 ID" />
@@ -69,27 +83,36 @@
           <tbody></tbody>
         </table>
 
-        <hr class="hr" />
-        <h3 class="h3">新增 / 編輯</h3>
-
-        <div class="row"><label>ID</label><input id="ing_id" type="text" placeholder="留空會自動產生" /></div>
-        <div class="row"><label>名稱</label><input id="ing_name" type="text" /></div>
-        <div class="row"><label>分類</label><input id="ing_category" type="text" placeholder="蔬菜/肉類/豆製品..." /></div>
-        <div class="row"><label>蛋白群組</label><input id="ing_protein" type="text" placeholder="optional" /></div>
-        <div class="row"><label>預設單位</label><input id="ing_unit" type="text" placeholder="g/ml/顆/份" /></div>
-
-        <div class="btns">
-          <button id="ing_clear">清空</button>
-          <button id="ing_save" class="primary">儲存</button>
-        </div>
         <div class="hint">刪除失敗通常是「被菜色引用」；請先到右側菜色編輯食材清單移除引用。</div>
-        <div id="msg_ing" class="msg"></div>
       </section>
 
       <!-- 菜色管理 -->
       <section class="card">
         <h2>菜色管理</h2>
 
+        <h3 class="h3">新增 / 編輯</h3>
+        <div class="row"><label>ID</label><input id="dish_id" type="text" placeholder="留空會自動產生" /></div>
+        <div class="row"><label>名稱</label><input id="dish_name" type="text" /></div>
+        <div class="row">
+          <label>角色</label>
+          <select id="dish_role">
+            <option value="main">主菜</option>
+            <option value="side">配菜</option>
+            <option value="soup">湯</option>
+            <option value="fruit">水果</option>
+          </select>
+        </div>
+        <div class="row"><label>肉類</label><input id="dish_meat" type="text" placeholder="chicken/pork/..." /></div>
+        <div class="row"><label>菜系</label><input id="dish_cuisine" type="text" placeholder="台式/日式/..." /></div>
+        <div class="row"><label>標籤</label><input id="dish_tags" type="text" placeholder='可輸入 JSON: ["清淡","快手"] 或 逗號分隔: 清淡,快手' /></div>
+        <div class="btns">
+          <button id="dish_clear">清空</button>
+          <button id="dish_save" class="primary">儲存</button>
+        </div>
+        <div id="msg_dish" class="msg"></div>
+
+        <hr class="hr" />
+        <h3 class="h3">清單</h3>
         <div class="row">
           <label>搜尋</label>
           <input id="dish_q" type="text" placeholder="名稱或 ID" />
@@ -127,30 +150,7 @@
           </table>
         </div>
 
-        <hr class="hr" />
-        <h3 class="h3">新增 / 編輯</h3>
-
-        <div class="row"><label>ID</label><input id="dish_id" type="text" placeholder="留空會自動產生" /></div>
-        <div class="row"><label>名稱</label><input id="dish_name" type="text" /></div>
-        <div class="row">
-          <label>角色</label>
-          <select id="dish_role">
-            <option value="main">主菜</option>
-            <option value="side">配菜</option>
-            <option value="soup">湯</option>
-            <option value="fruit">水果</option>
-          </select>
-        </div>
-        <div class="row"><label>肉類</label><input id="dish_meat" type="text" placeholder="chicken/pork/..." /></div>
-        <div class="row"><label>菜系</label><input id="dish_cuisine" type="text" placeholder="台式/日式/..." /></div>
-        <div class="row"><label>標籤</label><input id="dish_tags" type="text" placeholder='可輸入 JSON: ["清淡","快手"] 或 逗號分隔: 清淡,快手' /></div>
-
-        <div class="btns">
-          <button id="dish_clear">清空</button>
-          <button id="dish_save" class="primary">儲存</button>
-        </div>
         <div class="hint">「編輯食材」會開啟視窗，維護該菜色的食材用量（qty/unit）。</div>
-        <div id="msg_dish" class="msg"></div>
       </section>
     </div>
   </div>

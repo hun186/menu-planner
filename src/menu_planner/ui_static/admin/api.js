@@ -1,8 +1,8 @@
 import { httpArray, httpJson } from "../shared/http.js";
 
 export const ADMIN_API = {
-  ingredients: "/catalog/ingredients",
-  dishes: "/catalog/dishes",
+  ingredients: "/admin/catalog/ingredients",
+  dishes: "/admin/catalog/dishes",
   ingUpsert: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}`,
   ingDelete: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}`,
   dishUpsert: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}`,
@@ -16,12 +16,42 @@ export const ADMIN_API = {
   ingInventory: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/inventory`,
 };
 
-export async function loadCatalog() {
+export async function loadCatalogPage({
+  ingredientPage = 1,
+  ingredientPageSize = 50,
+  ingredientQ = "",
+  dishPage = 1,
+  dishPageSize = 50,
+  dishQ = "",
+} = {}) {
+  const ingParams = new URLSearchParams({
+    page: String(ingredientPage),
+    page_size: String(ingredientPageSize),
+  });
+  if (ingredientQ) ingParams.set("q", ingredientQ);
+
+  const dishParams = new URLSearchParams({
+    page: String(dishPage),
+    page_size: String(dishPageSize),
+  });
+  if (dishQ) dishParams.set("q", dishQ);
+
   const [ingredients, dishes] = await Promise.all([
-    httpArray(ADMIN_API.ingredients, { method: "GET", headers: {} }),
-    httpArray(ADMIN_API.dishes, { method: "GET", headers: {} }),
+    httpJson(`${ADMIN_API.ingredients}?${ingParams.toString()}`, { method: "GET", headers: {} }, { includeAdminKey: true }),
+    httpJson(`${ADMIN_API.dishes}?${dishParams.toString()}`, { method: "GET", headers: {} }, { includeAdminKey: true }),
   ]);
+
   return { ingredients, dishes };
+}
+
+export async function searchIngredients(q = "", limit = 20) {
+  const params = new URLSearchParams({
+    page: "1",
+    page_size: String(limit),
+  });
+  if (q) params.set("q", q);
+  const payload = await httpJson(`${ADMIN_API.ingredients}?${params.toString()}`, { method: "GET", headers: {} }, { includeAdminKey: true });
+  return Array.isArray(payload?.items) ? payload.items : [];
 }
 
 export function upsertIngredient(id, body) {
@@ -56,8 +86,12 @@ export function previewDishCost(rows, servings = 1) {
   );
 }
 
-export function listDishCostPreview() {
-  return httpArray(ADMIN_API.dishCostPreview, { method: "GET", headers: {} }, { includeAdminKey: true });
+export function listDishCostPreview(dishIds = []) {
+  const params = new URLSearchParams();
+  (dishIds || []).forEach(id => params.append("dish_id", id));
+  const query = params.toString();
+  const url = query ? `${ADMIN_API.dishCostPreview}?${query}` : ADMIN_API.dishCostPreview;
+  return httpArray(url, { method: "GET", headers: {} }, { includeAdminKey: true });
 }
 
 export function getIngredientInventory(ingId) {

@@ -73,6 +73,7 @@ def compute_total_score(
             "prev_main_cuisine": prev_cuisine,
             "prefer_use_inventory": bool(soft.get("prefer_use_inventory", False)),
             "prefer_near_expiry": bool(soft.get("prefer_near_expiry", False)),
+            "inventory_prefer_ingredient_ids": soft.get("inventory_prefer_ingredient_ids") or [],
         }
         sb = score_day(day_cost, hard, weights, chosen, ctx)
 

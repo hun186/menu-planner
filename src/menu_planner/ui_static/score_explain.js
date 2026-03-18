@@ -51,6 +51,7 @@ function collectNearExpiryHints(day) {
   };
   push(day?.items?.main);
   push(day?.items?.soup);
+  push(day?.items?.veg);
   (day?.items?.sides || []).forEach(push);
 
   out.sort((a, b) => a.days - b.days);
@@ -99,7 +100,8 @@ export function scoreReason(key, value, day, cfg) {
   if (key === "use_inventory_bonus_others") {
     const soup = Number(day?.items?.soup?.inventory_hit_ratio || 0);
     const sides = (day?.items?.sides || []).reduce((a, x) => a + Number(x?.inventory_hit_ratio || 0), 0);
-    const sum = soup + sides;
+    const veg = Number(day?.items?.veg?.inventory_hit_ratio || 0);
+    const sum = soup + sides + veg;
     if (sum > 0) return `湯+配菜庫存命中合計 ${(sum * 100).toFixed(0)}%（加權前）`;
   }
 

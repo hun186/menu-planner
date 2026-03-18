@@ -21,7 +21,7 @@ def score_day(
     day_cost: float,
     hard: Dict,
     weights: Dict,
-    chosen: Dict[str, DishFeatures],  # keys: main/side1/side2/side3/soup/fruit
+    chosen: Dict[str, DishFeatures],  # keys: main/side1/side2/veg/soup/fruit
     context: Dict,
 ) -> ScoreBreakdown:
     items: Dict[str, float] = {}
@@ -59,7 +59,7 @@ def score_day(
             chosen["soup"].inventory_hit_ratio +
             chosen["side1"].inventory_hit_ratio +
             chosen["side2"].inventory_hit_ratio +
-            chosen["side3"].inventory_hit_ratio
+            chosen["veg"].inventory_hit_ratio
         ) * 0.5
 
     if context.get("prefer_near_expiry", False):
@@ -84,7 +84,7 @@ def score_day(
             one(chosen["soup"]) +
             one(chosen["side1"]) +
             one(chosen["side2"]) +
-            one(chosen["side3"])
+            one(chosen["veg"])
         )
 
     # ===== 重複懲罰（soft；讓 local_search/報表看得出差異）=====
@@ -92,11 +92,13 @@ def score_day(
     cur_soup_id  = context.get("cur_soup_id")
     cur_fruit_id = context.get("cur_fruit_id")
     cur_side_ids = context.get("cur_side_ids") or []
+    cur_veg_id   = context.get("cur_veg_id")
     
     recent_main_ids = context.get("recent_main_ids") or []
     recent_soups    = context.get("recent_soups") or []
     recent_fruits   = context.get("recent_fruits") or []
     recent_sides    = context.get("recent_sides") or []
+    recent_vegs     = context.get("recent_vegs") or []
     
     w_main  = float(weights.get("repeat_penalty_main", 0))
     w_soup  = float(weights.get("repeat_penalty_soup", 0))
@@ -122,6 +124,10 @@ def score_day(
         rep = sum(recent_sides.count(sid) for sid in cur_side_ids)
         if rep > 0:
             items["repeat_penalty_side"] = w_side * rep
+    if w_side > 0 and cur_veg_id:
+        rep = recent_vegs.count(cur_veg_id)
+        if rep > 0:
+            items["repeat_penalty_veg"] = w_side * rep
             
     for k, v in items.items():
         total += float(v)
@@ -137,4 +143,3 @@ def score_day(
         bonus_total=round(bonus_total, 2),
         fitness=round(-total, 2),
     )
-

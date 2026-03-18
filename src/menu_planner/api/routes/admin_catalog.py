@@ -55,7 +55,7 @@ class IngredientUpsert(BaseModel):
 
 class DishUpsert(BaseModel):
     name: str = Field(min_length=1)
-    role: str = Field(pattern="^(main|side|soup|fruit)$")
+    role: str = Field(pattern="^(main|side|veg|soup|fruit)$")
     cuisine: Optional[str] = None
     meat_type: Optional[str] = None
     tags: List[str] = Field(default_factory=list)

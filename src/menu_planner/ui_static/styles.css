@@ -7,7 +7,7 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
 
 .grid{
   display:grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap:12px;
   margin-top:12px;
   align-items:stretch;
@@ -21,6 +21,12 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
   height:100%;
 }
 .card.full{ grid-column: 1 / -1; }
+
+@media (max-width: 1100px){
+  .grid{
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
 .manage-card{
   border:2px solid #d6dbe5;

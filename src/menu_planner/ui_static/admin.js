@@ -28,6 +28,7 @@ import { escapeHtml } from "./shared/html.js";
   
   function setMsg($el, text, isError) {
     $el.css("color", isError ? "#b42318" : "#1a7f37").text(text || "");
+    requestAnimationFrame(syncEditorPaneHeights);
   }
 
   function clearMsg(selector) {
@@ -47,6 +48,21 @@ import { escapeHtml } from "./shared/html.js";
     } catch (e) {
       setMsg($(msgSelector), e.message || String(e), true);
     }
+  }
+
+
+  function syncEditorPaneHeights() {
+    const panes = Array.from(document.querySelectorAll(".manage-card .editor-pane"));
+    if (!panes.length) return;
+
+    panes.forEach((pane) => {
+      pane.style.minHeight = "0px";
+    });
+
+    const maxHeight = panes.reduce((mx, pane) => Math.max(mx, pane.offsetHeight), 0);
+    panes.forEach((pane) => {
+      pane.style.minHeight = `${maxHeight}px`;
+    });
   }
 
   function debounce(fn, wait = 300) {
@@ -246,6 +262,7 @@ import { escapeHtml } from "./shared/html.js";
   function renderAll() {
     renderIngredients();
     renderDishes();
+    syncEditorPaneHeights();
   }
 
   function resolveIngredientId(inputText) {
@@ -486,6 +503,9 @@ function todayStr() {
   }
   
   function bindUI() {
+    const onResize = debounce(syncEditorPaneHeights, 120);
+    window.addEventListener("resize", onResize);
+
     const onIngredientSearchInput = debounce(async () => {
       ingredientPager.q = ($("#ing_q").val() || "").trim();
       ingredientPager.page = 1;
@@ -656,5 +676,6 @@ function todayStr() {
     const initialSuggestions = await searchIngredients("", 20).catch(() => []);
     rebuildIngredientDatalist(initialSuggestions);
     renderAll();
+    syncEditorPaneHeights();
   });
 })();

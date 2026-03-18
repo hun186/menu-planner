@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS ingredients (
 CREATE TABLE IF NOT EXISTS dishes (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('main','side','soup','fruit')),
+  role TEXT NOT NULL CHECK(role IN ('main','side','veg','soup','fruit')),
   cuisine TEXT,
   meat_type TEXT,
   tags_json TEXT NOT NULL DEFAULT '[]'
@@ -489,7 +489,7 @@ def upsert_dishes_and_links(
   link_rows = []
   dish_ids = []
 
-  allowed_roles = {"main", "side", "soup", "fruit"}
+  allowed_roles = {"main", "side", "veg", "soup", "fruit"}
 
   for d in dishes:
     dish_id = clean_id(d.get("id"))

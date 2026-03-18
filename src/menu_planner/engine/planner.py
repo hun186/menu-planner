@@ -97,7 +97,8 @@ def _resolve_seed(cfg: Dict[str, Any], start_date: date) -> int:
 
 def _split_dishes_by_role(all_dishes: List[Dish]) -> Tuple[List[Dish], List[Dish], List[Dish], List[Dish]]:
     mains = [d for d in all_dishes if d.role == "main"]
-    sides = [d for d in all_dishes if d.role == "side"]
+    # veg 是「純蔬配菜」子角色，排程時仍視為 side 池的一部分。
+    sides = [d for d in all_dishes if d.role in {"side", "veg"}]
     soups = [d for d in all_dishes if d.role == "soup"]
     fruits = [d for d in all_dishes if d.role == "fruit"]
     return mains, sides, soups, fruits

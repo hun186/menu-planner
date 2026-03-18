@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Tuple
 
 
 ALLOWED_MEAT_TYPES = {"chicken", "pork", "beef", "fish", "seafood", "noodles", "vegetarian"}
-ALLOWED_ROLES = {"main", "side", "soup", "fruit"}
+ALLOWED_ROLES = {"main", "side", "veg", "soup", "fruit"}
 
 
 def load_defaults() -> Dict[str, Any]:

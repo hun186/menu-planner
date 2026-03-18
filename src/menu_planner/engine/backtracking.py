@@ -263,6 +263,55 @@ def _choose_soup(
     return None
 
 
+def _analyze_soup_rejections(
+    day_idx: int,
+    soups: List[Dish],
+    plan_days: List[PlanDay],
+    feat: Dict[str, DishFeatures],
+    hard: Dict,
+    main_id: str,
+    dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
+) -> Dict[str, int]:
+    rep = hard.get("repeat_limits", {}) or {}
+    max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
+    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+
+    soup_ids = [d.id for d in soups if d.id in feat]
+    blocked_by_ingredient = 0
+    blocked_by_soup_repeat = 0
+    feasible = 0
+
+    for sid in soup_ids:
+        ingredient_ok = True
+        if dish_ingredient_ids is not None:
+            ingredient_ok = check_ingredient_window_repeat(
+                day_idx,
+                [main_id, sid],
+                plan_days,
+                dish_ingredient_ids,
+                max_ing_7,
+            )
+
+        if not ingredient_ok:
+            blocked_by_ingredient += 1
+            continue
+
+        soup_repeat_ok = check_soup_window_repeat(day_idx, sid, plan_days, max_soup_7)
+        if not soup_repeat_ok:
+            blocked_by_soup_repeat += 1
+            continue
+
+        feasible += 1
+
+    return {
+        "candidate_count": len(soup_ids),
+        "feasible_count": feasible,
+        "blocked_by_ingredient_repeat": blocked_by_ingredient,
+        "blocked_by_soup_repeat": blocked_by_soup_repeat,
+        "max_same_ingredient_in_7_days": max_ing_7,
+    }
+
+
 def _choose_sides_backtrack(
     day_idx: int,
     sides: List[Dish],
@@ -481,13 +530,27 @@ def fill_days_after_mains(
             rng=rng,
         )
         if not soup_id:
+            soup_stats = _analyze_soup_rejections(
+                day_idx=day,
+                soups=soup_pool,
+                plan_days=plan_days,
+                feat=feat,
+                hard=hard,
+                main_id=main_id,
+                dish_ingredient_ids=dish_ingredient_ids,
+            )
             err = PlanError(
                 code="SOUP_NO_SOLUTION",
                 day_index=day,
                 message=f"第 {day+1} 天找不到符合重複限制的湯。",
                 details={
                     "max_same_soup_in_7_days": max_soup_7,
-                    "hint": "可放寬湯品 7 天重複限制，或增加湯品候選。"
+                    "max_same_ingredient_in_7_days": soup_stats["max_same_ingredient_in_7_days"],
+                    "candidate_count": soup_stats["candidate_count"],
+                    "feasible_count": soup_stats["feasible_count"],
+                    "blocked_by_soup_repeat": soup_stats["blocked_by_soup_repeat"],
+                    "blocked_by_ingredient_repeat": soup_stats["blocked_by_ingredient_repeat"],
+                    "hint": "可放寬湯品/食材 7 天重複限制，或增加湯品候選。",
                 }
             )
             errors.append(err.to_dict())

@@ -211,6 +211,48 @@ def _auto_relax_main_repeat_limit(
     }
 
 
+def _bump_soup_constraints_for_retry(hard: Dict[str, Any]) -> Dict[str, Any]:
+    rep = dict(hard.get("repeat_limits", {}) or {})
+    changed: Dict[str, Any] = {}
+
+    cur_soup = rep.get("max_same_soup_in_7_days")
+    cur_ing = rep.get("max_same_ingredient_in_7_days")
+
+    try:
+        soup_limit = int(cur_soup) if cur_soup is not None else 1
+    except Exception:
+        soup_limit = 1
+
+    try:
+        ing_limit = int(cur_ing) if cur_ing is not None else 10**9
+    except Exception:
+        ing_limit = 10**9
+
+    # 先放寬食材重複（通常是湯失敗主因），上限 7
+    if ing_limit < 7:
+        new_ing = ing_limit + 1
+        rep["max_same_ingredient_in_7_days"] = new_ing
+        changed["max_same_ingredient_in_7_days"] = {
+            "from": ing_limit,
+            "to": new_ing,
+            "reason": "auto_relaxed_for_soup_feasibility",
+        }
+    # 食材已放到上限仍失敗，再放寬湯重複，上限 2（避免過度重複）
+    elif soup_limit < 2:
+        new_soup = soup_limit + 1
+        rep["max_same_soup_in_7_days"] = new_soup
+        changed["max_same_soup_in_7_days"] = {
+            "from": soup_limit,
+            "to": new_soup,
+            "reason": "auto_relaxed_for_soup_feasibility",
+        }
+    else:
+        return {}
+
+    hard["repeat_limits"] = rep
+    return changed
+
+
 def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
     repo = SQLiteRepo(db_path)
 
@@ -438,5 +480,17 @@ def plan_month(db_path: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
         return _build_offday_result(ctx)
 
     plan_days_full, base_score, base_expl, base_errors = _run_backtracking(ctx)
+
+    retry = 0
+    while any(e.get("code") == "SOUP_NO_SOLUTION" for e in base_errors) and retry < 8:
+        changed = _bump_soup_constraints_for_retry(ctx.hard)
+        if not changed:
+            break
+
+        ctx.hard.setdefault("_auto_relaxed", {}).update(changed)
+        retry += 1
+        logger.info("Retry planning due to SOUP_NO_SOLUTION, auto-relaxed: %s", changed)
+        plan_days_full, base_score, base_expl, base_errors = _run_backtracking(ctx)
+
     computation = _run_local_search(ctx, plan_days_full, base_score, base_expl, base_errors)
     return _build_result(ctx, computation)

@@ -7,7 +7,7 @@ import random
 from datetime import date, timedelta
 
 from ..db.repo import Dish
-from .constraints import PlanDay, check_cost_range, check_soup_window_repeat, check_side_window_repeat, check_main_hard
+from .constraints import PlanDay, check_cost_range, check_soup_window_repeat, check_side_window_repeat, check_veg_window_repeat, check_main_hard
 from .features import DishFeatures
 from .scoring import score_day
 
@@ -43,17 +43,18 @@ def compute_total_score(
             continue
 
         # ✅ 不完整：直接視為 hard 破壞（local search 會跳過）
-        if (not d.soup) or (not d.fruit) or (not d.sides) or (len(d.sides) != 3):
+        if (not d.soup) or (not d.fruit) or (not d.veg) or (not d.sides) or (len(d.sides) != 2):
             return (10**18, [])
 
         # ✅ id 必須存在於 feat（避免 KeyError）
-        if (d.main not in feat) or (d.soup not in feat) or (d.fruit not in feat) or any(s not in feat for s in d.sides):
+        if (d.main not in feat) or (d.soup not in feat) or (d.fruit not in feat) or (d.veg not in feat) or any(s not in feat for s in d.sides):
             return (10**18, [])
 
         day_cost = (
             feat[d.main].cost_per_serving
             + feat[d.soup].cost_per_serving
             + feat[d.fruit].cost_per_serving
+            + feat[d.veg].cost_per_serving
             + sum(feat[s].cost_per_serving for s in d.sides)
         )
         if not check_cost_range(day_cost, hard):
@@ -63,7 +64,7 @@ def compute_total_score(
             "main": feat[d.main],
             "side1": feat[d.sides[0]],
             "side2": feat[d.sides[1]],
-            "side3": feat[d.sides[2]],
+            "veg": feat[d.veg],
             "soup": feat[d.soup],
             "fruit": feat[d.fruit],
         }
@@ -147,7 +148,7 @@ def _hard_ok_for_plan(
             continue
 
         # ✅ 不完整直接視為不合法
-        if (not d.sides) or (len(d.sides) != 3) or (not d.soup):
+        if (not d.sides) or (len(d.sides) != 2) or (not d.soup) or (not d.veg):
             return False
 
         # 這裡先保持你原本的語意（用 calendar day 的 day_idx & slice）
@@ -155,6 +156,8 @@ def _hard_ok_for_plan(
         if not check_side_window_repeat(day_idx, d.sides, plan_days[:day_idx], max_side_7):
             return False
         if not check_soup_window_repeat(day_idx, d.soup, plan_days[:day_idx], max_soup_7):
+            return False
+        if not check_veg_window_repeat(day_idx, d.veg, plan_days[:day_idx], max_side_7):
             return False
 
     return True
@@ -164,6 +167,7 @@ def improve_by_local_search(
     plan_days: List[PlanDay],
     mains: List[Dish],
     sides: List[Dish],
+    vegs: List[Dish],
     soups: List[Dish],
     fruits: List[Dish],
     feat: Dict[str, DishFeatures],
@@ -180,6 +184,7 @@ def improve_by_local_search(
 
     main_ids_all = [d.id for d in mains if d.id in feat]
     side_ids_all = [d.id for d in sides if d.id in feat]
+    veg_ids_all = [d.id for d in vegs if d.id in feat]
     soup_ids_all = [d.id for d in soups if d.id in feat]
     fruit_ids_all = [d.id for d in fruits if d.id in feat]
 
@@ -216,15 +221,15 @@ def improve_by_local_search(
         return plan_days, best_score, best_details
 
     # 初始解
-    best_plan = [PlanDay(d.main, list(d.sides), d.soup, d.fruit) for d in plan_days]
+    best_plan = [PlanDay(d.main, list(d.sides), d.veg, d.soup, d.fruit) for d in plan_days]
     best_score, best_details = compute_total_score(best_plan, feat, hard, weights, soft)
 
-    cur_plan = [PlanDay(d.main, list(d.sides), d.soup, d.fruit) for d in best_plan]
+    cur_plan = [PlanDay(d.main, list(d.sides), d.veg, d.soup, d.fruit) for d in best_plan]
     cur_score = best_score
 
     for _ in range(iterations):
-        cand = [PlanDay(d.main, list(d.sides), d.soup, d.fruit) for d in cur_plan]
-        op = rng.choice(["swap_main", "replace_main", "replace_soup", "replace_side"])
+        cand = [PlanDay(d.main, list(d.sides), d.veg, d.soup, d.fruit) for d in cur_plan]
+        op = rng.choice(["swap_main", "replace_main", "replace_soup", "replace_side", "replace_veg"])
 
         # ✅ 只抽 active 日
         day_a = rng.choice(active_indices)
@@ -268,14 +273,19 @@ def improve_by_local_search(
         elif op == "replace_side":
             if not cand[day_a].main:
                 continue
-            if len(cand[day_a].sides) < 3:
+            if len(cand[day_a].sides) < 2:
                 continue
-            i = rng.randrange(0, 3)
+            i = rng.randrange(0, 2)
             cand[day_a].sides[i] = rng.choice(side_ids_all)
             for _t in range(5):
-                if len(set(cand[day_a].sides)) == 3:
+                if len(set(cand[day_a].sides)) == 2:
                     break
                 cand[day_a].sides[i] = rng.choice(side_ids_all)
+
+        elif op == "replace_veg":
+            if not cand[day_a].main or not veg_ids_all:
+                continue
+            cand[day_a].veg = rng.choice(veg_ids_all)
 
         # ✅ 關鍵：硬限制檢查（含 ISO week）+ 不排日跳過（在 _hard_ok_for_plan 內做）
         if not _hard_ok_for_plan(cand, mains, feat, hard, start_date=start_date):

@@ -74,6 +74,8 @@ def build_explanations(
                 day_cost += feat[d.soup].cost_per_serving
             if d.fruit and d.fruit in feat:
                 day_cost += feat[d.fruit].cost_per_serving
+            if d.veg and d.veg in feat:
+                day_cost += feat[d.veg].cost_per_serving
             if d.sides:
                 day_cost += sum(feat[s].cost_per_serving for s in d.sides if s and s in feat)
 
@@ -98,6 +100,7 @@ def build_explanations(
             "items": {
                 "main": dish_info(d.main),
                 "sides": [dish_info(x) for x in sides_list],
+                "veg": dish_info(d.veg),
                 "soup": dish_info(d.soup),
                 "fruit": dish_info(d.fruit),
             },

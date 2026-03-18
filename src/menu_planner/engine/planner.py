@@ -34,6 +34,7 @@ class PlanContext:
     feat: Dict[str, Any]
     mains: List[Dish]
     sides: List[Dish]
+    vegs: List[Dish]
     soups: List[Dish]
     fruits: List[Dish]
 
@@ -95,13 +96,13 @@ def _resolve_seed(cfg: Dict[str, Any], start_date: date) -> int:
     return 7
 
 
-def _split_dishes_by_role(all_dishes: List[Dish]) -> Tuple[List[Dish], List[Dish], List[Dish], List[Dish]]:
+def _split_dishes_by_role(all_dishes: List[Dish]) -> Tuple[List[Dish], List[Dish], List[Dish], List[Dish], List[Dish]]:
     mains = [d for d in all_dishes if d.role == "main"]
-    # veg 是「純蔬配菜」子角色，排程時仍視為 side 池的一部分。
-    sides = [d for d in all_dishes if d.role in {"side", "veg"}]
+    sides = [d for d in all_dishes if d.role == "side"]
+    vegs = [d for d in all_dishes if d.role == "veg"]
     soups = [d for d in all_dishes if d.role == "soup"]
     fruits = [d for d in all_dishes if d.role == "fruit"]
-    return mains, sides, soups, fruits
+    return mains, sides, vegs, soups, fruits
 
 
 def _max_active_days_in_window(active_mask: List[bool], window_days: int = 30) -> int:
@@ -213,7 +214,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         today=start_date,
     )
 
-    mains, sides, soups, fruits = _split_dishes_by_role(all_dishes)
+    mains, sides, vegs, soups, fruits = _split_dishes_by_role(all_dishes)
     auto_relaxed = _auto_relax_main_repeat_limit(
         hard=hard,
         active_mask=active_mask,
@@ -225,10 +226,11 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         logger.info("Auto-relaxed repeat limits: %s", auto_relaxed)
 
     logger.info(
-        "Catalog counts: all=%d mains=%d sides=%d soups=%d fruits=%d",
+        "Catalog counts: all=%d mains=%d sides=%d vegs=%d soups=%d fruits=%d",
         len(all_dishes),
         len(mains),
         len(sides),
+        len(vegs),
         len(soups),
         len(fruits),
     )
@@ -247,13 +249,14 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         feat=feat,
         mains=mains,
         sides=sides,
+        vegs=vegs,
         soups=soups,
         fruits=fruits,
     )
 
 
 def _build_offday_result(ctx: PlanContext) -> Dict[str, Any]:
-    final_plan_full = [PlanDay(main="", sides=[], soup="", fruit="") for _ in range(ctx.horizon_days)]
+    final_plan_full = [PlanDay(main="", sides=[], veg="", soup="", fruit="") for _ in range(ctx.horizon_days)]
     day_details_full = [
         {"day_index": i, "failed": False, "is_offday": True, "message": "非排程日（休息/不排）"}
         for i in range(ctx.horizon_days)
@@ -295,6 +298,7 @@ def _run_backtracking(ctx: PlanContext) -> Tuple[List[PlanDay], float, List[Dict
         horizon_days=ctx.horizon_days,
         main_ids=main_ids_full,
         sides=ctx.sides,
+        vegs=ctx.vegs,
         soups=ctx.soups,
         fruits=ctx.fruits,
         feat=ctx.feat,
@@ -319,7 +323,7 @@ def _run_local_search(
     incomplete_days = [
         i
         for i, d in enumerate(plan_days_full)
-        if ctx.active_mask[i] and ((not d.soup) or (not d.fruit) or (not d.sides) or (len(d.sides) != 3))
+        if ctx.active_mask[i] and ((not d.soup) or (not d.fruit) or (not d.veg) or (not d.sides) or (len(d.sides) != 2))
     ]
 
     if ls_enabled and (not incomplete_days) and (not base_errors):
@@ -327,6 +331,7 @@ def _run_local_search(
             plan_days=plan_days_full,
             mains=ctx.mains,
             sides=ctx.sides,
+            vegs=ctx.vegs,
             soups=ctx.soups,
             fruits=ctx.fruits,
             feat=ctx.feat,

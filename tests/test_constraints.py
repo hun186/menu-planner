@@ -5,6 +5,7 @@ from src.menu_planner.engine.constraints import (
     _fixed_main_allowed_meats,
     check_main_hard,
     check_side_window_repeat,
+    check_veg_window_repeat,
 )
 
 
@@ -68,11 +69,22 @@ def test_check_main_hard_allows_fixed_day_even_with_quota():
 
 def test_check_side_window_repeat_skips_offdays():
     plan_days = [
-        PlanDay(main="main-1", sides=["s1", "s2", "s3"], soup="sp1", fruit="f1"),
-        PlanDay(main="", sides=[], soup="", fruit=""),  # offday
-        PlanDay(main="main-2", sides=["s1", "s4", "s5"], soup="sp2", fruit="f2"),
+        PlanDay(main="main-1", sides=["s1", "s2"], veg="v1", soup="sp1", fruit="f1"),
+        PlanDay(main="", sides=[], veg="", soup="", fruit=""),  # offday
+        PlanDay(main="main-2", sides=["s1", "s4"], veg="v2", soup="sp2", fruit="f2"),
     ]
 
     # Only active days count, so s1 has appeared twice already.
-    assert check_side_window_repeat(3, ["s1", "s6", "s7"], plan_days, max_repeat_in_7=2) is False
-    assert check_side_window_repeat(3, ["s8", "s6", "s7"], plan_days, max_repeat_in_7=2) is True
+    assert check_side_window_repeat(3, ["s1", "s6"], plan_days, max_repeat_in_7=2) is False
+    assert check_side_window_repeat(3, ["s8", "s6"], plan_days, max_repeat_in_7=2) is True
+
+
+def test_check_veg_window_repeat_skips_offdays():
+    plan_days = [
+        PlanDay(main="main-1", sides=["s1", "s2"], veg="v1", soup="sp1", fruit="f1"),
+        PlanDay(main="", sides=[], veg="", soup="", fruit=""),
+        PlanDay(main="main-2", sides=["s1", "s4"], veg="v1", soup="sp2", fruit="f2"),
+    ]
+
+    assert check_veg_window_repeat(3, "v1", plan_days, max_repeat_in_7=2) is False
+    assert check_veg_window_repeat(3, "v3", plan_days, max_repeat_in_7=2) is True

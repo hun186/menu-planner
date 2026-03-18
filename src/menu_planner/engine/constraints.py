@@ -10,6 +10,7 @@ from datetime import date, timedelta   # ✅ 改這行
 class PlanDay:
     main: str
     sides: List[str]
+    veg: str
     soup: str
     fruit: str
 
@@ -231,6 +232,23 @@ def check_fruit_window_repeat(
     cnt = 0
     for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days):
         if plan_days[i].fruit == fruit_id_today:
+            cnt += 1
+            if cnt + 1 > max_repeat_in_7:
+                return False
+    return True
+
+
+def check_veg_window_repeat(
+    day_idx: int,
+    veg_id_today: str,
+    plan_days: List[PlanDay],
+    max_repeat_in_7: int,
+) -> bool:
+    window_active_days = 7
+
+    cnt = 0
+    for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days):
+        if plan_days[i].veg == veg_id_today:
             cnt += 1
             if cnt + 1 > max_repeat_in_7:
                 return False

@@ -2,6 +2,7 @@ import json
 import urllib.request
 import io
 import openpyxl
+from collections import Counter
 
 BASE = "http://127.0.0.1:18000"
 
@@ -36,6 +37,53 @@ def test_generate_and_export_excel():
 
     assert obj["ok"] is True
     assert len(obj["result"]["days"]) == 270
+
+    # 驗證每日組成：1 main + 2 side + 1 veg + 1 soup + 1 fruit
+    # 只檢查有排程且成功的日子（offday / failed 另有邏輯）
+    days = obj["result"]["days"]
+    for d in days:
+        if d.get("failed"):
+            continue
+        items = d.get("items") or {}
+        main = items.get("main") or {}
+        if not main.get("id"):
+            # offday
+            continue
+
+        sides = items.get("sides") or []
+        veg = items.get("veg") or {}
+        soup = items.get("soup") or {}
+        fruit = items.get("fruit") or {}
+
+        assert len(sides) == 2
+        assert all((s or {}).get("id") for s in sides)
+        assert veg.get("id")
+        assert soup.get("id")
+        assert fruit.get("id")
+
+    # 驗證 veg 重複規則（最近 7 個有排餐日）
+    rep = (cfg.get("hard") or {}).get("repeat_limits") or {}
+    max_veg_7 = int(rep.get("max_same_veg_in_7_days", rep.get("max_same_side_in_7_days", 1)))
+    active_completed: list[dict] = []
+    for d in days:
+        if d.get("failed"):
+            continue
+        items = d.get("items") or {}
+        main_id = ((items.get("main") or {}).get("id") or "").strip()
+        veg_id = ((items.get("veg") or {}).get("id") or "").strip()
+        if not main_id:
+            # offday
+            continue
+        assert veg_id
+
+        recent_veg_ids = [
+            ((x.get("items") or {}).get("veg") or {}).get("id")
+            for x in active_completed[-7:]
+            if ((x.get("items") or {}).get("veg") or {}).get("id")
+        ]
+        c = Counter(recent_veg_ids)
+        assert c.get(veg_id, 0) + 1 <= max_veg_7
+        active_completed.append(d)
 
     # 匯出 Excel
     st, _, xb = req(

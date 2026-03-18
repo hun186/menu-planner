@@ -10,7 +10,7 @@ import random
 from ..db.repo import Dish
 from .features import DishFeatures
 from .constraints import PlanDay, check_main_hard 
-from .constraints import check_side_window_repeat, check_soup_window_repeat, check_fruit_window_repeat
+from .constraints import check_side_window_repeat, check_soup_window_repeat, check_fruit_window_repeat, check_veg_window_repeat
 from .constraints import check_cost_range
 from .scoring import score_day
 
@@ -247,6 +247,7 @@ def _choose_sides_backtrack(
     hard: Dict,
     rng: Optional[random.Random] = None,
     topk: int = 120,
+    pick_count: int = 2,
 ) -> Optional[List[str]]:
     rep = hard.get("repeat_limits", {}) or {}
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
@@ -267,7 +268,7 @@ def _choose_sides_backtrack(
     chosen: List[str] = []
 
     def dfs(start_idx: int) -> Optional[List[str]]:
-        if len(chosen) == 3:
+        if len(chosen) == pick_count:
             return list(chosen) if check_side_window_repeat(day_idx, chosen, plan_days, max_side_7) else None
 
         for i in range(start_idx, len(side_ids)):
@@ -284,10 +285,41 @@ def _choose_sides_backtrack(
     return dfs(0)
 
 
+def _choose_veg(
+    day_idx: int,
+    vegs: List[Dish],
+    plan_days: List[PlanDay],
+    feat: Dict[str, DishFeatures],
+    hard: Dict,
+    rng: Optional[random.Random] = None,
+    topk: int = 80,
+) -> Optional[str]:
+    rep = hard.get("repeat_limits", {}) or {}
+    max_veg_7 = int(rep.get("max_same_veg_in_7_days", rep.get("max_same_side_in_7_days", 1)))
+    veg_ids = [d.id for d in vegs if d.id in feat]
+
+    veg_ids.sort(key=lambda did: (
+        -feat[did].inventory_hit_ratio,
+        999 if feat[did].near_expiry_days_min is None else feat[did].near_expiry_days_min,
+        feat[did].cost_per_serving
+    ))
+
+    if rng is not None and len(veg_ids) > 1:
+        head = veg_ids[:topk]
+        rng.shuffle(head)
+        veg_ids = head + veg_ids[topk:]
+
+    for vid in veg_ids:
+        if check_veg_window_repeat(day_idx, vid, plan_days, max_veg_7):
+            return vid
+    return None
+
+
 def fill_days_after_mains(
     horizon_days: int,
     main_ids: List[str],
     sides: List[Dish],
+    vegs: List[Dish],
     soups: List[Dish],
     fruits: List[Dish],
     feat: Dict[str, DishFeatures],
@@ -314,17 +346,19 @@ def fill_days_after_mains(
     cost_max = float(cr.get("max", 10**18))
 
     side_pool0  = [d for d in sides  if d.id in feat]
+    veg_pool0   = [d for d in vegs   if d.id in feat]
     soup_pool0  = [d for d in soups  if d.id in feat]
     fruit_pool0 = [d for d in fruits if d.id in feat]
     
     print("usable sides (in feat):", len(side_pool0), "/", len(sides))
+    print("usable vegs  (in feat):", len(veg_pool0), "/", len(vegs))
     print("usable soups (in feat):", len(soup_pool0), "/", len(soups))
     print("usable fruits(in feat):", len(fruit_pool0), "/", len(fruits))
 
     for day in range(horizon_days):
         main_id = main_ids[day]
         if not main_id:
-            plan_days.append(PlanDay(main="", sides=[], soup="", fruit=""))
+            plan_days.append(PlanDay(main="", sides=[], veg="", soup="", fruit=""))
             explanations.append({
                 "day_index": day,
                 "failed": False,
@@ -347,10 +381,12 @@ def fill_days_after_mains(
         fruit_pool = fruit_pool0[:]
         soup_pool  = soup_pool0[:]
         side_pool  = side_pool0[:]
+        veg_pool   = veg_pool0[:]
         
         rng.shuffle(fruit_pool)
         rng.shuffle(soup_pool)
         rng.shuffle(side_pool)
+        rng.shuffle(veg_pool)
         
         # ===== fruit（若整個水果類別空，這屬於「系統性缺資料」，建議仍可 raise）=====
         # 你想「連水果都缺也繼續排」也行，但通常代表資料集不完整
@@ -361,7 +397,7 @@ def fill_days_after_mains(
         except PlanError as e:
             # 系統性缺水果：仍可回傳 errors + placeholder 後繼續
             errors.append(e.to_dict())
-            plan_days.append(PlanDay(main=main_id, sides=[], soup="", fruit=""))
+            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit=""))
             explanations.append(
                 _failed_day_explanation(
                     day_index=day,
@@ -388,7 +424,7 @@ def fill_days_after_mains(
             )
             errors.append(err.to_dict())
             # placeholder：主菜保留，其餘留空
-            plan_days.append(PlanDay(main=main_id, sides=[], soup="", fruit=fruit_id))
+            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit=fruit_id))
             explanations.append(
                 _failed_day_explanation(
                     day_index=day,
@@ -402,13 +438,13 @@ def fill_days_after_mains(
         # ===== sides =====
         #side_ids = _choose_sides_backtrack(day, sides, plan_days, feat, hard)
         #side_ids = _choose_sides_backtrack(day, side_pool, plan_days, feat, hard)
-        side_ids = _choose_sides_backtrack(day, side_pool, plan_days, feat, hard, rng=rng)
+        side_ids = _choose_sides_backtrack(day, side_pool, plan_days, feat, hard, rng=rng, pick_count=2)
         if not side_ids:
             side_candidates = [d.id for d in sides if d.id in feat]
             err = PlanError(
                 code="SIDE_NO_SOLUTION",
                 day_index=day,
-                message=f"第 {day+1} 天找不到符合重複限制的 3 道配菜。",
+                message=f"第 {day+1} 天找不到符合重複限制的 2 道配菜。",
                 details={
                     "max_same_side_in_7_days": max_side_7,
                     "candidate_count": len(side_candidates),
@@ -416,7 +452,31 @@ def fill_days_after_mains(
                 }
             )
             errors.append(err.to_dict())
-            plan_days.append(PlanDay(main=main_id, sides=[], soup=soup_id, fruit=fruit_id))
+            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup=soup_id, fruit=fruit_id))
+            explanations.append(
+                _failed_day_explanation(
+                    day_index=day,
+                    reason_code=err.code,
+                    message=err.message,
+                    details=err.details,
+                )
+            )
+            continue
+
+        veg_id = _choose_veg(day, veg_pool, plan_days, feat, hard, rng=rng)
+        if not veg_id:
+            err = PlanError(
+                code="VEG_NO_SOLUTION",
+                day_index=day,
+                message=f"第 {day+1} 天找不到符合重複限制的蔬菜。",
+                details={
+                    "max_same_veg_in_7_days": int(rep.get("max_same_veg_in_7_days", max_side_7)),
+                    "candidate_count": len([d.id for d in vegs if d.id in feat]),
+                    "hint": "可放寬 veg 7 天重複限制（或沿用 side 限制），或增加 veg 候選。"
+                }
+            )
+            errors.append(err.to_dict())
+            plan_days.append(PlanDay(main=main_id, sides=side_ids, veg="", soup=soup_id, fruit=fruit_id))
             explanations.append(
                 _failed_day_explanation(
                     day_index=day,
@@ -432,6 +492,7 @@ def fill_days_after_mains(
             feat[main_id].cost_per_serving
             + feat[soup_id].cost_per_serving
             + feat[fruit_id].cost_per_serving
+            + feat[veg_id].cost_per_serving
             + sum(feat[s].cost_per_serving for s in side_ids)
         )
 
@@ -450,6 +511,7 @@ def fill_days_after_mains(
                     feat[main_id].cost_per_serving
                     + feat[sid].cost_per_serving
                     + feat[fruit_id].cost_per_serving
+                    + feat[veg_id].cost_per_serving
                     + sum(feat[s].cost_per_serving for s in side_ids)
                 )
                 if check_cost_range(test_cost, hard):
@@ -471,6 +533,7 @@ def fill_days_after_mains(
                         feat[main_id].cost_per_serving
                         + feat[soup_id].cost_per_serving
                         + feat[fruit_id].cost_per_serving
+                        + feat[veg_id].cost_per_serving
                         + sum(feat[s].cost_per_serving for s in side_ids)
                     )
                     ok = check_cost_range(day_cost, hard)
@@ -495,7 +558,7 @@ def fill_days_after_mains(
                 )
                 errors.append(err.to_dict())
                 # placeholder：主菜/湯/果保留，配菜清空（代表當天未完成）
-                plan_days.append(PlanDay(main=main_id, sides=[], soup=soup_id, fruit=fruit_id))
+                plan_days.append(PlanDay(main=main_id, sides=[], veg=veg_id, soup=soup_id, fruit=fruit_id))
                 explanations.append(
                     _failed_day_explanation(
                         day_index=day,
@@ -508,13 +571,13 @@ def fill_days_after_mains(
                 continue
 
         # ===== success day =====
-        day_obj = PlanDay(main=main_id, sides=side_ids, soup=soup_id, fruit=fruit_id)
+        day_obj = PlanDay(main=main_id, sides=side_ids, veg=veg_id, soup=soup_id, fruit=fruit_id)
 
         chosen = {
             "main": feat[main_id],
             "side1": feat[side_ids[0]],
             "side2": feat[side_ids[1]],
-            "side3": feat[side_ids[2]],
+            "veg": feat[veg_id],
             "soup": feat[soup_id],
             "fruit": feat[fruit_id],
         }
@@ -541,11 +604,13 @@ def fill_days_after_mains(
             "cur_soup_id": soup_id,
             "cur_fruit_id": fruit_id,
             "cur_side_ids": side_ids,
+            "cur_veg_id": veg_id,
         
             "recent_main_ids": [plan_days[i].main for i in recent_idx if plan_days[i].main],
             "recent_soups":    [plan_days[i].soup for i in recent_idx if plan_days[i].soup],
             "recent_fruits":   [plan_days[i].fruit for i in recent_idx if plan_days[i].fruit],
             "recent_sides":    [s for i in recent_idx for s in (plan_days[i].sides or [])],
+            "recent_vegs":     [plan_days[i].veg for i in recent_idx if plan_days[i].veg],
         })
 
         sb = score_day(day_cost=day_cost, hard=hard, weights=weights, chosen=chosen, context=ctx)
@@ -588,8 +653,8 @@ def fill_days_after_mains(
                 "sides": [
                     chosen["side1"].used_inventory_ingredients,
                     chosen["side2"].used_inventory_ingredients,
-                    chosen["side3"].used_inventory_ingredients,
-                ]
+                ],
+                "veg": chosen["veg"].used_inventory_ingredients,
             }
         })
 

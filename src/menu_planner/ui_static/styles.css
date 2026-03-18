@@ -7,7 +7,7 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
 
 .grid{
   display:grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap:12px;
   margin-top:12px;
   align-items:stretch;
@@ -64,11 +64,15 @@ textarea{
 .summary{ display:flex; gap:16px; flex-wrap:wrap; font-size:13px; padding:8px 0 14px 0; }
 .tbl{ width:100%; border-collapse:collapse; font-size:13px; }
 
-.tbl-scroll{ width:100%; overflow-x:auto; }
-.ing-tbl{ min-width:620px; }
-.dish-tbl{ min-width:760px; }
+.tbl-scroll{ width:100%; overflow-x:visible; }
+.ing-tbl{ min-width:0; }
+.dish-tbl{ min-width:0; }
 .tbl th, .tbl td{ border:1px solid var(--bd); padding:8px; vertical-align:top; }
 .tbl th{ background:#f6f6f6; }
+.ing-tbl th, .ing-tbl td,
+.dish-tbl th, .dish-tbl td{
+  word-break:break-word;
+}
 .explain td{ background:#fcfcfc; }
 .explain-box{ padding:10px; }
 .ex-title{ font-weight:600; margin:8px 0 6px; }

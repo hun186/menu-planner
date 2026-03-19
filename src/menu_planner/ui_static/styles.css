@@ -231,3 +231,26 @@ select{
   margin-bottom:10px;
 }
 .mp-modal-title{ font-weight:700; }
+.editor-select{
+  width:100%;
+  border:1px solid #e6e6e6;
+  border-radius:10px;
+  padding:6px;
+  font-size:13px;
+}
+.dish-edit-trigger{
+  border:1px dashed #d1d5db;
+  background:#fff;
+  border-radius:8px;
+  padding:4px 8px;
+  cursor:pointer;
+  font-size:12px;
+  text-align:left;
+}
+.dish-edit-trigger:hover{
+  border-color:#111;
+}
+.dish-sep{
+  margin:0 4px;
+  color:#666;
+}

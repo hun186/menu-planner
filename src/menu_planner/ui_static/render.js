@@ -42,7 +42,14 @@ export function showErrorDetail(payload) {
   `);
 }
 
-export function renderResult(result, cfg) {
+function renderEditableDish({ name, dayIndex, role, slot, dishId }) {
+  const label = name || "（未指定）";
+  const did = dishId || "";
+  return `<button type="button" class="dish-edit-trigger" data-day-index="${dayIndex}" data-role="${role}" data-slot="${slot}" data-dish-id="${did}">${escapeHtml(label)}</button>`;
+}
+
+export function renderResult(result, cfg, options = {}) {
+  const editable = !!options.editable;
   const errByDay = new Map();
   (result.errors || []).forEach((e) => {
     const k = e.day_index;
@@ -107,22 +114,56 @@ export function renderResult(result, cfg) {
       return;
     }
 
-    const main = d.items?.main?.name || "";
-    const sides = (d.items?.sides || []).map((x) => x?.name).filter(Boolean).join("、");
-    const veg = d.items?.veg?.name || "";
-    const soup = d.items?.soup?.name || "";
-    const fruit = d.items?.fruit?.name || "";
+    const mainObj = d.items?.main || {};
+    const sideObjs = d.items?.sides || [];
+    const vegObj = d.items?.veg || {};
+    const soupObj = d.items?.soup || {};
+    const fruitObj = d.items?.fruit || {};
+
+    const main = mainObj?.name || "";
+    const sides = sideObjs.map((x) => x?.name).filter(Boolean).join("、");
+    const veg = vegObj?.name || "";
+    const soup = soupObj?.name || "";
+    const fruit = fruitObj?.name || "";
     const cost = d.day_cost ?? "";
     const rawScore = Number(d.score ?? 0);
     const fitness = (d.score_fitness !== undefined && d.score_fitness !== null) ? Number(d.score_fitness) : -rawScore;
 
+    const mainCell = editable
+      ? renderEditableDish({ name: main, dayIndex, role: "main", slot: "main", dishId: mainObj?.id })
+      : escapeHtml(main);
+
+    const sideCell = editable
+      ? (sideObjs.length
+        ? sideObjs.map((it, i) => renderEditableDish({
+          name: it?.name || `配菜${i + 1}`,
+          dayIndex,
+          role: "side",
+          slot: `side_${i}`,
+          dishId: it?.id,
+        })).join("<span class=\"dish-sep\">、</span>")
+        : "<span class='muted'>（無配菜）</span>")
+      : escapeHtml(sides);
+
+    const vegCell = editable
+      ? renderEditableDish({ name: veg, dayIndex, role: "veg", slot: "veg", dishId: vegObj?.id })
+      : escapeHtml(veg);
+
+    const soupCell = editable
+      ? renderEditableDish({ name: soup, dayIndex, role: "soup", slot: "soup", dishId: soupObj?.id })
+      : escapeHtml(soup);
+
+    const fruitCell = editable
+      ? renderEditableDish({ name: fruit, dayIndex, role: "fruit", slot: "fruit", dishId: fruitObj?.id })
+      : escapeHtml(fruit);
+
     html += `<tr>
       <td>${d.date}</td>
-      <td>${escapeHtml(main)}</td>
-      <td>${escapeHtml(sides)}</td>
-      <td>${escapeHtml(veg)}</td>
-      <td>${escapeHtml(soup)}</td>
-      <td>${escapeHtml(fruit)}</td>
+      <td>${mainCell}</td>
+      <td>${sideCell}</td>
+      <td>${vegCell}</td>
+      <td>${soupCell}</td>
+      <td>${fruitCell}</td>
       <td>${cost}</td>
       <td><b>${fitness.toFixed(1)}</b></td>
     </tr>`;

@@ -32,6 +32,7 @@ def compute_total_score(
     hard: Dict,
     weights: Dict,
     soft: Dict,
+    start_date: Optional[date] = None,
 ) -> Tuple[float, List[Dict]]:
     total = 0.0
     day_details: List[Dict] = []
@@ -82,6 +83,7 @@ def compute_total_score(
             "prefer_use_inventory": bool(soft.get("prefer_use_inventory", False)),
             "prefer_near_expiry": bool(soft.get("prefer_near_expiry", False)),
             "inventory_prefer_ingredient_ids": soft.get("inventory_prefer_ingredient_ids") or [],
+            "plan_date": (start_date + timedelta(days=day_idx)).isoformat() if start_date else None,
         }
         sb = score_day(day_cost, hard, weights, chosen, ctx)
 
@@ -245,12 +247,12 @@ def improve_by_local_search(
 
     # 若根本沒有 active 日，直接回傳
     if not active_indices:
-        best_score, best_details = compute_total_score(plan_days, feat, hard, weights, soft)
+        best_score, best_details = compute_total_score(plan_days, feat, hard, weights, soft, start_date=start_date)
         return plan_days, best_score, best_details
 
     # 初始解
     best_plan = [PlanDay(d.main, list(d.sides), d.veg, d.soup, d.fruit) for d in plan_days]
-    best_score, best_details = compute_total_score(best_plan, feat, hard, weights, soft)
+    best_score, best_details = compute_total_score(best_plan, feat, hard, weights, soft, start_date=start_date)
 
     cur_plan = [PlanDay(d.main, list(d.sides), d.veg, d.soup, d.fruit) for d in best_plan]
     cur_score = best_score
@@ -326,7 +328,7 @@ def improve_by_local_search(
         ):
             continue
 
-        cand_score, cand_details = compute_total_score(cand, feat, hard, weights, soft)
+        cand_score, cand_details = compute_total_score(cand, feat, hard, weights, soft, start_date=start_date)
 
         if cand_score < cur_score:
             cur_plan, cur_score = cand, cand_score

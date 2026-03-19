@@ -273,6 +273,8 @@ def check_ingredient_window_repeat(
     plan_days: List[PlanDay],
     dish_ingredient_ids: Dict[str, Set[str]],
     max_repeat_in_7: int,
+    max_consecutive_days: Optional[int] = None,
+    no_same_within_day_keys: Optional[Set[str]] = None,
 ) -> bool:
     """
     最近 7 個「有排餐日」內，同一食材出現天數 <= max_repeat_in_7。
@@ -288,13 +290,37 @@ def check_ingredient_window_repeat(
             counts[ing] = counts.get(ing, 0) + 1
 
     today_ings: Set[str] = set()
+    today_counts: Dict[str, int] = {}
     for did in dish_ids_today:
         if did:
-            today_ings.update(dish_ingredient_ids.get(did, set()))
+            for ing in dish_ingredient_ids.get(did, set()):
+                today_ings.add(ing)
+                today_counts[ing] = today_counts.get(ing, 0) + 1
+
+    if no_same_within_day_keys:
+        target = {str(x).strip() for x in no_same_within_day_keys if str(x).strip()}
+        for ing in target:
+            if today_counts.get(ing, 0) > 1:
+                return False
 
     for ing in today_ings:
         if counts.get(ing, 0) + 1 > max_repeat_in_7:
             return False
+
+    if max_consecutive_days is not None:
+        lim = int(max_consecutive_days)
+        if lim < 1:
+            lim = 1
+        for ing in today_ings:
+            streak = 0
+            for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days=len(plan_days)):
+                prev_day_ings = _day_ingredient_ids(plan_days[i], dish_ingredient_ids)
+                if ing in prev_day_ings:
+                    streak += 1
+                else:
+                    break
+            if streak + 1 > lim:
+                return False
     return True
 
 def check_cost_range(

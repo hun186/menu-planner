@@ -44,7 +44,7 @@
     "prefer_near_expiry": true,
     "prefer_use_inventory": true,
 
-    "inventory_prefer_ingredient_ids": ["ing_spinach", "ing_fish_tilapia", "ing_tofu"],
+    "inventory_prefer_ingredient_ids": [],
 
     "diversity": {
       "avoid_same_cuisine_consecutive_days": true,

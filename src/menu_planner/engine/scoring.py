@@ -130,11 +130,12 @@ def score_day(
                 return 0.0
             if days <= 0:
                 return 1.0
-            if days <= 2:
-                return 0.8
+            # 提前鼓勵使用快到期食材，避免等到最後兩天才有明顯誘因
             if days <= 4:
-                return 0.5
+                return 0.8
             if days <= 7:
+                return 0.5
+            if days <= 10:
                 return 0.2
             return 0.0
 

@@ -153,6 +153,12 @@ def _hard_ok_for_plan(
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
     max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_consec = rep.get("max_consecutive_ingredient_days")
+    no_same_within_day = {
+        str(x).strip()
+        for x in (hard.get("no_same_ingredient_family_within_day") or [])
+        if str(x).strip()
+    }
 
     for day_idx, d in enumerate(plan_days):
         if not d.main:
@@ -176,6 +182,8 @@ def _hard_ok_for_plan(
             plan_days[:day_idx],
             dish_ingredient_ids,
             max_ing_7,
+            max_consecutive_days=max_ing_consec,
+            no_same_within_day_keys=no_same_within_day,
         ):
             return False
 

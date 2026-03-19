@@ -49,6 +49,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "max_same_side_in_7_days",
         "max_same_soup_in_7_days",
         "max_same_ingredient_in_7_days",
+        "max_consecutive_ingredient_days",
     ]:
         if k in rep:
             try:
@@ -56,5 +57,14 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                     errs.append(f"{k} 必須 >= 1")
             except Exception:
                 errs.append(f"{k} 必須是整數")
+
+    no_same_family = hard.get("no_same_ingredient_family_within_day")
+    if no_same_family is not None:
+        if not isinstance(no_same_family, list):
+            errs.append("no_same_ingredient_family_within_day 必須是陣列")
+        else:
+            bad = [x for x in no_same_family if not isinstance(x, str) or not x.strip()]
+            if bad:
+                errs.append("no_same_ingredient_family_within_day 需為非空字串陣列")
 
     return (len(errs) == 0), errs

@@ -153,3 +153,72 @@ def test_check_ingredient_window_repeat_counts_once_per_day():
     )
     # 前一天雖有多道豆腐，仍只算 1 天；因此今天再出現豆腐就超限
     assert ok is False
+
+
+def test_check_ingredient_window_repeat_blocks_third_consecutive_day_when_limit_two():
+    plan_days = [
+        PlanDay(main="m1", sides=["s1"], veg="v1", soup="sp1", fruit="f1"),
+        PlanDay(main="m2", sides=["s2"], veg="v2", soup="sp2", fruit="f2"),
+    ]
+    dish_ingredient_ids = {
+        "m1": {"ing_chicken"},
+        "m2": {"ing_pork"},
+        "s1": {"family:tofu"},
+        "s2": {"family:tofu"},
+        "v1": {"ing_cabbage"},
+        "v2": {"ing_spinach"},
+        "sp1": {"ing_tomato"},
+        "sp2": {"ing_daikon"},
+        "f1": {"ing_apple"},
+        "f2": {"ing_orange"},
+        "s3": {"family:tofu"},
+    }
+
+    ok = check_ingredient_window_repeat(
+        day_idx=2,
+        dish_ids_today=["m3", "s3", "v3", "sp3", "f3"],
+        plan_days=plan_days,
+        dish_ingredient_ids=dish_ingredient_ids,
+        max_repeat_in_7=7,
+        max_consecutive_days=2,
+    )
+    assert ok is False
+
+
+def test_check_ingredient_window_repeat_blocks_same_family_within_day_when_configured():
+    plan_days = []
+    dish_ingredient_ids = {
+        "main": {"ing_chicken"},
+        "side_tofu": {"family:tofu"},
+        "soup_tofu": {"family:tofu"},
+    }
+
+    ok = check_ingredient_window_repeat(
+        day_idx=0,
+        dish_ids_today=["main", "side_tofu", "soup_tofu"],
+        plan_days=plan_days,
+        dish_ingredient_ids=dish_ingredient_ids,
+        max_repeat_in_7=7,
+        max_consecutive_days=7,
+        no_same_within_day_keys={"family:tofu"},
+    )
+    assert ok is False
+
+
+def test_check_ingredient_window_repeat_does_not_block_seasoning_when_only_tofu_family_limited():
+    plan_days = []
+    dish_ingredient_ids = {
+        "main": {"ing_chicken", "ing_sugar"},
+        "soup": {"ing_sugar", "ing_ginger"},
+    }
+
+    ok = check_ingredient_window_repeat(
+        day_idx=0,
+        dish_ids_today=["main", "soup"],
+        plan_days=plan_days,
+        dish_ingredient_ids=dish_ingredient_ids,
+        max_repeat_in_7=7,
+        max_consecutive_days=7,
+        no_same_within_day_keys={"family:tofu"},
+    )
+    assert ok is True

@@ -53,7 +53,7 @@ def test_analyze_soup_rejections_reports_ingredient_and_repeat_blocks():
     hard = {
         "repeat_limits": {
             "max_same_soup_in_7_days": 1,
-            "max_same_ingredient_in_7_days": 2,
+            "max_same_ingredient_in_window_days": 2,
         }
     }
 
@@ -71,4 +71,4 @@ def test_analyze_soup_rejections_reports_ingredient_and_repeat_blocks():
     assert stats["feasible_count"] == 1
     assert stats["blocked_by_soup_repeat"] == 1
     assert stats["blocked_by_ingredient_repeat"] == 1
-    assert stats["max_same_ingredient_in_7_days"] == 2
+    assert stats["max_same_ingredient_in_window_days"] == 2

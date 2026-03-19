@@ -154,7 +154,8 @@ def _hard_ok_for_plan(
     rep = hard.get("repeat_limits", {}) or {}
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
-    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_limit = int(rep.get("max_same_ingredient_in_window_days", rep.get("max_same_ingredient_in_7_days", 10**9)))
+    ing_window_days = int(rep.get("ingredient_repeat_window_days", 4))
     max_ing_consec = rep.get("max_consecutive_ingredient_days")
     no_same_within_day = {
         str(x).strip()
@@ -183,7 +184,8 @@ def _hard_ok_for_plan(
             [d.main, d.soup, d.fruit, d.veg] + list(d.sides or []),
             plan_days[:day_idx],
             dish_ingredient_ids,
-            max_ing_7,
+            max_ing_limit,
+            window_active_days=ing_window_days,
             max_consecutive_days=max_ing_consec,
             no_same_within_day_keys=no_same_within_day,
         ):

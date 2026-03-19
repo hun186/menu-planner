@@ -203,7 +203,8 @@ def _pick_fruit(
 ) -> str:
     rep = hard.get("repeat_limits", {}) or {}
     max_fruit_7 = int(rep.get("max_same_fruit_in_7_days", 10**9))  # 預設幾乎不限制
-    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_limit = int(rep.get("max_same_ingredient_in_window_days", rep.get("max_same_ingredient_in_7_days", 10**9)))
+    ing_window_days = int(rep.get("ingredient_repeat_window_days", 4))
     max_ing_consec = rep.get("max_consecutive_ingredient_days")
     no_same_within_day = {
         str(x).strip()
@@ -224,7 +225,8 @@ def _pick_fruit(
                 base + [fid],
                 plan_days,
                 dish_ingredient_ids,
-                max_ing_7,
+                max_ing_limit,
+                window_active_days=ing_window_days,
                 max_consecutive_days=max_ing_consec,
                 no_same_within_day_keys=no_same_within_day,
             ):
@@ -248,7 +250,8 @@ def _choose_soup(
 ) -> Optional[str]:
     rep = hard.get("repeat_limits", {}) or {}
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
-    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_limit = int(rep.get("max_same_ingredient_in_window_days", rep.get("max_same_ingredient_in_7_days", 10**9)))
+    ing_window_days = int(rep.get("ingredient_repeat_window_days", 4))
     max_ing_consec = rep.get("max_consecutive_ingredient_days")
     no_same_within_day = {
         str(x).strip()
@@ -275,7 +278,8 @@ def _choose_soup(
             [main_id, sid],
             plan_days,
             dish_ingredient_ids,
-            max_ing_7,
+            max_ing_limit,
+            window_active_days=ing_window_days,
             max_consecutive_days=max_ing_consec,
             no_same_within_day_keys=no_same_within_day,
         ):
@@ -296,7 +300,8 @@ def _analyze_soup_rejections(
 ) -> Dict[str, int]:
     rep = hard.get("repeat_limits", {}) or {}
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
-    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_limit = int(rep.get("max_same_ingredient_in_window_days", rep.get("max_same_ingredient_in_7_days", 10**9)))
+    ing_window_days = int(rep.get("ingredient_repeat_window_days", 4))
     max_ing_consec = rep.get("max_consecutive_ingredient_days")
     no_same_within_day = {
         str(x).strip()
@@ -317,7 +322,8 @@ def _analyze_soup_rejections(
                 [main_id, sid],
                 plan_days,
                 dish_ingredient_ids,
-                max_ing_7,
+                max_ing_limit,
+                window_active_days=ing_window_days,
                 max_consecutive_days=max_ing_consec,
                 no_same_within_day_keys=no_same_within_day,
             )
@@ -338,7 +344,8 @@ def _analyze_soup_rejections(
         "feasible_count": feasible,
         "blocked_by_ingredient_repeat": blocked_by_ingredient,
         "blocked_by_soup_repeat": blocked_by_soup_repeat,
-        "max_same_ingredient_in_7_days": max_ing_7,
+        "max_same_ingredient_in_window_days": max_ing_limit,
+        "ingredient_repeat_window_days": ing_window_days,
     }
 
 
@@ -358,7 +365,8 @@ def _choose_sides_backtrack(
 ) -> Optional[List[str]]:
     rep = hard.get("repeat_limits", {}) or {}
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
-    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_limit = int(rep.get("max_same_ingredient_in_window_days", rep.get("max_same_ingredient_in_7_days", 10**9)))
+    ing_window_days = int(rep.get("ingredient_repeat_window_days", 4))
     max_ing_consec = rep.get("max_consecutive_ingredient_days")
     no_same_within_day = {
         str(x).strip()
@@ -390,7 +398,8 @@ def _choose_sides_backtrack(
                 [main_id, soup_id, fruit_id] + list(chosen),
                 plan_days,
                 dish_ingredient_ids,
-                max_ing_7,
+                max_ing_limit,
+                window_active_days=ing_window_days,
                 max_consecutive_days=max_ing_consec,
                 no_same_within_day_keys=no_same_within_day,
             ):
@@ -424,7 +433,8 @@ def _choose_veg(
 ) -> Optional[str]:
     rep = hard.get("repeat_limits", {}) or {}
     max_veg_7 = int(rep.get("max_same_veg_in_7_days", rep.get("max_same_side_in_7_days", 1)))
-    max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_limit = int(rep.get("max_same_ingredient_in_window_days", rep.get("max_same_ingredient_in_7_days", 10**9)))
+    ing_window_days = int(rep.get("ingredient_repeat_window_days", 4))
     max_ing_consec = rep.get("max_consecutive_ingredient_days")
     no_same_within_day = {
         str(x).strip()
@@ -450,7 +460,8 @@ def _choose_veg(
             list(selected_dish_ids) + [vid],
             plan_days,
             dish_ingredient_ids,
-            max_ing_7,
+            max_ing_limit,
+            window_active_days=ing_window_days,
             max_consecutive_days=max_ing_consec,
             no_same_within_day_keys=no_same_within_day,
         ):
@@ -591,12 +602,13 @@ def fill_days_after_mains(
                 message=f"第 {day+1} 天找不到符合重複限制的湯。",
                 details={
                     "max_same_soup_in_7_days": max_soup_7,
-                    "max_same_ingredient_in_7_days": soup_stats["max_same_ingredient_in_7_days"],
+                    "max_same_ingredient_in_window_days": soup_stats["max_same_ingredient_in_window_days"],
+                    "ingredient_repeat_window_days": soup_stats["ingredient_repeat_window_days"],
                     "candidate_count": soup_stats["candidate_count"],
                     "feasible_count": soup_stats["feasible_count"],
                     "blocked_by_soup_repeat": soup_stats["blocked_by_soup_repeat"],
                     "blocked_by_ingredient_repeat": soup_stats["blocked_by_ingredient_repeat"],
-                    "hint": "可放寬湯品/食材 7 天重複限制，或增加湯品候選。",
+                    "hint": f"可放寬湯品 7 天重複，或放寬食材 {soup_stats['ingredient_repeat_window_days']} 天重複限制，或增加湯品候選。",
                 }
             )
             errors.append(err.to_dict())

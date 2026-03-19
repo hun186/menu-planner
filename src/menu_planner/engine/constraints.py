@@ -23,12 +23,19 @@ def _window_start(day_idx: int, window: int) -> int:
     return max(0, day_idx - window + 1)
 
 def _iter_prev_active_indices(day_idx: int, plan_days: List[PlanDay], window_active_days: int):
-    """往回找最近 window_active_days 個『有排餐日』的索引（略過 offday）"""
+    """往回找最近 window_active_days 個『成功排餐日』的索引（略過 offday/不完整日）。"""
     seen = 0
     for i in range(day_idx - 1, -1, -1):
         if i >= len(plan_days):
             continue
-        if not plan_days[i].main:  # main=="" 視為 offday
+        d = plan_days[i]
+        # 只把「完整成功日」納入 rolling window：
+        # main + 至少 1 道 side + veg + soup + fruit 都要存在
+        if not d.main:
+            continue
+        if not d.sides:
+            continue
+        if (not d.veg) or (not d.soup) or (not d.fruit):
             continue
         yield i
         seen += 1
@@ -272,19 +279,25 @@ def check_ingredient_window_repeat(
     dish_ids_today: List[str],
     plan_days: List[PlanDay],
     dish_ingredient_ids: Dict[str, Set[str]],
-    max_repeat_in_7: int,
+    max_repeat_in_window: Optional[int] = None,
+    window_active_days: int = 4,
     max_consecutive_days: Optional[int] = None,
     no_same_within_day_keys: Optional[Set[str]] = None,
+    max_repeat_in_7: Optional[int] = None,  # backward compatibility
 ) -> bool:
     """
-    最近 7 個「有排餐日」內，同一食材出現天數 <= max_repeat_in_7。
+    最近 window_active_days 個「有排餐日」內，同一食材出現天數 <= max_repeat_in_window。
     計數單位是「天」：同一天即使多道菜都有豆腐，也只記 1 次。
     """
-    if max_repeat_in_7 >= 10**9:
+    repeat_limit = max_repeat_in_window if max_repeat_in_window is not None else max_repeat_in_7
+    if repeat_limit is None:
+        repeat_limit = 10**9
+
+    if repeat_limit >= 10**9:
         return True
 
     counts: Dict[str, int] = {}
-    for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days=7):
+    for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days=window_active_days):
         day_ings = _day_ingredient_ids(plan_days[i], dish_ingredient_ids)
         for ing in day_ings:
             counts[ing] = counts.get(ing, 0) + 1
@@ -304,7 +317,7 @@ def check_ingredient_window_repeat(
                 return False
 
     for ing in today_ings:
-        if counts.get(ing, 0) + 1 > max_repeat_in_7:
+        if counts.get(ing, 0) + 1 > repeat_limit:
             return False
 
     if max_consecutive_days is not None:

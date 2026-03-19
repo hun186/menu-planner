@@ -73,18 +73,18 @@ def test_auto_relax_respects_filters_and_keeps_limit_when_feasible():
 
 
 def test_bump_soup_constraints_prefers_ingredient_limit_first():
-    hard = {"repeat_limits": {"max_same_soup_in_7_days": 1, "max_same_ingredient_in_7_days": 3}}
+    hard = {"repeat_limits": {"max_same_soup_in_7_days": 1, "max_same_ingredient_in_window_days": 3}}
 
     changed = _bump_soup_constraints_for_retry(hard)
 
-    assert changed["max_same_ingredient_in_7_days"]["from"] == 3
-    assert changed["max_same_ingredient_in_7_days"]["to"] == 4
-    assert hard["repeat_limits"]["max_same_ingredient_in_7_days"] == 4
+    assert changed["max_same_ingredient_in_window_days"]["from"] == 3
+    assert changed["max_same_ingredient_in_window_days"]["to"] == 4
+    assert hard["repeat_limits"]["max_same_ingredient_in_window_days"] == 4
     assert hard["repeat_limits"]["max_same_soup_in_7_days"] == 1
 
 
 def test_bump_soup_constraints_then_relaxes_soup_limit():
-    hard = {"repeat_limits": {"max_same_soup_in_7_days": 1, "max_same_ingredient_in_7_days": 7}}
+    hard = {"repeat_limits": {"max_same_soup_in_7_days": 1, "max_same_ingredient_in_window_days": 7}}
 
     changed = _bump_soup_constraints_for_retry(hard)
 

@@ -85,6 +85,8 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
         "max_same_side_in_7_days",
         "max_same_soup_in_7_days",
         "max_same_ingredient_in_7_days",
+        "max_same_ingredient_in_window_days",
+        "ingredient_repeat_window_days",
         "max_consecutive_ingredient_days",
     ]:
         if k in rep:

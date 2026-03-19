@@ -28,6 +28,9 @@ def test_generate_and_export_excel():
 
     cfg = json.loads(body)
     cfg["horizon_days"] = 270
+    # 使用固定 seed + 關閉 local search，避免隨機鄰域替換造成 CI 偶發失敗
+    cfg["seed"] = 7
+    (cfg.setdefault("search", {}).setdefault("local_search", {}))["enabled"] = False
 
     # 生成菜單
     st, _, body = req("POST", "/plan", cfg)

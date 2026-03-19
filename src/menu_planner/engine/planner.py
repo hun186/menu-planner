@@ -302,7 +302,7 @@ def _bump_soup_constraints_for_retry(hard: Dict[str, Any]) -> Dict[str, Any]:
     changed: Dict[str, Any] = {}
 
     cur_soup = rep.get("max_same_soup_in_7_days")
-    cur_ing = rep.get("max_same_ingredient_in_7_days")
+    cur_ing = rep.get("max_same_ingredient_in_window_days", rep.get("max_same_ingredient_in_7_days"))
 
     try:
         soup_limit = int(cur_soup) if cur_soup is not None else 1
@@ -317,8 +317,10 @@ def _bump_soup_constraints_for_retry(hard: Dict[str, Any]) -> Dict[str, Any]:
     # 先放寬食材重複（通常是湯失敗主因），上限 7
     if ing_limit < 7:
         new_ing = ing_limit + 1
+        rep["max_same_ingredient_in_window_days"] = new_ing
+        # backward compatibility for older configs / downstream consumers
         rep["max_same_ingredient_in_7_days"] = new_ing
-        changed["max_same_ingredient_in_7_days"] = {
+        changed["max_same_ingredient_in_window_days"] = {
             "from": ing_limit,
             "to": new_ing,
             "reason": "auto_relaxed_for_soup_feasibility",

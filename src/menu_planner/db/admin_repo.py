@@ -15,6 +15,15 @@ class SQLiteAdminRepo:
         conn.execute("PRAGMA busy_timeout = 5000;")
         return conn
 
+    @staticmethod
+    def _compact_identifier(value: str) -> str:
+        return (
+            str(value or "")
+            .replace(" ", "")
+            .replace("\t", "")
+            .replace("　", "")
+        )
+
     # ---------- ingredients ----------
     def upsert_ingredient(self, ingredient_id: str, body: Dict[str, Any]) -> None:
         with self._conn() as conn:
@@ -142,12 +151,23 @@ class SQLiteAdminRepo:
     
     # ---------- inventory ----------
     def get_inventory(self, ingredient_id: str):
+        normalized_id = self._compact_identifier(ingredient_id)
         with self._conn() as conn:
             r = conn.execute("""
               SELECT qty_on_hand, unit, updated_at, expiry_date
               FROM inventory
               WHERE ingredient_id=?
             """, (ingredient_id,)).fetchone()
+            if not r and normalized_id:
+                r = conn.execute(
+                    """
+                    SELECT qty_on_hand, unit, updated_at, expiry_date
+                    FROM inventory
+                    WHERE REPLACE(REPLACE(REPLACE(ingredient_id, ' ', ''), CHAR(9), ''), '　', '')=?
+                    LIMIT 1
+                    """,
+                    (normalized_id,),
+                ).fetchone()
         if not r:
             return None
         return {

@@ -36,6 +36,14 @@ def _build_db(path: str):
             qty REAL NOT NULL,
             unit TEXT NOT NULL
         );
+
+        CREATE TABLE inventory (
+            ingredient_id TEXT PRIMARY KEY,
+            qty_on_hand REAL NOT NULL,
+            unit TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            expiry_date TEXT
+        );
         """
     )
     conn.executemany(
@@ -112,3 +120,24 @@ def test_list_dish_cost_preview_returns_cost_and_warning_count(tmp_path):
     assert by_id["dish-1"]["warning_count"] == 0
     assert by_id["dish-2"]["per_serving_cost"] == 0
     assert by_id["dish-2"]["warning_count"] == 1
+
+
+def test_get_inventory_handles_whitespace_mismatch_in_inventory_id(tmp_path):
+    db_path = tmp_path / "menu.db"
+    _build_db(str(db_path))
+    repo = SQLiteAdminRepo(str(db_path))
+
+    with sqlite3.connect(str(db_path)) as conn:
+        conn.execute(
+            "INSERT INTO ingredients(id, name, category, default_unit) VALUES(?, ?, ?, ?)",
+            ("ing_芋圓", "芋圓", "starch", "斤"),
+        )
+        conn.execute(
+            "INSERT INTO inventory(ingredient_id, qty_on_hand, unit, updated_at, expiry_date) VALUES(?, ?, ?, ?, ?)",
+            ("ing_ 芋圓", 1, "斤", "2026-03-10", "2026-03-21"),
+        )
+
+    got = repo.get_inventory("ing_芋圓")
+    assert got is not None
+    assert got["qty_on_hand"] == 1.0
+    assert got["unit"] == "斤"

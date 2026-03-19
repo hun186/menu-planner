@@ -4,12 +4,13 @@ from __future__ import annotations
 import logging
 import math
 import random
+import re
 import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Set, Tuple
 
-from ..db.repo import Dish, DishIngredient, SQLiteRepo
+from ..db.repo import Dish, DishIngredient, Ingredient, SQLiteRepo
 from .backtracking import fill_days_after_mains, plan_mains_beam
 from .constraints import PlanDay
 from .explain import build_explanations
@@ -127,10 +128,78 @@ def _filter_dishes_by_excluded_ingredients(
     return [d for d in dishes if not dish_has_excluded.get(d.id, False)]
 
 
-def _build_dish_ingredient_ids(dish_ingredients: List[DishIngredient]) -> Dict[str, Set[str]]:
+def _build_dish_ingredient_ids(
+    dish_ingredients: List[DishIngredient],
+    ingredients: Dict[str, Ingredient],
+    hard: Dict[str, Any],
+) -> Dict[str, Set[str]]:
+    """
+    Build per-dish ingredient keys for repeat-limit checks.
+
+    Priority (high -> low):
+    1) explicit hard.ingredient_repeat_group_by_id mapping
+    2) built-in family rules (default: tofu variants by name)
+    3) protein_group for selected categories (opt-in)
+    4) normalized name for shape/cut variants in selected categories
+    5) fallback to raw ingredient id
+    """
+    explicit_group = {
+        str(k).strip(): str(v).strip()
+        for k, v in (hard.get("ingredient_repeat_group_by_id") or {}).items()
+        if str(k).strip() and str(v).strip()
+    }
+    pg_categories = {
+        str(x).strip().lower()
+        for x in (hard.get("ingredient_repeat_use_protein_group_categories") or [])
+        if str(x).strip()
+    }
+    normalize_categories = {
+        str(x).strip().lower()
+        for x in (hard.get("ingredient_repeat_name_normalize_categories") or ["vegetable", "veg", "soy"])
+        if str(x).strip()
+    }
+    merge_shape_variants = bool(hard.get("ingredient_repeat_merge_shape_variants", True))
+    enable_builtin_family = bool(hard.get("ingredient_repeat_enable_builtin_family_rules", True))
+
+    def _normalized_base_name(raw: str) -> str:
+        s = re.sub(r"\s+", "", str(raw or "").strip().lower())
+        if not s:
+            return ""
+        # 常見「販售型態/切法」後綴（例：紅蘿蔔絲、紅蘿蔔丁、紅蘿蔔切塊）
+        for suffix in ("切絲", "切丁", "切塊", "切片", "絲", "丁", "塊", "片", "末", "段"):
+            if s.endswith(suffix):
+                s = s[: -len(suffix)]
+                break
+        return s.strip("_- ")
+
+    def _builtin_family_key(ing: Ingredient) -> str:
+        if not enable_builtin_family:
+            return ""
+        n = str(ing.name or "").strip()
+        # 只把「豆腐本體」系列併桶，避免把黃豆芽/毛豆等整個 soy 類都綁在一起
+        if "豆腐" in n and "豆腐乳" not in n:
+            return "family:tofu"
+        return ""
+
     out: Dict[str, Set[str]] = {}
     for di in dish_ingredients:
-        out.setdefault(di.dish_id, set()).add(di.ingredient_id)
+        ing = ingredients.get(di.ingredient_id)
+        if di.ingredient_id in explicit_group:
+            key = f"group:{explicit_group[di.ingredient_id]}"
+        else:
+            cat = (ing.category or "").strip().lower() if ing else ""
+            repeat_key = (ing.protein_group or "").strip() if ing else ""
+            fam = _builtin_family_key(ing) if ing else ""
+            if fam:
+                key = fam
+            elif repeat_key and cat in pg_categories:
+                key = f"protein_group:{repeat_key}"
+            elif merge_shape_variants and ing and cat in normalize_categories:
+                base = _normalized_base_name(ing.name)
+                key = f"name:{base}" if base else di.ingredient_id
+            else:
+                key = di.ingredient_id
+        out.setdefault(di.dish_id, set()).add(key)
     return out
 
 
@@ -321,7 +390,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         seed=seed,
         all_dishes=all_dishes,
         dishes_by_id=dishes_by_id,
-        dish_ingredient_ids=_build_dish_ingredient_ids(dish_ingredients),
+        dish_ingredient_ids=_build_dish_ingredient_ids(dish_ingredients, ingredients, hard),
         feat=feat,
         mains=mains,
         sides=sides,

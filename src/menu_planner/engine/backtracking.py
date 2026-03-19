@@ -204,6 +204,12 @@ def _pick_fruit(
     rep = hard.get("repeat_limits", {}) or {}
     max_fruit_7 = int(rep.get("max_same_fruit_in_7_days", 10**9))  # 預設幾乎不限制
     max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_consec = rep.get("max_consecutive_ingredient_days")
+    no_same_within_day = {
+        str(x).strip()
+        for x in (hard.get("no_same_ingredient_family_within_day") or [])
+        if str(x).strip()
+    }
 
     fruit_ids = [d.id for d in fruits if d.id in feat]
     if not fruit_ids:
@@ -213,7 +219,15 @@ def _pick_fruit(
     for fid in fruit_ids:
         if dish_ingredient_ids is not None:
             base = list(selected_dish_ids or [])
-            if not check_ingredient_window_repeat(day_idx, base + [fid], plan_days, dish_ingredient_ids, max_ing_7):
+            if not check_ingredient_window_repeat(
+                day_idx,
+                base + [fid],
+                plan_days,
+                dish_ingredient_ids,
+                max_ing_7,
+                max_consecutive_days=max_ing_consec,
+                no_same_within_day_keys=no_same_within_day,
+            ):
                 continue
         if check_fruit_window_repeat(day_idx, fid, plan_days, max_fruit_7):
             return fid
@@ -235,6 +249,12 @@ def _choose_soup(
     rep = hard.get("repeat_limits", {}) or {}
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
     max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_consec = rep.get("max_consecutive_ingredient_days")
+    no_same_within_day = {
+        str(x).strip()
+        for x in (hard.get("no_same_ingredient_family_within_day") or [])
+        if str(x).strip()
+    }
     soup_ids = [d.id for d in soups if d.id in feat]
 
     soup_ids.sort(key=lambda did: (
@@ -256,6 +276,8 @@ def _choose_soup(
             plan_days,
             dish_ingredient_ids,
             max_ing_7,
+            max_consecutive_days=max_ing_consec,
+            no_same_within_day_keys=no_same_within_day,
         ):
             continue
         if check_soup_window_repeat(day_idx, sid, plan_days, max_soup_7):
@@ -275,6 +297,12 @@ def _analyze_soup_rejections(
     rep = hard.get("repeat_limits", {}) or {}
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
     max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_consec = rep.get("max_consecutive_ingredient_days")
+    no_same_within_day = {
+        str(x).strip()
+        for x in (hard.get("no_same_ingredient_family_within_day") or [])
+        if str(x).strip()
+    }
 
     soup_ids = [d.id for d in soups if d.id in feat]
     blocked_by_ingredient = 0
@@ -290,6 +318,8 @@ def _analyze_soup_rejections(
                 plan_days,
                 dish_ingredient_ids,
                 max_ing_7,
+                max_consecutive_days=max_ing_consec,
+                no_same_within_day_keys=no_same_within_day,
             )
 
         if not ingredient_ok:
@@ -329,6 +359,12 @@ def _choose_sides_backtrack(
     rep = hard.get("repeat_limits", {}) or {}
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
     max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_consec = rep.get("max_consecutive_ingredient_days")
+    no_same_within_day = {
+        str(x).strip()
+        for x in (hard.get("no_same_ingredient_family_within_day") or [])
+        if str(x).strip()
+    }
     side_ids = [d.id for d in sides if d.id in feat]
 
     side_ids.sort(key=lambda did: (
@@ -355,6 +391,8 @@ def _choose_sides_backtrack(
                 plan_days,
                 dish_ingredient_ids,
                 max_ing_7,
+                max_consecutive_days=max_ing_consec,
+                no_same_within_day_keys=no_same_within_day,
             ):
                 return None
             return list(chosen)
@@ -387,6 +425,12 @@ def _choose_veg(
     rep = hard.get("repeat_limits", {}) or {}
     max_veg_7 = int(rep.get("max_same_veg_in_7_days", rep.get("max_same_side_in_7_days", 1)))
     max_ing_7 = int(rep.get("max_same_ingredient_in_7_days", 10**9))
+    max_ing_consec = rep.get("max_consecutive_ingredient_days")
+    no_same_within_day = {
+        str(x).strip()
+        for x in (hard.get("no_same_ingredient_family_within_day") or [])
+        if str(x).strip()
+    }
     veg_ids = [d.id for d in vegs if d.id in feat]
 
     veg_ids.sort(key=lambda did: (
@@ -407,6 +451,8 @@ def _choose_veg(
             plan_days,
             dish_ingredient_ids,
             max_ing_7,
+            max_consecutive_days=max_ing_consec,
+            no_same_within_day_keys=no_same_within_day,
         ):
             continue
         if check_veg_window_repeat(day_idx, vid, plan_days, max_veg_7):

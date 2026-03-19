@@ -6,6 +6,8 @@ export const DOM = {
   costMin: "#cost_min",
   costMax: "#cost_max",
   meatTypes: "#meat_types",
+  scheduleWeekdayChecks: "#schedule_weekdays input[type=checkbox]",
+  scheduleWeekdayHint: "#schedule_weekday_hint",
   noConsecutiveMeat: "#no_consecutive_meat",
   weeklyQuotaInputs: "#weekly_quota_table .quota",
   preferInventory: "#prefer_inventory",

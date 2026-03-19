@@ -7,6 +7,7 @@ export function buildCfgFromFormData(baseCfg, formData) {
 
   cfg.horizon_days = formData.horizonDays;
   cfg.schedule = cfg.schedule || {};
+  cfg.schedule.weekdays = formData.scheduleWeekdays;
   cfg.schedule.force_include_dates = formData.forceIncludeDates;
   cfg.schedule.force_exclude_dates = formData.forceExcludeDates;
 
@@ -40,6 +41,7 @@ export function deriveFormDataFromCfg(cfg) {
 
   return {
     horizonDays: cfg?.horizon_days ?? 30,
+    scheduleWeekdays: schedule.weekdays || [1, 2, 3, 4, 5],
     costMin: costRange.min ?? 0,
     costMax: costRange.max ?? 0,
     meatTypes: hard.allowed_main_meat_types || [],

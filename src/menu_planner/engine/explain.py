@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from ..db.repo import Dish
 from .constraints import PlanDay
@@ -15,6 +15,7 @@ def build_explanations(
     dishes_by_id: Dict[str, Dish],
     feat: Dict[str, DishFeatures],
     day_scores: List[Dict],
+    active_mask: Optional[List[bool]] = None,
 ) -> Dict:
     out_days: List[Dict] = []
 
@@ -62,6 +63,7 @@ def build_explanations(
     for i, d in enumerate(plan_days):
         dt = start_date + timedelta(days=i)
         sd = score_map.get(i, {}) or {}
+        is_scheduled = True if active_mask is None else bool(active_mask[i])
 
         # ✅ 成本：優先用 fill_days_after_mains() 提供的 cost（尤其失敗日/超出範圍日）
         if sd.get("cost") is not None:
@@ -90,6 +92,7 @@ def build_explanations(
         out_days.append({
             "date": dt.isoformat(),
             "day_index": i,
+            "is_scheduled": is_scheduled,
 
             # 失敗資訊透傳
             "failed": bool(sd.get("failed", False)),

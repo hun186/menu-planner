@@ -6,6 +6,10 @@ export function buildCfgFromFormData(baseCfg, formData) {
   const cfg = clone(baseCfg);
 
   cfg.horizon_days = formData.horizonDays;
+  cfg.schedule = cfg.schedule || {};
+  cfg.schedule.weekdays = formData.scheduleWeekdays;
+  cfg.schedule.force_include_dates = formData.forceIncludeDates;
+  cfg.schedule.force_exclude_dates = formData.forceExcludeDates;
 
   cfg.hard = cfg.hard || {};
   cfg.soft = cfg.soft || {};
@@ -32,10 +36,12 @@ export function buildCfgFromFormData(baseCfg, formData) {
 export function deriveFormDataFromCfg(cfg) {
   const hard = cfg?.hard || {};
   const soft = cfg?.soft || {};
+  const schedule = cfg?.schedule || {};
   const costRange = hard.cost_range_per_person_per_day || {};
 
   return {
     horizonDays: cfg?.horizon_days ?? 30,
+    scheduleWeekdays: schedule.weekdays || [1, 2, 3, 4, 5],
     costMin: costRange.min ?? 0,
     costMax: costRange.max ?? 0,
     meatTypes: hard.allowed_main_meat_types || [],
@@ -45,5 +51,7 @@ export function deriveFormDataFromCfg(cfg) {
     preferExpiry: !!soft.prefer_near_expiry,
     inventoryPreferIngredientIds: soft.inventory_prefer_ingredient_ids || [],
     excludeDishIds: hard.exclude_dish_ids || [],
+    forceIncludeDates: schedule.force_include_dates || [],
+    forceExcludeDates: schedule.force_exclude_dates || [],
   };
 }

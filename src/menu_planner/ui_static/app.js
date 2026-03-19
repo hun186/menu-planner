@@ -56,6 +56,12 @@ function readFormData() {
   $(`${DOM.meatTypes} input[type=checkbox]:checked`).each(function () {
     meatTypes.push($(this).val());
   });
+  const scheduleWeekdays = [];
+  $(DOM.scheduleWeekdayChecks).each(function () {
+    if ($(this).is(":checked")) {
+      scheduleWeekdays.push(parseInt($(this).val(), 10));
+    }
+  });
 
   const weeklyQuota = {};
   $(DOM.weeklyQuotaInputs).each(function () {
@@ -65,6 +71,7 @@ function readFormData() {
 
   return {
     horizonDays: parseInt($(DOM.horizonDays).val() || "30", 10),
+    scheduleWeekdays,
     costMin: parseFloat($(DOM.costMin).val() || "0"),
     costMax: parseFloat($(DOM.costMax).val() || "0"),
     meatTypes,
@@ -74,7 +81,27 @@ function readFormData() {
     preferExpiry: $(DOM.preferExpiry).is(":checked"),
     inventoryPreferIngredientIds: readChipIds($(DOM.ingredientChips)),
     excludeDishIds: readChipIds($(DOM.excludeDishChips)),
+    forceIncludeDates: readChipIds($(DOM.includeDateChips)),
+    forceExcludeDates: readChipIds($(DOM.excludeDateChips)),
   };
+}
+
+function updateWeekdayHint(weekdays) {
+  const labels = {
+    1: "週一",
+    2: "週二",
+    3: "週三",
+    4: "週四",
+    5: "週五",
+    6: "週六",
+    7: "週日",
+  };
+  const normalized = [...new Set((weekdays || []).map((x) => parseInt(x, 10)).filter((x) => x >= 1 && x <= 7))]
+    .sort((a, b) => a - b);
+  const text = normalized.length
+    ? `目前排程星期：${normalized.map((x) => labels[x]).join("、")}`
+    : "目前排程星期：未選擇（將不會排任何日期）";
+  $(DOM.scheduleWeekdayHint).text(text);
 }
 
 function applyCfgToForm(cfg) {
@@ -89,6 +116,13 @@ function applyCfgToForm(cfg) {
     const v = $(this).val();
     $(this).prop("checked", allowed.size ? allowed.has(v) : true);
   });
+
+  const scheduleWeekdays = new Set((form.scheduleWeekdays || []).map((x) => parseInt(x, 10)));
+  $(DOM.scheduleWeekdayChecks).each(function () {
+    const v = parseInt($(this).val(), 10);
+    $(this).prop("checked", scheduleWeekdays.has(v));
+  });
+  updateWeekdayHint(form.scheduleWeekdays || []);
 
   $(DOM.noConsecutiveMeat).prop("checked", form.noConsecutiveMeat);
 
@@ -112,6 +146,16 @@ function applyCfgToForm(cfg) {
   form.excludeDishIds.forEach((id) => {
     const d = state.dishById.get(id);
     addChip($(DOM.excludeDishChips), id, d ? `[${d.role}] ${d.name}` : id, syncCfgTextareaFromForm);
+  });
+
+  clearChips($(DOM.includeDateChips));
+  form.forceIncludeDates.forEach((ds) => {
+    addChip($(DOM.includeDateChips), ds, ds, syncCfgTextareaFromForm);
+  });
+
+  clearChips($(DOM.excludeDateChips));
+  form.forceExcludeDates.forEach((ds) => {
+    addChip($(DOM.excludeDateChips), ds, ds, syncCfgTextareaFromForm);
   });
 }
 
@@ -365,6 +409,24 @@ function bindDishSearch() {
   });
 }
 
+function bindSpecialDateOverrides() {
+  $(DOM.includeDateAdd).on("click", () => {
+    const ds = String($(DOM.includeDateInput).val() || "").trim();
+    if (!ds) return;
+    addChip($(DOM.includeDateChips), ds, ds, syncCfgTextareaFromForm);
+    $(DOM.includeDateInput).val("");
+    syncCfgTextareaFromForm();
+  });
+
+  $(DOM.excludeDateAdd).on("click", () => {
+    const ds = String($(DOM.excludeDateInput).val() || "").trim();
+    if (!ds) return;
+    addChip($(DOM.excludeDateChips), ds, ds, syncCfgTextareaFromForm);
+    $(DOM.excludeDateInput).val("");
+    syncCfgTextareaFromForm();
+  });
+}
+
 $(async function () {
   try {
     setMsg("載入資料中…");
@@ -373,10 +435,15 @@ $(async function () {
 
     bindIngredientSearch();
     bindDishSearch();
+    bindSpecialDateOverrides();
 
     $(`${DOM.horizonDays},${DOM.costMin},${DOM.costMax},${DOM.noConsecutiveMeat},${DOM.preferInventory},${DOM.preferExpiry},${DOM.dishRoleFilter}`)
       .on("change input", syncCfgTextareaFromForm);
     $(`${DOM.meatTypes} input[type=checkbox]`).on("change", syncCfgTextareaFromForm);
+    $(DOM.scheduleWeekdayChecks).on("change", () => {
+      updateWeekdayHint(readFormData().scheduleWeekdays);
+      syncCfgTextareaFromForm();
+    });
     $(DOM.weeklyQuotaInputs).on("change input", syncCfgTextareaFromForm);
 
     $(DOM.btnLoadDefaults).on("click", async () => {

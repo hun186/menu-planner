@@ -88,8 +88,19 @@ export function renderResult(result, cfg, options = {}) {
 
   days.forEach((d, idx) => {
     const dayIndex = d.day_index ?? idx;
+    const isScheduled = (d.is_scheduled !== undefined && d.is_scheduled !== null) ? !!d.is_scheduled : true;
     const dayErrs = errByDay.get(dayIndex) || [];
     const isFailed = dayErrs.length > 0 || !!d.failed;
+
+    if (!isScheduled) {
+      html += `<tr class="row-offday">
+        <td>${d.date || ""}</td>
+        <td colspan="5"><span class="muted">免排日（依排程設定）</span></td>
+        <td>${d.day_cost ?? 0}</td>
+        <td></td>
+      </tr>`;
+      return;
+    }
 
     if (isFailed) {
       const mainName = d.items?.main?.name || "(主菜已排但明細不足)";
@@ -129,11 +140,11 @@ export function renderResult(result, cfg, options = {}) {
     const rawScore = Number(d.score ?? 0);
     const fitness = (d.score_fitness !== undefined && d.score_fitness !== null) ? Number(d.score_fitness) : -rawScore;
 
-    const mainCell = editable
+    const mainCell = editable && isScheduled
       ? renderEditableDish({ name: main, dayIndex, role: "main", slot: "main", dishId: mainObj?.id })
       : escapeHtml(main);
 
-    const sideCell = editable
+    const sideCell = editable && isScheduled
       ? (sideObjs.length
         ? sideObjs.map((it, i) => renderEditableDish({
           name: it?.name || `配菜${i + 1}`,
@@ -145,15 +156,15 @@ export function renderResult(result, cfg, options = {}) {
         : "<span class='muted'>（無配菜）</span>")
       : escapeHtml(sides);
 
-    const vegCell = editable
+    const vegCell = editable && isScheduled
       ? renderEditableDish({ name: veg, dayIndex, role: "veg", slot: "veg", dishId: vegObj?.id })
       : escapeHtml(veg);
 
-    const soupCell = editable
+    const soupCell = editable && isScheduled
       ? renderEditableDish({ name: soup, dayIndex, role: "soup", slot: "soup", dishId: soupObj?.id })
       : escapeHtml(soup);
 
-    const fruitCell = editable
+    const fruitCell = editable && isScheduled
       ? renderEditableDish({ name: fruit, dayIndex, role: "fruit", slot: "fruit", dishId: fruitObj?.id })
       : escapeHtml(fruit);
 

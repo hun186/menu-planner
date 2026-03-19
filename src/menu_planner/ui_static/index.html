@@ -59,6 +59,39 @@
           </label>
         </div>
 
+        <div class="row top">
+          <label>排程星期</label>
+          <div class="grow">
+            <div class="chips inline left" id="schedule_weekdays">
+              <label><input type="checkbox" value="1" checked>週一</label>
+              <label><input type="checkbox" value="2" checked>週二</label>
+              <label><input type="checkbox" value="3" checked>週三</label>
+              <label><input type="checkbox" value="4" checked>週四</label>
+              <label><input type="checkbox" value="5" checked>週五</label>
+              <label><input type="checkbox" value="6">週六</label>
+              <label><input type="checkbox" value="7">週日</label>
+            </div>
+            <div id="schedule_weekday_hint" class="hint">目前由設定檔 schedule.weekdays 決定排程星期。</div>
+          </div>
+        </div>
+
+        <div class="row top">
+          <label>特殊排程日</label>
+          <div class="grow">
+            <div class="hint">可針對特定日期覆寫（例如：國定假日停排、週末補班加排）。</div>
+            <div class="inline left" style="margin-top:8px;">
+              <input id="include_date_input" type="date" />
+              <button type="button" id="include_date_add">加入「要排」</button>
+            </div>
+            <div id="include_date_chips" class="chips chips-box"></div>
+            <div class="inline left" style="margin-top:8px;">
+              <input id="exclude_date_input" type="date" />
+              <button type="button" id="exclude_date_add">加入「免排」</button>
+            </div>
+            <div id="exclude_date_chips" class="chips chips-box"></div>
+          </div>
+        </div>
+
         <hr class="hr" />
 
         <h3 class="h3">每週肉類配額（主菜）</h3>

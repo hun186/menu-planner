@@ -24,6 +24,10 @@ export function buildCfgFromFormData(baseCfg, formData) {
   cfg.hard.allowed_main_meat_types = formData.meatTypes;
   cfg.hard.no_consecutive_same_main_meat = formData.noConsecutiveMeat;
   cfg.hard.weekly_max_main_meat = formData.weeklyQuota;
+  cfg.hard.repeat_limits = {
+    ...(cfg.hard.repeat_limits || {}),
+    ...(formData.repeatLimits || {}),
+  };
 
   cfg.soft.prefer_use_inventory = formData.preferInventory;
   cfg.soft.prefer_near_expiry = formData.preferExpiry;
@@ -47,6 +51,7 @@ export function deriveFormDataFromCfg(cfg) {
     meatTypes: hard.allowed_main_meat_types || [],
     noConsecutiveMeat: !!hard.no_consecutive_same_main_meat,
     weeklyQuota: hard.weekly_max_main_meat || {},
+    repeatLimits: hard.repeat_limits || {},
     preferInventory: !!soft.prefer_use_inventory,
     preferExpiry: !!soft.prefer_near_expiry,
     inventoryPreferIngredientIds: soft.inventory_prefer_ingredient_ids || [],

@@ -68,6 +68,11 @@ function readFormData() {
     const meat = $(this).data("meat");
     weeklyQuota[meat] = parseInt($(this).val() || "0", 10);
   });
+  const repeatLimits = {};
+  $(DOM.repeatLimitInputs).each(function () {
+    const k = $(this).data("key");
+    repeatLimits[k] = parseInt($(this).val() || "1", 10);
+  });
 
   return {
     horizonDays: parseInt($(DOM.horizonDays).val() || "30", 10),
@@ -77,6 +82,7 @@ function readFormData() {
     meatTypes,
     noConsecutiveMeat: $(DOM.noConsecutiveMeat).is(":checked"),
     weeklyQuota,
+    repeatLimits,
     preferInventory: $(DOM.preferInventory).is(":checked"),
     preferExpiry: $(DOM.preferExpiry).is(":checked"),
     inventoryPreferIngredientIds: readChipIds($(DOM.ingredientChips)),
@@ -130,6 +136,12 @@ function applyCfgToForm(cfg) {
     const meat = $(this).data("meat");
     if (form.weeklyQuota[meat] !== undefined) {
       $(this).val(form.weeklyQuota[meat]);
+    }
+  });
+  $(DOM.repeatLimitInputs).each(function () {
+    const key = $(this).data("key");
+    if (form.repeatLimits[key] !== undefined) {
+      $(this).val(form.repeatLimits[key]);
     }
   });
 
@@ -445,6 +457,7 @@ $(async function () {
       syncCfgTextareaFromForm();
     });
     $(DOM.weeklyQuotaInputs).on("change input", syncCfgTextareaFromForm);
+    $(DOM.repeatLimitInputs).on("change input", syncCfgTextareaFromForm);
 
     $(DOM.btnLoadDefaults).on("click", async () => {
       await loadDefaultsAndApply();

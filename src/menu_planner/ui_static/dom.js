@@ -10,6 +10,7 @@ export const DOM = {
   scheduleWeekdayHint: "#schedule_weekday_hint",
   noConsecutiveMeat: "#no_consecutive_meat",
   weeklyQuotaInputs: "#weekly_quota_table .quota",
+  repeatLimitInputs: "#repeat_limits_table .repeat-limit",
   preferInventory: "#prefer_inventory",
   preferExpiry: "#prefer_expiry",
   ingredientSearch: "#ingredient_search",

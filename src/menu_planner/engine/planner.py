@@ -63,11 +63,28 @@ def _get_active_mask(start_date: date, horizon_days: int, cfg: Dict[str, Any]) -
     sch = (cfg.get("schedule") or {})
     weekdays = sch.get("weekdays") or [1, 2, 3, 4, 5]  # 預設週一到週五
     allowed = set(int(x) for x in weekdays)
+    force_include_dates = {
+        str(x).strip()
+        for x in (sch.get("force_include_dates") or [])
+        if str(x).strip()
+    }
+    force_exclude_dates = {
+        str(x).strip()
+        for x in (sch.get("force_exclude_dates") or [])
+        if str(x).strip()
+    }
 
     mask: List[bool] = []
     for i in range(horizon_days):
-        wd = (start_date + timedelta(days=i)).isoweekday()
-        mask.append(wd in allowed)
+        cur = start_date + timedelta(days=i)
+        ds = cur.isoformat()
+        wd = cur.isoweekday()
+        is_active = wd in allowed
+        if ds in force_exclude_dates:
+            is_active = False
+        if ds in force_include_dates:
+            is_active = True
+        mask.append(is_active)
     return mask
 
 
@@ -534,6 +551,7 @@ def _build_result(ctx: PlanContext, comp: PlanComputation) -> Dict[str, Any]:
         dishes_by_id=ctx.dishes_by_id,
         feat=ctx.feat,
         day_scores=comp.day_details,
+        active_mask=ctx.active_mask,
     )
     result["errors"] = comp.errors
     result["ok"] = (len(comp.errors) == 0)

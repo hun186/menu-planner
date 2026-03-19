@@ -78,6 +78,9 @@ textarea{
 }
 .tbl th, .tbl td{ border:1px solid var(--bd); padding:8px; vertical-align:top; }
 .tbl th{ background:#f6f6f6; }
+.row-offday td{
+  background:#fbfbfb;
+}
 .ing-tbl th, .ing-tbl td,
 .dish-tbl th, .dish-tbl td{
   word-break:break-word;

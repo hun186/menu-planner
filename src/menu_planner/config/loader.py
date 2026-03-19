@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -26,6 +27,41 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                 errs.append("horizon_days 必須 > 0")
         except Exception:
             errs.append("horizon_days 必須是整數")
+
+    schedule = cfg.get("schedule", {}) or {}
+    weekdays = schedule.get("weekdays")
+    if weekdays is not None:
+        if not isinstance(weekdays, list):
+            errs.append("schedule.weekdays 必須是陣列")
+        else:
+            bad = []
+            for x in weekdays:
+                try:
+                    wd = int(x)
+                except Exception:
+                    bad.append(x)
+                    continue
+                if wd < 1 or wd > 7:
+                    bad.append(x)
+            if bad:
+                errs.append(f"schedule.weekdays 僅支援 1~7：{bad}")
+
+    for key in ["force_include_dates", "force_exclude_dates"]:
+        vv = schedule.get(key)
+        if vv is None:
+            continue
+        if not isinstance(vv, list):
+            errs.append(f"schedule.{key} 必須是陣列")
+            continue
+        bad_dates = []
+        for x in vv:
+            ds = str(x).strip()
+            try:
+                datetime.strptime(ds, "%Y-%m-%d")
+            except Exception:
+                bad_dates.append(x)
+        if bad_dates:
+            errs.append(f"schedule.{key} 日期格式需為 YYYY-MM-DD：{bad_dates}")
 
     hard = cfg.get("hard", {}) or {}
     allowed = hard.get("allowed_main_meat_types", [])

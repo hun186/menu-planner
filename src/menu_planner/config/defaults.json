@@ -1,7 +1,9 @@
 {
   "horizon_days": 30,
   "schedule": {
-    "weekdays": [1, 2, 3, 4, 5]
+    "weekdays": [1, 2, 3, 4, 5],
+    "force_include_dates": [],
+    "force_exclude_dates": []
   },
   "people": 1,
   "per_day_roles": { "main": 1, "side": 2, "veg": 1, "fruit": 1, "soup": 1 },

@@ -74,6 +74,8 @@ function readFormData() {
     preferExpiry: $(DOM.preferExpiry).is(":checked"),
     inventoryPreferIngredientIds: readChipIds($(DOM.ingredientChips)),
     excludeDishIds: readChipIds($(DOM.excludeDishChips)),
+    forceIncludeDates: readChipIds($(DOM.includeDateChips)),
+    forceExcludeDates: readChipIds($(DOM.excludeDateChips)),
   };
 }
 
@@ -112,6 +114,16 @@ function applyCfgToForm(cfg) {
   form.excludeDishIds.forEach((id) => {
     const d = state.dishById.get(id);
     addChip($(DOM.excludeDishChips), id, d ? `[${d.role}] ${d.name}` : id, syncCfgTextareaFromForm);
+  });
+
+  clearChips($(DOM.includeDateChips));
+  form.forceIncludeDates.forEach((ds) => {
+    addChip($(DOM.includeDateChips), ds, ds, syncCfgTextareaFromForm);
+  });
+
+  clearChips($(DOM.excludeDateChips));
+  form.forceExcludeDates.forEach((ds) => {
+    addChip($(DOM.excludeDateChips), ds, ds, syncCfgTextareaFromForm);
   });
 }
 
@@ -365,6 +377,24 @@ function bindDishSearch() {
   });
 }
 
+function bindSpecialDateOverrides() {
+  $(DOM.includeDateAdd).on("click", () => {
+    const ds = String($(DOM.includeDateInput).val() || "").trim();
+    if (!ds) return;
+    addChip($(DOM.includeDateChips), ds, ds, syncCfgTextareaFromForm);
+    $(DOM.includeDateInput).val("");
+    syncCfgTextareaFromForm();
+  });
+
+  $(DOM.excludeDateAdd).on("click", () => {
+    const ds = String($(DOM.excludeDateInput).val() || "").trim();
+    if (!ds) return;
+    addChip($(DOM.excludeDateChips), ds, ds, syncCfgTextareaFromForm);
+    $(DOM.excludeDateInput).val("");
+    syncCfgTextareaFromForm();
+  });
+}
+
 $(async function () {
   try {
     setMsg("載入資料中…");
@@ -373,6 +403,7 @@ $(async function () {
 
     bindIngredientSearch();
     bindDishSearch();
+    bindSpecialDateOverrides();
 
     $(`${DOM.horizonDays},${DOM.costMin},${DOM.costMax},${DOM.noConsecutiveMeat},${DOM.preferInventory},${DOM.preferExpiry},${DOM.dishRoleFilter}`)
       .on("change input", syncCfgTextareaFromForm);

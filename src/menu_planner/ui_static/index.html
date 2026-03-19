@@ -109,6 +109,22 @@
           </tbody>
         </table>
 
+        <h3 class="h3">重複限制（可互動調整）</h3>
+        <table class="mini-table" id="repeat_limits_table">
+          <thead>
+            <tr><th>限制項目</th><th>數值</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>主菜 30 天重複上限</td><td><input class="repeat-limit" data-key="max_same_main_in_30_days" type="number" min="1" value="1"></td></tr>
+            <tr><td>配菜 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_side_in_7_days" type="number" min="1" value="1"></td></tr>
+            <tr><td>湯 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_soup_in_7_days" type="number" min="1" value="1"></td></tr>
+            <tr><td>水果 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_fruit_in_7_days" type="number" min="1" value="1"></td></tr>
+            <tr><td>食材窗口重複上限</td><td><input class="repeat-limit" data-key="max_same_ingredient_in_window_days" type="number" min="1" value="2"></td></tr>
+            <tr><td>食材窗口天數</td><td><input class="repeat-limit" data-key="ingredient_repeat_window_days" type="number" min="1" value="4"></td></tr>
+            <tr><td>食材連續天數上限</td><td><input class="repeat-limit" data-key="max_consecutive_ingredient_days" type="number" min="1" value="2"></td></tr>
+          </tbody>
+        </table>
+
         <hr class="hr" />
 
         <h3 class="h3">庫存 / 到期偏好</h3>

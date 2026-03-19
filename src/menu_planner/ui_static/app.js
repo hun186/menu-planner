@@ -5,6 +5,7 @@ import { createAppState, setCatalog } from "./state.js";
 import { escapeHtml, formatErrors, pretty, renderResult, setMsg, showErrorDetail } from "./render.js";
 
 const state = createAppState();
+const EDITOR_MODAL_ID = "#dish_editor_modal";
 
 function addChip($box, id, label, onChanged) {
   if ($box.find(`.chip[data-id="${id}"]`).length) return;
@@ -164,6 +165,140 @@ async function downloadExcel(cfg, result) {
   URL.revokeObjectURL(url);
 }
 
+function ensureDishEditorModal() {
+  if ($(EDITOR_MODAL_ID).length) return;
+  const html = `
+    <div id="dish_editor_modal" class="mp-modal hide">
+      <div class="mp-modal-card">
+        <div class="mp-modal-hd">
+          <div class="mp-modal-title">調整菜色</div>
+          <button type="button" data-action="close">關閉</button>
+        </div>
+        <div class="row top">
+          <label>搜尋</label>
+          <div class="grow">
+            <input id="dish_editor_search" type="text" placeholder="輸入菜名關鍵字" />
+          </div>
+        </div>
+        <div class="row top">
+          <label>候選菜色</label>
+          <div class="grow">
+            <select id="dish_editor_select" size="12" class="editor-select"></select>
+          </div>
+        </div>
+        <div class="btns">
+          <button type="button" class="primary" data-action="save">套用</button>
+          <button type="button" data-action="cancel">取消</button>
+        </div>
+      </div>
+    </div>`;
+  $("body").append(html);
+}
+
+function findDayByIndex(dayIndex) {
+  const days = state.lastResult?.days || [];
+  return days.find((d, idx) => (d.day_index ?? idx) === dayIndex);
+}
+
+function normalizeDishForResult(base, dish) {
+  return {
+    ...(base || {}),
+    id: dish.id,
+    name: dish.name,
+    role: dish.role,
+    meat_type: dish.meat_type,
+    cuisine: dish.cuisine,
+    cost: dish.cost,
+  };
+}
+
+function applyDishEdit({ dayIndex, slot, dishId }) {
+  const day = findDayByIndex(dayIndex);
+  const dish = state.dishById.get(dishId);
+  if (!day || !dish) return false;
+
+  day.items = day.items || {};
+  if (slot === "main" || slot === "veg" || slot === "soup" || slot === "fruit") {
+    day.items[slot] = normalizeDishForResult(day.items[slot], dish);
+  } else if (slot.startsWith("side_")) {
+    const idx = parseInt(slot.slice(5), 10);
+    if (Number.isNaN(idx)) return false;
+    const sides = Array.isArray(day.items.sides) ? day.items.sides : [];
+    sides[idx] = normalizeDishForResult(sides[idx], dish);
+    day.items.sides = sides;
+  } else {
+    return false;
+  }
+
+  day.manual_adjusted = true;
+  return true;
+}
+
+function bindResultEditing() {
+  ensureDishEditorModal();
+  const modal = $(EDITOR_MODAL_ID);
+  const $search = $("#dish_editor_search");
+  const $select = $("#dish_editor_select");
+  const ctx = { dayIndex: null, slot: null, role: null };
+
+  function fillOptions(role, currentId) {
+    const candidates = state.dishes
+      .filter((d) => d.role === role)
+      .sort((a, b) => (a.name || "").localeCompare((b.name || ""), "zh-Hant"));
+    $select.empty();
+    candidates.forEach((d) => {
+      const $opt = $("<option></option>");
+      $opt.val(d.id);
+      $opt.text(d.name || d.id);
+      $select.append($opt);
+    });
+    if (currentId) $select.val(currentId);
+  }
+
+  function applyFilter() {
+    const q = ($search.val() || "").trim().toLowerCase();
+    $select.find("option").each(function () {
+      const txt = ($(this).text() || "").toLowerCase();
+      $(this).prop("hidden", !!q && !txt.includes(q));
+    });
+  }
+
+  $(document).on("click", ".dish-edit-trigger", function () {
+    const dayIndex = parseInt($(this).data("day-index"), 10);
+    const slot = String($(this).data("slot") || "");
+    const role = String($(this).data("role") || "");
+    const currentId = String($(this).data("dish-id") || "");
+    if (!role || !slot || Number.isNaN(dayIndex)) return;
+
+    ctx.dayIndex = dayIndex;
+    ctx.slot = slot;
+    ctx.role = role;
+    fillOptions(role, currentId);
+    $search.val("");
+    applyFilter();
+    modal.removeClass("hide");
+  });
+
+  $search.on("input", applyFilter);
+
+  modal.on("click", "[data-action=close],[data-action=cancel]", () => {
+    modal.addClass("hide");
+  });
+
+  modal.on("click", "[data-action=save]", () => {
+    const dishId = String($select.val() || "");
+    if (!dishId || ctx.dayIndex === null) return;
+    const ok = applyDishEdit({ dayIndex: ctx.dayIndex, slot: ctx.slot, dishId });
+    if (!ok) {
+      setMsg("調整失敗：找不到要更新的項目。", true);
+      return;
+    }
+    renderResult(state.lastResult, state.lastCfg, { editable: true });
+    setMsg("已套用手動調整（可直接匯出 Excel）。");
+    modal.addClass("hide");
+  });
+}
+
 function bindIngredientSearch() {
   const $input = $(DOM.ingredientSearch);
   const $suggest = $(DOM.ingredientSuggest);
@@ -304,7 +439,7 @@ $(async function () {
 
         state.lastResult = payload.result;
         setMsg("完成。");
-        renderResult(payload.result, cfg);
+        renderResult(payload.result, cfg, { editable: true });
         $(DOM.btnExportExcel).prop("disabled", false);
       } catch (e) {
         setMsg("產生失敗：請檢查 console 或後端 log。", true);
@@ -323,6 +458,7 @@ $(async function () {
       }
     });
 
+    bindResultEditing();
     setMsg("就緒。");
   } catch (e) {
     setMsg("初始化失敗：請檢查後端是否啟動、資料庫是否存在。", true);

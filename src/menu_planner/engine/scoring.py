@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Dict, Optional, List, Tuple
 
 from .features import DishFeatures
@@ -24,6 +25,49 @@ def score_day(
     chosen: Dict[str, DishFeatures],  # keys: main/side1/side2/veg/soup/fruit
     context: Dict,
 ) -> ScoreBreakdown:
+    def _resolve_plan_date() -> Optional[date]:
+        plan_date = context.get("plan_date")
+        if isinstance(plan_date, date):
+            return plan_date
+        if isinstance(plan_date, str) and plan_date.strip():
+            try:
+                return datetime.strptime(plan_date.strip(), "%Y-%m-%d").date()
+            except ValueError:
+                return None
+        return None
+
+    def _effective_inventory(d: DishFeatures, plan_day: Optional[date]) -> Tuple[float, Optional[int], set[str]]:
+        raw_ids = [str(x).strip() for x in (d.used_inventory_ingredients or []) if str(x).strip()]
+        if not raw_ids:
+            return 0.0, None, set()
+
+        active_ids: set[str] = set()
+        near_days: List[int] = []
+        for ing_id in raw_ids:
+            expiry_s = (d.inventory_expiry_dates or {}).get(ing_id)
+            if not plan_day or not expiry_s:
+                active_ids.add(ing_id)
+                continue
+            try:
+                expiry_d = datetime.strptime(expiry_s, "%Y-%m-%d").date()
+            except ValueError:
+                active_ids.add(ing_id)
+                continue
+            if expiry_d < plan_day:
+                continue
+            active_ids.add(ing_id)
+            near_days.append((expiry_d - plan_day).days)
+
+        denom = d.ingredient_count if d.ingredient_count > 0 else len(raw_ids)
+        ratio = (len(active_ids) / denom) if denom > 0 else 0.0
+        near_min = min(near_days) if near_days else None
+        return ratio, near_min, active_ids
+
+    plan_day = _resolve_plan_date()
+    effective: Dict[str, Tuple[float, Optional[int], set[str]]] = {
+        k: _effective_inventory(v, plan_day) for k, v in chosen.items()
+    }
+
     items: Dict[str, float] = {}
     total = 0.0
 
@@ -52,14 +96,14 @@ def score_day(
     if context.get("prefer_use_inventory", False):
         inv_bonus = float(weights.get("use_inventory_bonus", 0))
         # 用到庫存比例越高，加分越多
-        hit = chosen["main"].inventory_hit_ratio
+        hit = effective["main"][0]
         items["use_inventory_bonus_main"] = inv_bonus * hit  # inv_bonus 本身應該是負數
         # side/soup 也加一點
         items["use_inventory_bonus_others"] = inv_bonus * (
-            chosen["soup"].inventory_hit_ratio +
-            chosen["side1"].inventory_hit_ratio +
-            chosen["side2"].inventory_hit_ratio +
-            chosen["veg"].inventory_hit_ratio
+            effective["soup"][0] +
+            effective["side1"][0] +
+            effective["side2"][0] +
+            effective["veg"][0]
         ) * 0.5
 
         # 偏好食材（多選）：若當日菜色命中偏好食材，額外給一點 bonus。
@@ -70,16 +114,9 @@ def score_day(
             if str(x).strip()
         }
         if preferred_ids:
-            dishes = [
-                chosen["main"],
-                chosen["soup"],
-                chosen["side1"],
-                chosen["side2"],
-                chosen["veg"],
-            ]
             prefer_hits = 0
-            for d in dishes:
-                used = set(d.used_inventory_ingredients or [])
+            for key in ("main", "soup", "side1", "side2", "veg"):
+                used = effective[key][2]
                 prefer_hits += len(used & preferred_ids)
             if prefer_hits > 0:
                 # 比一般庫存命中弱一些，避免壓過成本/重複等目標。
@@ -87,11 +124,10 @@ def score_day(
 
     if context.get("prefer_near_expiry", False):
         near_bonus = float(weights.get("near_expiry_bonus", 0))  # 預期是負數
-        # 越接近到期（days 越小）加分越多；<0 代表過期，仍加分但你也可改成 hard 禁止
-        def one(d: DishFeatures) -> float:
-            if d.near_expiry_days_min is None:
+        # 越接近到期（days 越小）加分越多；已過期（相對於當天）不再視為庫存命中
+        def one(days: Optional[int]) -> float:
+            if days is None:
                 return 0.0
-            days = d.near_expiry_days_min
             if days <= 0:
                 return 1.0
             if days <= 2:
@@ -103,11 +139,11 @@ def score_day(
             return 0.0
 
         items["near_expiry_bonus"] = near_bonus * (
-            one(chosen["main"]) +
-            one(chosen["soup"]) +
-            one(chosen["side1"]) +
-            one(chosen["side2"]) +
-            one(chosen["veg"])
+            one(effective["main"][1]) +
+            one(effective["soup"][1]) +
+            one(effective["side1"][1]) +
+            one(effective["side2"][1]) +
+            one(effective["veg"][1])
         )
 
     # ===== 重複懲罰（soft；讓 local_search/報表看得出差異）=====

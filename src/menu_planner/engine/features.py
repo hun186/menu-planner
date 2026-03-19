@@ -1,7 +1,7 @@
 # src/menu_planner/engine/features.py
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Dict, List, Tuple, Optional
 
@@ -20,6 +20,8 @@ class DishFeatures:
     inventory_hit_ratio: float      # 0~1：用到庫存食材的比例（以品項數粗估）
     near_expiry_days_min: Optional[int]  # 使用到的庫存食材中，最接近到期的天數（越小越急）
     used_inventory_ingredients: List[str]
+    ingredient_count: int = 0
+    inventory_expiry_dates: Dict[str, Optional[str]] = field(default_factory=dict)
 
 
 def _parse_ymd(s: Optional[str]) -> Optional[date]:
@@ -100,6 +102,7 @@ def build_dish_features(
         used_inv: List[str] = []
         inv_hits = 0
         expiry_days_list: List[int] = []
+        inv_expiry_dates: Dict[str, Optional[str]] = {}
 
         for di in dis:
             ing = ingredients.get(di.ingredient_id)
@@ -119,6 +122,7 @@ def build_dish_features(
             if inv:
                 used_inv.append(di.ingredient_id)
                 inv_hits += 1
+                inv_expiry_dates[di.ingredient_id] = inv.expiry_date
 
                 exp = _parse_ymd(inv.expiry_date)
                 if exp:
@@ -137,6 +141,8 @@ def build_dish_features(
             inventory_hit_ratio=round(inv_ratio, 3),
             near_expiry_days_min=near_expiry_min,
             used_inventory_ingredients=used_inv,
+            ingredient_count=len(dis),
+            inventory_expiry_dates=inv_expiry_dates,
         )
 
     return out

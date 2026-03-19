@@ -796,6 +796,7 @@ def fill_days_after_mains(
             "prefer_use_inventory": bool(soft.get("prefer_use_inventory", False)),
             "prefer_near_expiry": bool(soft.get("prefer_near_expiry", False)),
             "inventory_prefer_ingredient_ids": soft.get("inventory_prefer_ingredient_ids") or [],
+            "plan_date": (start_date + timedelta(days=day)).isoformat(),
         }
         
         

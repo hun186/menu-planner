@@ -372,7 +372,7 @@ import { escapeHtml } from "./shared/html.js";
     const $openIng = $(`<button type="button" class="di_open_ing">食材管理</button>`);
     $openIng.on("click", async () => {
       await runWithMsg(DOM.msgDishIngredients, async () => {
-        await openIngredientEditorFromDishRow($ing);
+        await filterIngredientListFromDishRow($ing);
       });
     });
   
@@ -401,7 +401,7 @@ import { escapeHtml } from "./shared/html.js";
     $("#modal").removeClass("hide");
   }
 
-  async function openIngredientEditorFromDishRow($ingInput) {
+  async function filterIngredientListFromDishRow($ingInput) {
     const rawText = ($ingInput.val() || "").trim();
     const resolvedId = $ingInput.data("ing_id") || resolveIngredientId(rawText);
     if (!resolvedId) {
@@ -417,15 +417,17 @@ import { escapeHtml } from "./shared/html.js";
       throw new Error(`找不到食材：${resolvedId}`);
     }
 
-    $("#ing_id").val(ing.id);
-    $("#ing_name").val(ing.name || "");
-    $("#ing_category").val(ing.category || "");
-    $("#ing_protein").val(ing.protein_group || "");
-    $("#ing_unit").val(ing.default_unit || "");
+    const keyword = (ing.name || rawText || "").trim();
+    ingredientPager.q = keyword;
+    ingredientPager.page = 1;
+    $("#ing_q").val(keyword);
+    clearFields(DOM.ingredientEditorFields);
     clearMsg(DOM.msgIng);
+    await reloadCatalog();
+    renderAll();
     $("#modal").addClass("hide");
-    document.getElementById("ing_id")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    $("#ing_name").trigger("focus");
+    document.getElementById("ing_q")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    $("#ing_q").trigger("focus");
   }
 
   async function saveDishIngredients() {

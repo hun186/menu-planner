@@ -178,9 +178,11 @@ import { escapeHtml } from "./shared/html.js";
           <td>${escapeHtml(x.protein_group || "")}</td>
           <td>${escapeHtml(x.default_unit)}</td>
           <td>
-            <button class="btn_edit">編輯</button>
-			<button class="btn_meta">價格/庫存</button>
-            <button class="btn_del">刪除</button>
+            <div class="row-actions">
+              <button class="btn_edit">編輯</button>
+              <button class="btn_meta">價格/庫存</button>
+              <button class="btn_del">刪除</button>
+            </div>
           </td>
         </tr>
       `);
@@ -229,9 +231,11 @@ import { escapeHtml } from "./shared/html.js";
           <td>${escapeHtml(x.cuisine || "")}</td>
           <td>${escapeHtml(formatDishCostText(x.id))}</td>
           <td>
-            <button class="btn_edit">編輯</button>
-            <button class="btn_ing">編輯食材</button>
-            <button class="btn_del">刪除</button>
+            <div class="row-actions">
+              <button class="btn_edit">編輯</button>
+              <button class="btn_ing">編輯食材</button>
+              <button class="btn_del">刪除</button>
+            </div>
           </td>
         </tr>
       `);

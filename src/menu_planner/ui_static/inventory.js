@@ -99,12 +99,10 @@ function getPageRows(list) {
 function renderPager() {
   clampPage();
   const pages = totalPages();
-  const from = inventoryPager.total === 0 ? 0 : (inventoryPager.page - 1) * inventoryPager.pageSize + 1;
-  const to = Math.min(inventoryPager.total, inventoryPager.page * inventoryPager.pageSize);
-  $("#inv_page_label").text(`${inventoryPager.page} / ${pages}`);
-  $("#inv_pager_meta").text(`第 ${inventoryPager.page} / ${pages} 頁（顯示 ${from}-${to} / 共 ${inventoryPager.total} 筆）`);
-  $("#inv_page_first, #inv_page_prev").prop("disabled", inventoryPager.page <= 1);
-  $("#inv_page_next, #inv_page_last").prop("disabled", inventoryPager.page >= pages);
+  $("#inv_pager_meta").text(`第 ${inventoryPager.page} / ${pages} 頁，共 ${inventoryPager.total} 筆`);
+  $("#inv_page_prev").prop("disabled", inventoryPager.page <= 1);
+  $("#inv_page_next").prop("disabled", inventoryPager.page >= pages);
+  $("#inv_page_jump").val(inventoryPager.page);
 }
 
 function renderRows(list) {
@@ -277,11 +275,6 @@ $(function () {
     pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
     renderInventory();
   });
-  $("#inv_page_first").on("click", () => {
-    inventoryPager.page = 1;
-    pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
-    renderInventory();
-  });
   $("#inv_page_prev").on("click", () => {
     inventoryPager.page -= 1;
     pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
@@ -292,10 +285,19 @@ $(function () {
     pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
     renderInventory();
   });
-  $("#inv_page_last").on("click", () => {
-    inventoryPager.page = totalPages();
+  $("#inv_jump_btn").on("click", () => {
+    const raw = Number.parseInt($("#inv_page_jump").val(), 10);
+    if (!Number.isFinite(raw)) return;
+    inventoryPager.page = raw;
+    clampPage();
     pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
     renderInventory();
+  });
+  $("#inv_page_jump").on("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      $("#inv_jump_btn").trigger("click");
+    }
   });
   loadAndRender();
 });

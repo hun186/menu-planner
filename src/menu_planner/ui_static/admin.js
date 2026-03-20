@@ -358,7 +358,7 @@ import { escapeHtml } from "./shared/html.js";
       const costCell = formatDishCostCell(x.id);
       const warningAttr = costCell.title ? ` data-tooltip="${escapeHtml(costCell.title)}"` : "";
       const warningBadge = costCell.warningCount > 0
-        ? `<span class="cost-warning-icon" tabindex="0" role="img" aria-label="成本警示，共 ${costCell.warningCount} 項"${warningAttr} title="${escapeHtml(costCell.title)}">⚠️${costCell.warningCount}</span>`
+        ? `<span class="cost-warning-icon" tabindex="0" role="img" aria-label="成本警示，共 ${costCell.warningCount} 項"${warningAttr}>⚠️${costCell.warningCount}</span>`
         : "";
       const $tr = $(`
         <tr>

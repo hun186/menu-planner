@@ -315,3 +315,37 @@ select{
   flex-wrap:wrap;
   margin-bottom:8px;
 }
+
+.dish-cost-cell{
+  white-space:nowrap;
+}
+
+.dish-cost-value{
+  margin-right:6px;
+}
+
+.cost-warning-icon{
+  position:relative;
+  display:inline-block;
+  cursor:help;
+}
+
+.cost-warning-icon:hover::after,
+.cost-warning-icon:focus-visible::after{
+  content:attr(data-tooltip);
+  position:absolute;
+  left:0;
+  top:calc(100% + 6px);
+  z-index:30;
+  min-width:260px;
+  max-width:420px;
+  white-space:pre-line;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid #f59e0b;
+  background:#fffbeb;
+  color:#6b3f00;
+  box-shadow:0 8px 24px rgba(0,0,0,.15);
+  line-height:1.4;
+  font-size:12px;
+}

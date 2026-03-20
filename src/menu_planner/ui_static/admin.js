@@ -181,12 +181,14 @@ import { escapeHtml } from "./shared/html.js";
 
   function formatDishCostCell(dishId) {
     const c = dishCostById.get(dishId);
-    if (!c) return { text: "—", title: "" };
+    if (!c) return { text: "—", title: "", warningCount: 0 };
     const base = Number(c.per_serving_cost || 0).toFixed(2);
     const warningCount = Number(c.warning_count || 0);
+    const warningTitle = warningCount > 0 ? buildDishCostWarningTitle(c) : "";
     return {
-      text: warningCount > 0 ? `${base} ⚠️${warningCount}` : base,
-      title: warningCount > 0 ? buildDishCostWarningTitle(c) : "",
+      text: base,
+      title: warningTitle,
+      warningCount,
     };
   }
   
@@ -332,6 +334,10 @@ import { escapeHtml } from "./shared/html.js";
     const $tb = $("#dish_tbl tbody").empty();
     list.forEach(x => {
       const costCell = formatDishCostCell(x.id);
+      const warningAttr = costCell.title ? ` data-tooltip="${escapeHtml(costCell.title)}"` : "";
+      const warningBadge = costCell.warningCount > 0
+        ? `<span class="cost-warning-icon" tabindex="0" role="img" aria-label="成本警示，共 ${costCell.warningCount} 項"${warningAttr} title="${escapeHtml(costCell.title)}">⚠️${costCell.warningCount}</span>`
+        : "";
       const $tr = $(`
         <tr>
           <td>${escapeHtml(x.id)}</td>
@@ -339,7 +345,9 @@ import { escapeHtml } from "./shared/html.js";
           <td>${escapeHtml(x.role)}</td>
           <td>${escapeHtml(x.meat_type || "")}</td>
           <td>${escapeHtml(x.cuisine || "")}</td>
-          <td title="${escapeHtml(costCell.title)}">${escapeHtml(costCell.text)}</td>
+          <td class="dish-cost-cell">
+            <span class="dish-cost-value">${escapeHtml(costCell.text)}</span>${warningBadge}
+          </td>
           <td>
             <div class="row-actions">
               <button class="btn_edit" title="編輯">修</button>

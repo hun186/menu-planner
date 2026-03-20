@@ -308,11 +308,13 @@ class SQLiteAdminRepo:
         *,
         q: Optional[str] = None,
         role: Optional[str] = None,
+        ingredient_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> Dict[str, Any]:
         where_parts: List[str] = []
         params: List[Any] = []
+        join_sql = ""
 
         keyword = (q or "").strip()
         if keyword:
@@ -324,21 +326,28 @@ class SQLiteAdminRepo:
             where_parts.append("role = ?")
             params.append(role)
 
+        ingredient_keyword = (ingredient_id or "").strip()
+        if ingredient_keyword:
+            join_sql = "JOIN dish_ingredients di ON di.dish_id = dishes.id"
+            where_parts.append("di.ingredient_id = ?")
+            params.append(ingredient_keyword)
+
         where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
         limit = max(1, int(page_size))
         offset = (max(1, int(page)) - 1) * limit
 
         with self._conn() as conn:
             total = conn.execute(
-                f"SELECT COUNT(1) FROM dishes {where_sql}",
+                f"SELECT COUNT(DISTINCT dishes.id) FROM dishes {join_sql} {where_sql}",
                 params,
             ).fetchone()[0]
             rows = conn.execute(
                 f"""
-                SELECT id, name, role, cuisine, meat_type, tags_json
+                SELECT DISTINCT dishes.id, dishes.name, dishes.role, dishes.cuisine, dishes.meat_type, dishes.tags_json
                 FROM dishes
+                {join_sql}
                 {where_sql}
-                ORDER BY role, name, id
+                ORDER BY dishes.role, dishes.name, dishes.id
                 LIMIT ? OFFSET ?
                 """,
                 [*params, limit, offset],

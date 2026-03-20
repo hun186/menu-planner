@@ -87,12 +87,13 @@ def list_ingredients(
 def list_dishes(
     q: Optional[str] = Query(default=None),
     role: Optional[str] = Query(default=None),
+    ingredient_id: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
-    return repo.list_dishes(q=q, role=role, page=page, page_size=page_size)
+    return repo.list_dishes(q=q, role=role, ingredient_id=ingredient_id, page=page, page_size=page_size)
 
 
 @router.put("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_key)])

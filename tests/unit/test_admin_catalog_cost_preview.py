@@ -14,6 +14,16 @@ class _FakeRepo:
     def list_inventory_summary(self, q=None, only_in_stock=False):
         return [{"ingredient_id": "ing-1", "q": q, "only_in_stock": only_in_stock}]
 
+    def list_dishes(self, q=None, role=None, ingredient_id=None, page=1, page_size=50):
+        return {
+            "items": [{"id": "dish-1", "name": "炒飯", "role": "main"}],
+            "q": q,
+            "role": role,
+            "ingredient_id": ingredient_id,
+            "page": page,
+            "page_size": page_size,
+        }
+
 
 def test_dish_cost_preview_passthrough(monkeypatch):
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
@@ -43,3 +53,22 @@ def test_list_inventory_summary_passthrough(monkeypatch):
     resp = admin_catalog.list_inventory_summary(q="rice", only_in_stock=True, db_path="/tmp/menu.db")
 
     assert resp == [{"ingredient_id": "ing-1", "q": "rice", "only_in_stock": True}]
+
+
+def test_list_dishes_passthrough_with_ingredient_filter(monkeypatch):
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    resp = admin_catalog.list_dishes(
+        q="炒",
+        role="main",
+        ingredient_id="ing-carrot",
+        page=2,
+        page_size=30,
+        db_path="/tmp/menu.db",
+    )
+
+    assert resp["ingredient_id"] == "ing-carrot"
+    assert resp["q"] == "炒"
+    assert resp["role"] == "main"
+    assert resp["page"] == 2
+    assert resp["page_size"] == 30

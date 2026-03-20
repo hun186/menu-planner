@@ -14,6 +14,7 @@ export const ADMIN_API = {
   ingPriceUpsert: (id, date) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices/${encodeURIComponent(date)}`,
   ingPriceDelete: (id, date) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices/${encodeURIComponent(date)}`,
   ingInventory: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/inventory`,
+  inventorySummary: "/admin/catalog/inventory/summary",
 };
 
 export async function loadCatalogPage({
@@ -112,4 +113,13 @@ export function putIngredientPrice(ingId, date, body) {
 
 export function deleteIngredientPrice(ingId, date) {
   return httpJson(ADMIN_API.ingPriceDelete(ingId, date), { method: "DELETE" }, { includeAdminKey: true });
+}
+
+export function listInventorySummary({ q = "", onlyInStock = false } = {}) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  params.set("only_in_stock", onlyInStock ? "true" : "false");
+  const query = params.toString();
+  const url = query ? `${ADMIN_API.inventorySummary}?${query}` : ADMIN_API.inventorySummary;
+  return httpArray(url, { method: "GET", headers: {} }, { includeAdminKey: true });
 }

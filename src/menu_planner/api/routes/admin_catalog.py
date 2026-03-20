@@ -206,6 +206,16 @@ def upsert_inventory(
     return {"ok": True}
 
 
+@router.get("/inventory/summary", dependencies=[Depends(require_admin_key)])
+def list_inventory_summary(
+    q: Optional[str] = Query(default=None),
+    only_in_stock: bool = Query(default=False),
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    return repo.list_inventory_summary(q=q, only_in_stock=only_in_stock)
+
+
 @router.put("/dishes/{dish_id}", dependencies=[Depends(require_admin_key)])
 def upsert_dish(
     dish_id: str,

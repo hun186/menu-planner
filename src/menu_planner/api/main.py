@@ -15,6 +15,7 @@ from ..db.repo import SQLiteRepo
 from ..engine.errors import PlanError
 from ..engine.planner import plan_month
 from .export_excel import build_filename, build_plan_workbook
+from .procurement import attach_procurement_details
 from .routes.admin_catalog import router as admin_catalog_router
 
 APP_DIR = Path(__file__).resolve().parent
@@ -100,7 +101,8 @@ def post_plan(
     db_path: str = Depends(get_db_path),
 ):
     result = _run_plan_or_raise(cfg=cfg, db_path=db_path)
-    return {"ok": True, "result": result}
+    enriched = attach_procurement_details(result=result, cfg=cfg, repo=SQLiteRepo(db_path))
+    return {"ok": True, "result": enriched}
 
 
 @app.post("/export/excel")
@@ -115,7 +117,8 @@ def post_export_excel(
         # backward-compatible: old clients only pass cfg, still allow export
         result = _run_plan_or_raise(cfg=cfg, db_path=db_path)
 
-    content = build_plan_workbook(cfg=cfg, result=result)
+    enriched = attach_procurement_details(result=result, cfg=cfg, repo=SQLiteRepo(db_path))
+    content = build_plan_workbook(cfg=cfg, result=enriched)
     filename = build_filename("menu_plan")
     return StreamingResponse(
         io.BytesIO(content),

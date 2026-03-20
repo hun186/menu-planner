@@ -116,6 +116,48 @@ def _set_col_width(ws, widths: Dict[int, float]) -> None:
         ws.column_dimensions[get_column_letter(col_idx)].width = w
 
 
+
+
+def _append_procurement_sheet(wb: Workbook, result: Dict[str, Any]) -> None:
+    ws = wb.create_sheet("採買明細")
+    header = [
+        "日期", "角色", "菜名", "食材", "每人用量", "人數", "需求量", "需求單位",
+        "單價", "單價單位", "小計", "價格日期"
+    ]
+    ws.append(header)
+
+    bold = Font(bold=True)
+    for c in range(1, len(header) + 1):
+        ws.cell(row=1, column=c).font = bold
+
+    for day in (result.get("days") or []):
+        procurement = day.get("procurement") or {}
+        date_text = day.get("date", "")
+        people = procurement.get("people", 1)
+        for dish in (procurement.get("dishes") or []):
+            role = dish.get("role", "")
+            dish_name = dish.get("dish_name", "")
+            for ing in (dish.get("ingredients") or []):
+                ws.append([
+                    date_text,
+                    role,
+                    dish_name,
+                    ing.get("ingredient_name", ""),
+                    ing.get("qty_per_person", ""),
+                    people,
+                    ing.get("qty_for_people", ""),
+                    ing.get("qty_unit", ""),
+                    ing.get("unit_price", ""),
+                    ing.get("unit_price_unit", ""),
+                    ing.get("line_total", ""),
+                    ing.get("price_date", ""),
+                ])
+
+    ws.freeze_panes = "A2"
+    _set_col_width(ws, {
+        1: 12, 2: 10, 3: 20, 4: 18, 5: 12, 6: 8, 7: 12, 8: 10, 9: 10, 10: 12, 11: 10, 12: 12
+    })
+
 def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     """
     result 格式：engine/explain.py build_explanations 的輸出
@@ -234,6 +276,7 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     ws2["B1"].font = bold
 
     ws2.append(["天數", days_n])
+    ws2.append(["人數", int((cfg or {}).get("people", 1) or 1)])
     ws2.append(["總成本", round(total_cost, 2)])
     ws2.append(["平均/日", round(total_cost / max(days_n, 1), 2)])
     
@@ -257,6 +300,8 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     for line in cfg_str.splitlines():
         ws3.append([line])
     _set_col_width(ws3, {1: 110})
+
+    _append_procurement_sheet(wb, result)
 
     bio = io.BytesIO()
     wb.save(bio)

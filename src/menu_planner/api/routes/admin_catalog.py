@@ -3,9 +3,15 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from datetime import datetime
+from io import BytesIO
 from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
 from pydantic import BaseModel, Field
 
 from ...db.admin_repo import SQLiteAdminRepo
@@ -14,6 +20,34 @@ from ...db.backup import create_db_backup
 DEFAULT_DB_PATH = str((__import__("pathlib").Path.cwd() / "data" / "menu.db").resolve())
 
 router = APIRouter(prefix="/admin/catalog", tags=["admin-catalog"])
+
+
+def _timestamp_for_filename() -> str:
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _build_excel_response(filename_prefix: str, sheet_name: str, headers: List[str], rows: List[List[object]]) -> StreamingResponse:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet_name[:31] if sheet_name else "sheet1"
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+
+    for idx, title in enumerate(headers, start=1):
+        col = ws.column_dimensions[get_column_letter(idx)]
+        col.width = max(12, min(40, len(str(title)) + 6))
+        ws.cell(row=1, column=idx).font = Font(bold=True)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"{filename_prefix}_{_timestamp_for_filename()}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def backup_before_modify(db_path: str) -> None:
@@ -215,6 +249,84 @@ def list_inventory_summary(
 ):
     repo = SQLiteAdminRepo(db_path)
     return repo.list_inventory_summary(q=q, only_in_stock=only_in_stock)
+
+
+@router.get("/inventory/summary/export", dependencies=[Depends(require_admin_key)])
+def export_inventory_summary_excel(
+    q: Optional[str] = Query(default=None),
+    only_in_stock: bool = Query(default=False),
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    rows_raw = repo.list_inventory_summary(q=q, only_in_stock=only_in_stock)
+    rows = [
+        [
+            r.get("ingredient_id"),
+            r.get("ingredient_name"),
+            r.get("category"),
+            r.get("qty_on_hand"),
+            r.get("inventory_unit") or r.get("default_unit"),
+            r.get("updated_at"),
+            r.get("expiry_date"),
+            r.get("dish_ref_count"),
+        ]
+        for r in rows_raw
+    ]
+    return _build_excel_response(
+        filename_prefix="inventory_summary",
+        sheet_name="庫存統整",
+        headers=["食材ID", "名稱", "分類", "庫存量", "庫存單位", "更新日", "到期日", "引用菜色數"],
+        rows=rows,
+    )
+
+
+@router.get("/ingredients/export", dependencies=[Depends(require_admin_key)])
+def export_ingredients_excel(
+    q: Optional[str] = Query(default=None),
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    payload = repo.list_ingredients(q=q, page=1, page_size=100000)
+    items = payload.get("items") or []
+    rows = [
+        [r.get("id"), r.get("name"), r.get("category"), r.get("protein_group"), r.get("default_unit")]
+        for r in items
+    ]
+    return _build_excel_response(
+        filename_prefix="ingredients",
+        sheet_name="食材管理",
+        headers=["食材ID", "名稱", "分類", "蛋白群組", "預設單位"],
+        rows=rows,
+    )
+
+
+@router.get("/dishes/export", dependencies=[Depends(require_admin_key)])
+def export_dishes_excel(
+    q: Optional[str] = Query(default=None),
+    ingredient_id: Optional[str] = Query(default=None),
+    role: Optional[str] = Query(default=None),
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    payload = repo.list_dishes(q=q, role=role, ingredient_id=ingredient_id, page=1, page_size=100000)
+    items = payload.get("items") or []
+    rows = [
+        [
+            r.get("id"),
+            r.get("name"),
+            r.get("role"),
+            r.get("meat_type"),
+            r.get("cuisine"),
+            ",".join(r.get("tags") or []),
+        ]
+        for r in items
+    ]
+    return _build_excel_response(
+        filename_prefix="dishes",
+        sheet_name="菜名管理",
+        headers=["菜色ID", "名稱", "角色", "肉類", "菜系", "標籤"],
+        rows=rows,
+    )
 
 
 @router.put("/dishes/{dish_id}", dependencies=[Depends(require_admin_key)])

@@ -1,4 +1,4 @@
-import { listInventorySummary } from "./admin/api.js";
+import { exportInventorySummaryExcel, listInventorySummary } from "./admin/api.js";
 import { escapeHtml } from "./shared/html.js";
 
 function setMsg(text, isError = false) {
@@ -69,6 +69,30 @@ async function loadAndRender() {
   }
 }
 
+async function exportInventoryExcel() {
+  const q = ($("#inv_q").val() || "").trim();
+  const onlyInStock = $("#inv_only_stock").is(":checked");
+  setMsg("匯出中…");
+  try {
+    const res = await exportInventorySummaryExcel({ q, onlyInStock });
+    const blob = await res.blob();
+    const contentDisposition = res.headers.get("Content-Disposition") || "";
+    const match = contentDisposition.match(/filename=\"([^\"]+)\"/i);
+    const filename = match?.[1] || "inventory_summary.xlsx";
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    setMsg("Excel 匯出完成。");
+  } catch (e) {
+    setMsg(`匯出失敗：${e.message || String(e)}`, true);
+  }
+}
+
 $(function () {
   const preset = readQueryFromLocation();
   applyQueryToControls(preset);
@@ -84,6 +108,7 @@ $(function () {
   })();
 
   $("#inv_refresh").on("click", loadAndRender);
+  $("#inv_export_excel").on("click", exportInventoryExcel);
   $("#inv_only_stock").on("change", loadAndRender);
   $("#inv_q").on("input", debounced);
   loadAndRender();

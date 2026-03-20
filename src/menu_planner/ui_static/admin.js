@@ -150,12 +150,42 @@ import { escapeHtml } from "./shared/html.js";
     }
   }
 
-  function formatDishCostText(dishId) {
+  function formatCostWarningReason(reason) {
+    switch (reason) {
+      case "ingredient_not_found":
+        return "食材不存在";
+      case "missing_price":
+        return "缺少價格";
+      case "unit_mismatch":
+        return "單位不相容";
+      default:
+        return "成本資料異常";
+    }
+  }
+
+  function buildDishCostWarningTitle(cost) {
+    const warnings = Array.isArray(cost?.warnings) ? cost.warnings : [];
+    if (!warnings.length) return "";
+    const lines = warnings.map((w, idx) => {
+      const ing = w.ingredient_name || w.ingredient_id || "未知食材";
+      const reason = formatCostWarningReason(w.reason);
+      const unitText = w.reason === "unit_mismatch" && w.unit && w.price_unit
+        ? `（${w.unit} → ${w.price_unit}）`
+        : "";
+      return `${idx + 1}. ${ing}：${reason}${unitText}`;
+    });
+    return `成本計算異常：\n${lines.join("\n")}`;
+  }
+
+  function formatDishCostCell(dishId) {
     const c = dishCostById.get(dishId);
-    if (!c) return "—";
+    if (!c) return { text: "—", title: "" };
     const base = Number(c.per_serving_cost || 0).toFixed(2);
     const warningCount = Number(c.warning_count || 0);
-    return warningCount > 0 ? `${base} ⚠️${warningCount}` : base;
+    return {
+      text: warningCount > 0 ? `${base} ⚠️${warningCount}` : base,
+      title: warningCount > 0 ? buildDishCostWarningTitle(c) : "",
+    };
   }
   
   function rebuildIngredientDatalist(items = []) {
@@ -299,6 +329,7 @@ import { escapeHtml } from "./shared/html.js";
 
     const $tb = $("#dish_tbl tbody").empty();
     list.forEach(x => {
+      const costCell = formatDishCostCell(x.id);
       const $tr = $(`
         <tr>
           <td>${escapeHtml(x.id)}</td>
@@ -306,7 +337,7 @@ import { escapeHtml } from "./shared/html.js";
           <td>${escapeHtml(x.role)}</td>
           <td>${escapeHtml(x.meat_type || "")}</td>
           <td>${escapeHtml(x.cuisine || "")}</td>
-          <td>${escapeHtml(formatDishCostText(x.id))}</td>
+          <td title="${escapeHtml(costCell.title)}">${escapeHtml(costCell.text)}</td>
           <td>
             <div class="row-actions">
               <button class="btn_edit" title="編輯">修</button>

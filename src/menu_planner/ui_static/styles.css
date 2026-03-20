@@ -373,11 +373,12 @@ select{
 .cost-warning-icon:focus-visible::after{
   content:attr(data-tooltip);
   position:absolute;
-  left:0;
+  right:0;
+  left:auto;
   top:calc(100% + 6px);
   z-index:30;
   min-width:260px;
-  max-width:420px;
+  max-width:min(420px, calc(100vw - 24px));
   white-space:pre-line;
   padding:8px 10px;
   border-radius:8px;

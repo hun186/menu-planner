@@ -1,4 +1,4 @@
-import { httpArray, httpJson } from "../shared/http.js";
+import { adminKey, httpArray, httpJson } from "../shared/http.js";
 
 export const ADMIN_API = {
   ingredients: "/admin/catalog/ingredients",
@@ -15,7 +15,28 @@ export const ADMIN_API = {
   ingPriceDelete: (id, date) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices/${encodeURIComponent(date)}`,
   ingInventory: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/inventory`,
   inventorySummary: "/admin/catalog/inventory/summary",
+  inventorySummaryExport: "/admin/catalog/inventory/summary/export",
+  ingredientsExport: "/admin/catalog/ingredients/export",
+  dishesExport: "/admin/catalog/dishes/export",
 };
+
+async function fetchAdminBlob(url) {
+  const headers = {};
+  const key = adminKey();
+  if (key) headers["X-Admin-Key"] = key;
+  const res = await fetch(url, { method: "GET", headers });
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const payload = await res.json();
+      detail = payload?.detail?.message || payload?.detail || "";
+    } catch (_e) {
+      detail = "";
+    }
+    throw new Error(typeof detail === "string" && detail ? detail : `HTTP ${res.status}`);
+  }
+  return res;
+}
 
 export async function loadCatalogPage({
   ingredientPage = 1,
@@ -124,4 +145,30 @@ export function listInventorySummary({ q = "", onlyInStock = false } = {}) {
   const query = params.toString();
   const url = query ? `${ADMIN_API.inventorySummary}?${query}` : ADMIN_API.inventorySummary;
   return httpArray(url, { method: "GET", headers: {} }, { includeAdminKey: true });
+}
+
+export function exportInventorySummaryExcel({ q = "", onlyInStock = false } = {}) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  params.set("only_in_stock", onlyInStock ? "true" : "false");
+  const query = params.toString();
+  const url = query ? `${ADMIN_API.inventorySummaryExport}?${query}` : ADMIN_API.inventorySummaryExport;
+  return fetchAdminBlob(url);
+}
+
+export function exportIngredientsExcel({ q = "" } = {}) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  const query = params.toString();
+  const url = query ? `${ADMIN_API.ingredientsExport}?${query}` : ADMIN_API.ingredientsExport;
+  return fetchAdminBlob(url);
+}
+
+export function exportDishesExcel({ q = "", ingredientId = "" } = {}) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (ingredientId) params.set("ingredient_id", ingredientId);
+  const query = params.toString();
+  const url = query ? `${ADMIN_API.dishesExport}?${query}` : ADMIN_API.dishesExport;
+  return fetchAdminBlob(url);
 }

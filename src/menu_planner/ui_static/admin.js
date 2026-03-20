@@ -1,4 +1,4 @@
-import { deleteDish, deleteIngredient, deleteIngredientPrice, getDishIngredients, getIngredientInventory, getIngredientPrices, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, searchIngredients, upsertDish, upsertIngredient } from "./admin/api.js";
+import { deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDishIngredients, getIngredientInventory, getIngredientPrices, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, searchIngredients, upsertDish, upsertIngredient } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -86,6 +86,21 @@ import { escapeHtml } from "./shared/html.js";
       clearTimeout(timer);
       timer = setTimeout(() => fn(...args), wait);
     };
+  }
+
+  async function downloadExcelFromResponse(res) {
+    const blob = await res.blob();
+    const contentDisposition = res.headers.get("Content-Disposition") || "";
+    const match = contentDisposition.match(/filename=\"([^\"]+)\"/i);
+    const filename = match?.[1] || "export.xlsx";
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   }
 
   async function reloadCatalog() {
@@ -719,6 +734,20 @@ function todayStr() {
       await runWithMsg(DOM.msgDish, async () => {
         await saveDish();
       }, "已儲存菜色。");
+    });
+
+    $("#ing_export_excel").on("click", async () => {
+      await runWithMsg(DOM.msgIng, async () => {
+        const res = await exportIngredientsExcel({ q: ingredientPager.q });
+        await downloadExcelFromResponse(res);
+      }, "食材 Excel 匯出完成。");
+    });
+
+    $("#dish_export_excel").on("click", async () => {
+      await runWithMsg(DOM.msgDish, async () => {
+        const res = await exportDishesExcel({ q: dishPager.q, ingredientId: dishPager.ingredientId });
+        await downloadExcelFromResponse(res);
+      }, "菜名 Excel 匯出完成。");
     });
 
     $("#modal_close").on("click", () => $("#modal").addClass("hide"));

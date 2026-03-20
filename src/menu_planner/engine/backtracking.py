@@ -612,8 +612,36 @@ def fill_days_after_mains(
                 }
             )
             errors.append(err.to_dict())
-            # placeholder：主菜保留，其餘留空
-            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit=fruit_id))
+
+            # 湯無解時，仍嘗試保留可排到的配菜/蔬菜/水果，湯留空給使用者後續調整
+            side_ids = _choose_sides_backtrack(
+                day,
+                side_pool,
+                plan_days,
+                feat,
+                hard,
+                main_id=main_id,
+                soup_id="",
+                fruit_id=fruit_id,
+                dish_ingredient_ids=dish_ingredient_ids,
+                rng=rng,
+                pick_count=2,
+            ) or []
+
+            veg_id = ""
+            if side_ids:
+                veg_id = _choose_veg(
+                    day,
+                    veg_pool,
+                    plan_days,
+                    feat,
+                    hard,
+                    selected_dish_ids=[main_id, fruit_id] + list(side_ids),
+                    dish_ingredient_ids=dish_ingredient_ids,
+                    rng=rng,
+                ) or ""
+
+            plan_days.append(PlanDay(main=main_id, sides=side_ids, veg=veg_id, soup="", fruit=fruit_id))
             explanations.append(
                 _failed_day_explanation(
                     day_index=day,

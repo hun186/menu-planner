@@ -103,25 +103,42 @@ textarea{
 
 .ing-tbl td:last-child button,
 .dish-tbl td:last-child button{
-  display:block;
   width:100%;
-  margin:0 0 6px;
-  padding:6px;
+  margin:0;
+  padding:5px 8px;
   font-size:12px;
 }
-.ing-tbl td:last-child button:last-child,
-.dish-tbl td:last-child button:last-child{
-  margin-bottom:0;
+.ing-tbl td:last-child,
+.dish-tbl td:last-child{
+  padding:6px;
+}
+.row-actions{
+  display:flex;
+  flex-direction:row;
+  gap:4px;
+}
+.row-actions button{
+  white-space:nowrap;
+  word-break:keep-all;
+}
+.ing-tbl td:last-child .row-actions button,
+.dish-tbl td:last-child .row-actions button{
+  flex:1 1 0;
+  min-width:0;
+  width:auto;
+  padding:4px 0;
 }
 
 #di_tbl td:last-child{ min-width: 170px; }
 #di_tbl .di_actions{
-  display:flex;
-  flex-direction:column;
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:6px;
 }
 #di_tbl .di_actions button{
   width:100%;
+  margin:0;
+  padding:6px 8px;
 }
 .explain td{ background:#fcfcfc; }
 .explain-box{ padding:10px; }

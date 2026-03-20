@@ -21,6 +21,14 @@ export const ADMIN_API = {
   dishesExport: "/admin/catalog/dishes/export",
 };
 
+export async function loadCatalog() {
+  const [ingredients, dishes] = await Promise.all([
+    httpArray("/catalog/ingredients", { method: "GET", headers: {} }),
+    httpArray("/catalog/dishes", { method: "GET", headers: {} }),
+  ]);
+  return { ingredients, dishes };
+}
+
 async function fetchAdminBlob(url) {
   const headers = {};
   const key = adminKey();

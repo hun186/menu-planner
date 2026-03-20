@@ -179,9 +179,9 @@ import { escapeHtml } from "./shared/html.js";
           <td>${escapeHtml(x.default_unit)}</td>
           <td>
             <div class="row-actions">
-              <button class="btn_edit">編輯</button>
-              <button class="btn_meta">價格/庫存</button>
-              <button class="btn_del">刪除</button>
+              <button class="btn_edit" title="編輯">修</button>
+              <button class="btn_meta" title="價格/庫存">價/庫</button>
+              <button class="btn_del" title="刪除">刪</button>
             </div>
           </td>
         </tr>
@@ -232,9 +232,9 @@ import { escapeHtml } from "./shared/html.js";
           <td>${escapeHtml(formatDishCostText(x.id))}</td>
           <td>
             <div class="row-actions">
-              <button class="btn_edit">編輯</button>
-              <button class="btn_ing">編輯食材</button>
-              <button class="btn_del">刪除</button>
+              <button class="btn_edit" title="編輯">修</button>
+              <button class="btn_ing" title="編輯食材">材</button>
+              <button class="btn_del" title="刪除">刪</button>
             </div>
           </td>
         </tr>

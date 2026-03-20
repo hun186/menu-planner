@@ -2,6 +2,7 @@ const API = {
   defaults: "/config/default",
   validate: "/config/validate",
   plan: "/plan",
+  enrichResult: "/result/enrich",
   ingredients: "/catalog/ingredients",
   dishes: "/catalog/dishes",
   summary: "/catalog/summary",
@@ -40,6 +41,16 @@ export async function planMenu(cfg) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(cfg),
+  });
+  const payload = await res.json().catch(() => ({}));
+  return { ok: res.ok, payload };
+}
+
+export async function enrichResult(cfg, result) {
+  const res = await fetch(API.enrichResult, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cfg, result }),
   });
   const payload = await res.json().catch(() => ({}));
   return { ok: res.ok, payload };

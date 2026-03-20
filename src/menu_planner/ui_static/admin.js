@@ -78,9 +78,10 @@ import { escapeHtml } from "./shared/html.js";
       pane.style.minHeight = "0px";
     });
 
-    const maxHeight = panes.reduce((mx, pane) => Math.max(mx, pane.offsetHeight), 0);
+    const maxBottom = panes.reduce((mx, pane) => Math.max(mx, pane.offsetTop + pane.offsetHeight), 0);
     panes.forEach((pane) => {
-      pane.style.minHeight = `${maxHeight}px`;
+      const targetHeight = Math.max(0, maxBottom - pane.offsetTop);
+      pane.style.minHeight = `${targetHeight}px`;
     });
   }
 

@@ -343,6 +343,12 @@ import { escapeHtml } from "./shared/html.js";
   }
 
   const debouncedSuggestIngredients = debounce(async (keyword) => {
+    if (!keyword) {
+      // 未輸入時不預載部分清單，避免誤以為食材只有這些
+      ingredientSuggestSeq += 1;
+      rebuildIngredientDatalist([]);
+      return;
+    }
     const requestSeq = ++ingredientSuggestSeq;
     const items = await searchIngredients(keyword, 20).catch(() => []);
     if (requestSeq !== ingredientSuggestSeq) return;
@@ -825,8 +831,7 @@ function todayStr() {
       $("#ing_q").val(ingredientPager.q);
     }
     await reloadCatalog();
-    const initialSuggestions = await searchIngredients("", 20).catch(() => []);
-    rebuildIngredientDatalist(initialSuggestions);
+    rebuildIngredientDatalist([]);
     renderAll();
     syncEditorPaneHeights();
   });

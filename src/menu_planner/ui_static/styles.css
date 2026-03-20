@@ -114,12 +114,19 @@ textarea{
 }
 .row-actions{
   display:flex;
-  flex-direction:column;
-  gap:6px;
+  flex-direction:row;
+  gap:4px;
 }
 .row-actions button{
   white-space:nowrap;
   word-break:keep-all;
+}
+.ing-tbl td:last-child .row-actions button,
+.dish-tbl td:last-child .row-actions button{
+  flex:1 1 0;
+  min-width:0;
+  width:auto;
+  padding:4px 0;
 }
 
 #di_tbl td:last-child{ min-width: 170px; }

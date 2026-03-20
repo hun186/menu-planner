@@ -17,6 +17,8 @@ export const ADMIN_API = {
   inventorySummary: "/admin/catalog/inventory/summary",
   inventoryMergeIngredient: "/admin/catalog/inventory/summary/merge-ingredient",
   inventorySummaryExport: "/admin/catalog/inventory/summary/export",
+  backups: "/admin/catalog/backups",
+  backupRestore: "/admin/catalog/backups/restore",
   ingredientsExport: "/admin/catalog/ingredients/export",
   dishesExport: "/admin/catalog/dishes/export",
 };
@@ -169,6 +171,18 @@ export function mergeInventoryIngredient(sourceIngredientId, targetIngredientId)
   return httpJson(
     ADMIN_API.inventoryMergeIngredient,
     { method: "POST", body: JSON.stringify({ source_ingredient_id: sourceIngredientId, target_ingredient_id: targetIngredientId }) },
+    { includeAdminKey: true }
+  );
+}
+
+export function listDbBackups() {
+  return httpArray(ADMIN_API.backups, { method: "GET", headers: {} }, { includeAdminKey: true });
+}
+
+export function restoreDbBackup(backupFilename) {
+  return httpJson(
+    ADMIN_API.backupRestore,
+    { method: "POST", body: JSON.stringify({ backup_filename: backupFilename }) },
     { includeAdminKey: true }
   );
 }

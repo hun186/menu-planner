@@ -31,6 +31,20 @@
       <div class="hint">若後端未設定金鑰，這欄可不填。</div>
     </div>
 
+    <div class="card" style="margin-bottom:12px;">
+      <h2>資料庫備份還原</h2>
+      <div class="row">
+        <label>備份檔</label>
+        <select id="db_backup_select"></select>
+      </div>
+      <div class="btns">
+        <button id="db_backup_reload">重新整理清單</button>
+        <button id="db_backup_restore" class="primary" title="還原前會先再建立一次目前資料庫備份">還原選取備份</button>
+      </div>
+      <div class="hint">還原前會先建立一次「目前資料庫」備份，避免誤操作無法回復。</div>
+      <div id="msg_backup" class="msg"></div>
+    </div>
+
     <div class="grid">
       <!-- 食材管理 -->
       <section class="card manage-card">

@@ -113,6 +113,16 @@ textarea{
 .dish-tbl td:last-child button:last-child{
   margin-bottom:0;
 }
+
+#di_tbl td:last-child{ min-width: 170px; }
+#di_tbl .di_actions{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+#di_tbl .di_actions button{
+  width:100%;
+}
 .explain td{ background:#fcfcfc; }
 .explain-box{ padding:10px; }
 .ex-title{ font-weight:600; margin:8px 0 6px; }

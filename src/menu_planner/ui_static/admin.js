@@ -369,13 +369,20 @@ import { escapeHtml } from "./shared/html.js";
   
     const $qty = $(`<input class="di_qty" type="number" step="0.1">`).val(row?.qty ?? 100);
     const $unit = $(`<input class="di_unit" type="text">`).val(row?.unit ?? "g");
+    const $openIng = $(`<button type="button" class="di_open_ing">食材管理</button>`);
+    $openIng.on("click", async () => {
+      await runWithMsg(DOM.msgDishIngredients, async () => {
+        await openIngredientEditorFromDishRow($ing);
+      });
+    });
   
-    const $del = $(`<button>刪除</button>`).on("click", () => $tr.remove());
+    const $del = $(`<button type="button">刪除</button>`).on("click", () => $tr.remove());
+    const $actions = $(`<div class="di_actions"></div>`).append($openIng, $del);
   
     $tr.append($("<td></td>").append($ing));
     $tr.append($("<td></td>").append($qty));
     $tr.append($("<td></td>").append($unit));
-    $tr.append($("<td></td>").append($del));
+    $tr.append($("<td></td>").append($actions));
   
     $("#di_tbl tbody").append($tr);
   }
@@ -392,6 +399,33 @@ import { escapeHtml } from "./shared/html.js";
     if (!items || !items.length) addDishIngRow(null);
 
     $("#modal").removeClass("hide");
+  }
+
+  async function openIngredientEditorFromDishRow($ingInput) {
+    const rawText = ($ingInput.val() || "").trim();
+    const resolvedId = $ingInput.data("ing_id") || resolveIngredientId(rawText);
+    if (!resolvedId) {
+      throw new Error("請先選擇有效食材，再開啟食材管理。");
+    }
+
+    let ing = catalog.ingById.get(resolvedId);
+    if (!ing) {
+      const found = await searchIngredients(resolvedId, 20);
+      ing = (Array.isArray(found) ? found : []).find(x => x?.id === resolvedId) || null;
+    }
+    if (!ing) {
+      throw new Error(`找不到食材：${resolvedId}`);
+    }
+
+    $("#ing_id").val(ing.id);
+    $("#ing_name").val(ing.name || "");
+    $("#ing_category").val(ing.category || "");
+    $("#ing_protein").val(ing.protein_group || "");
+    $("#ing_unit").val(ing.default_unit || "");
+    clearMsg(DOM.msgIng);
+    $("#modal").addClass("hide");
+    document.getElementById("ing_id")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    $("#ing_name").trigger("focus");
   }
 
   async function saveDishIngredients() {

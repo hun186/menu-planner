@@ -194,6 +194,71 @@ class SQLiteAdminRepo:
                 body["updated_at"],
                 body.get("expiry_date"),
             ))
+
+    def list_inventory_summary(
+        self,
+        *,
+        q: Optional[str] = None,
+        only_in_stock: bool = False,
+    ) -> List[Dict[str, Any]]:
+        keyword = (q or "").strip().lower()
+        where_parts: List[str] = []
+        params: List[Any] = []
+        if keyword:
+            where_parts.append("(LOWER(i.id) LIKE ? OR LOWER(i.name) LIKE ?)")
+            like = f"%{keyword}%"
+            params.extend([like, like])
+        if only_in_stock:
+            where_parts.append("COALESCE(inv.qty_on_hand, 0) > 0")
+        where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
+
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT
+                  i.id,
+                  i.name,
+                  i.category,
+                  i.default_unit,
+                  inv.qty_on_hand,
+                  inv.unit,
+                  inv.updated_at,
+                  inv.expiry_date,
+                  COALESCE(di_ref.ref_count, 0) AS dish_ref_count
+                FROM ingredients i
+                LEFT JOIN inventory inv ON inv.ingredient_id = i.id
+                LEFT JOIN (
+                  SELECT ingredient_id, COUNT(DISTINCT dish_id) AS ref_count
+                  FROM dish_ingredients
+                  GROUP BY ingredient_id
+                ) di_ref ON di_ref.ingredient_id = i.id
+                {where_sql}
+                ORDER BY
+                  CASE WHEN inv.expiry_date IS NULL OR inv.expiry_date = '' THEN 1 ELSE 0 END,
+                  inv.expiry_date ASC,
+                  i.name ASC,
+                  i.id ASC
+                """,
+                params,
+            ).fetchall()
+
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            qty = None if r[4] is None else float(r[4])
+            out.append(
+                {
+                    "ingredient_id": r[0],
+                    "ingredient_name": r[1],
+                    "category": r[2],
+                    "default_unit": r[3],
+                    "qty_on_hand": qty,
+                    "inventory_unit": r[5],
+                    "updated_at": r[6],
+                    "expiry_date": r[7],
+                    "dish_ref_count": int(r[8] or 0),
+                }
+            )
+        return out
                 
     def find_dishes_using_ingredient(self, ingredient_id: str) -> List[Dict[str, Any]]:
         with self._conn() as conn:

@@ -472,6 +472,9 @@ function renderCatalogSummary(summary) {
       有效庫存食材數 ${inventory.valid_ingredient_count ?? 0}、有效庫存總量 ${Number(inventory.valid_qty_sum ?? 0).toFixed(2)}。
       <br />（有效＝庫存量 &gt; 0 且未過期）
     </div>
+    <div class="btns">
+      <a class="btn-link" href="/inventory.html">查看庫存統整</a>
+    </div>
   `;
   $(DOM.dbSummary).html(html);
 }

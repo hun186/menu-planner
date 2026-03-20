@@ -11,6 +11,9 @@ class _FakeRepo:
     def list_dish_cost_preview(self):
         return [{"dish_id": "dish-1", "per_serving_cost": 12.3, "warning_count": 1, "warnings": []}]
 
+    def list_inventory_summary(self, q=None, only_in_stock=False):
+        return [{"ingredient_id": "ing-1", "q": q, "only_in_stock": only_in_stock}]
+
 
 def test_dish_cost_preview_passthrough(monkeypatch):
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
@@ -32,3 +35,11 @@ def test_list_dish_cost_preview_passthrough(monkeypatch):
     resp = admin_catalog.list_dish_cost_preview(db_path="/tmp/menu.db")
 
     assert resp == [{"dish_id": "dish-1", "per_serving_cost": 12.3, "warning_count": 1, "warnings": []}]
+
+
+def test_list_inventory_summary_passthrough(monkeypatch):
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    resp = admin_catalog.list_inventory_summary(q="rice", only_in_stock=True, db_path="/tmp/menu.db")
+
+    assert resp == [{"ingredient_id": "ing-1", "q": "rice", "only_in_stock": True}]

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Menu Planner - 庫存統整</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hdr">
+      <h1>庫存統整</h1>
+      <div class="sub">列出所有食材庫存，並可快速回到食材管理或排菜頁。</div>
+    </header>
+
+    <section class="card">
+      <div class="inventory-topbar">
+        <a class="btn-link" href="/">回到排菜</a>
+        <a class="btn-link" href="/admin">回到食材管理</a>
+      </div>
+
+      <div class="row">
+        <label>搜尋</label>
+        <input id="inv_q" type="text" placeholder="輸入食材名稱或 ID" />
+      </div>
+      <div class="row">
+        <label>篩選</label>
+        <div class="chips">
+          <label><input id="inv_only_stock" type="checkbox" /> 只看有庫存（qty &gt; 0）</label>
+        </div>
+      </div>
+      <div class="btns">
+        <button id="inv_refresh" class="primary">重新整理</button>
+      </div>
+      <div id="inv_msg" class="msg"></div>
+
+      <div class="tbl-scroll" style="margin-top:8px;">
+        <table class="tbl" id="inv_tbl">
+          <thead>
+            <tr>
+              <th>食材 ID</th>
+              <th>名稱</th>
+              <th>分類</th>
+              <th>庫存量</th>
+              <th>庫存單位</th>
+              <th>更新日</th>
+              <th>到期日</th>
+              <th>引用菜色數</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="inventory.js"></script>
+</body>
+</html>

@@ -25,6 +25,11 @@ import { escapeHtml } from "./shared/html.js";
   const dishPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
   let catalogLoadSeq = 0;
   let ingredientSuggestSeq = 0;
+
+  function readInitialIngredientQuery() {
+    const params = new URLSearchParams(window.location.search || "");
+    return (params.get("q") || "").trim();
+  }
   
   function setMsg($el, text, isError) {
     $el.css("color", isError ? "#b42318" : "#1a7f37").text(text || "");
@@ -181,6 +186,7 @@ import { escapeHtml } from "./shared/html.js";
             <div class="row-actions">
               <button class="btn_edit" title="編輯">修</button>
               <button class="btn_meta" title="價格/庫存">價/庫</button>
+              <button class="btn_inventory" title="庫存統整">總</button>
               <button class="btn_del" title="刪除">刪</button>
             </div>
           </td>
@@ -201,6 +207,10 @@ import { escapeHtml } from "./shared/html.js";
         await runWithMsg(DOM.msgIng, async () => {
           await openIngMeta(x.id);
         });
+      });
+
+      $tr.find(".btn_inventory").on("click", () => {
+        window.location.href = `/inventory.html?q=${encodeURIComponent(x.id)}`;
       });
 
       $tr.find(".btn_del").on("click", async () => {
@@ -724,6 +734,10 @@ function todayStr() {
 
   $(async function () {
     bindUI();
+    ingredientPager.q = readInitialIngredientQuery();
+    if (ingredientPager.q) {
+      $("#ing_q").val(ingredientPager.q);
+    }
     await reloadCatalog();
     const initialSuggestions = await searchIngredients("", 20).catch(() => []);
     rebuildIngredientDatalist(initialSuggestions);

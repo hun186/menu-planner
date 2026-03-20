@@ -4,6 +4,7 @@ export const DOM = {
   cfgJson: "#cfg_json",
   dbSummary: "#db_summary",
   horizonDays: "#horizon_days",
+  defaultPeople: "#default_people",
   costMin: "#cost_min",
   costMax: "#cost_max",
   meatTypes: "#meat_types",

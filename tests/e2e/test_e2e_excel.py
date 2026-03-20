@@ -56,7 +56,8 @@ def test_generate_and_export_excel():
 
 
         procurement = d.get("procurement") or {}
-        assert procurement.get("people") == cfg.get("people", 1)
+        expected_people = (cfg.get("schedule", {}).get("people_overrides", {}) or {}).get(d.get("date"), cfg.get("people", 1))
+        assert procurement.get("people") == expected_people
         sides = items.get("sides") or []
         veg = items.get("veg") or {}
         soup = items.get("soup") or {}
@@ -109,6 +110,12 @@ def test_generate_and_export_excel():
 
     sheet = wb["菜單"]
     detail_sheet = wb["採買明細"]
+    summary_sheet = wb["採買彙總"]
 
     assert sheet.max_row == 271
     assert detail_sheet.max_row > 1
+    assert summary_sheet.max_row > 1
+    summary_labels = [summary_sheet.cell(row=r, column=3).value for r in range(2, summary_sheet.max_row + 1)]
+    assert "每日小計" in summary_labels
+    assert "每週小計" in summary_labels
+    assert "全部合計" in summary_labels

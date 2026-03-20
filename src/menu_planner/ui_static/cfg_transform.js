@@ -6,10 +6,12 @@ export function buildCfgFromFormData(baseCfg, formData) {
   const cfg = clone(baseCfg);
 
   cfg.horizon_days = formData.horizonDays;
+  cfg.people = formData.defaultPeople;
   cfg.schedule = cfg.schedule || {};
   cfg.schedule.weekdays = formData.scheduleWeekdays;
   cfg.schedule.force_include_dates = formData.forceIncludeDates;
   cfg.schedule.force_exclude_dates = formData.forceExcludeDates;
+  cfg.schedule.people_overrides = formData.peopleOverrides;
 
   cfg.hard = cfg.hard || {};
   cfg.soft = cfg.soft || {};
@@ -45,6 +47,7 @@ export function deriveFormDataFromCfg(cfg) {
 
   return {
     horizonDays: cfg?.horizon_days ?? 30,
+    defaultPeople: cfg?.people ?? 250,
     scheduleWeekdays: schedule.weekdays || [1, 2, 3, 4, 5],
     costMin: costRange.min ?? 0,
     costMax: costRange.max ?? 0,
@@ -58,5 +61,6 @@ export function deriveFormDataFromCfg(cfg) {
     excludeDishIds: hard.exclude_dish_ids || [],
     forceIncludeDates: schedule.force_include_dates || [],
     forceExcludeDates: schedule.force_exclude_dates || [],
+    peopleOverrides: schedule.people_overrides || {},
   };
 }

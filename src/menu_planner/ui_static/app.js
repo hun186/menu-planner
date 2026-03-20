@@ -76,6 +76,7 @@ function readFormData() {
 
   return {
     horizonDays: parseInt($(DOM.horizonDays).val() || "30", 10),
+    defaultPeople: parseInt($(DOM.defaultPeople).val() || "250", 10),
     scheduleWeekdays,
     costMin: parseFloat($(DOM.costMin).val() || "0"),
     costMax: parseFloat($(DOM.costMax).val() || "0"),
@@ -89,6 +90,7 @@ function readFormData() {
     excludeDishIds: readChipIds($(DOM.excludeDishChips)),
     forceIncludeDates: readChipIds($(DOM.includeDateChips)),
     forceExcludeDates: readChipIds($(DOM.excludeDateChips)),
+    peopleOverrides: (state.lastCfg?.schedule?.people_overrides) || {},
   };
 }
 
@@ -114,6 +116,7 @@ function applyCfgToForm(cfg) {
   const form = deriveFormDataFromCfg(cfg);
 
   $(DOM.horizonDays).val(form.horizonDays);
+  $(DOM.defaultPeople).val(form.defaultPeople);
   $(DOM.costMin).val(form.costMin);
   $(DOM.costMax).val(form.costMax);
 
@@ -176,6 +179,32 @@ function syncCfgTextareaFromForm() {
   const cfg = buildCfgFromFormData(state.baseDefaults, readFormData());
   $(DOM.cfgJson).val(pretty(cfg));
   state.lastCfg = cfg;
+}
+
+function applyPeopleOverride({ date, people }) {
+  if (!state.lastResult) return;
+  const day = (state.lastResult.days || []).find((d) => d.date === date);
+  if (!day?.procurement) return;
+  const currentPeople = Number(day.procurement.people || 250);
+  const nextPeople = Math.max(1, parseInt(people || "250", 10));
+  if (!Number.isFinite(nextPeople) || nextPeople === currentPeople) return;
+  const ratio = nextPeople / Math.max(1, currentPeople);
+
+  (day.procurement.dishes || []).forEach((dish) => {
+    let dishTotal = 0;
+    (dish.ingredients || []).forEach((ing) => {
+      if (ing.qty_for_people !== null && ing.qty_for_people !== undefined) {
+        ing.qty_for_people = Math.round(Number(ing.qty_per_person || 0) * nextPeople * 10000) / 10000;
+      }
+      if (ing.line_total !== null && ing.line_total !== undefined && ing.line_total !== "") {
+        ing.line_total = Math.round(Number(ing.line_total) * ratio * 100) / 100;
+        dishTotal += Number(ing.line_total || 0);
+      }
+    });
+    dish.dish_total = Math.round(dishTotal * 100) / 100;
+  });
+  day.procurement.day_total = Math.round((day.procurement.day_total || 0) * ratio * 100) / 100;
+  day.procurement.people = nextPeople;
 }
 
 async function loadDefaultsAndApply() {
@@ -489,7 +518,7 @@ $(async function () {
     bindDishSearch();
     bindSpecialDateOverrides();
 
-    $(`${DOM.horizonDays},${DOM.costMin},${DOM.costMax},${DOM.noConsecutiveMeat},${DOM.preferInventory},${DOM.preferExpiry},${DOM.dishRoleFilter}`)
+    $(`${DOM.horizonDays},${DOM.defaultPeople},${DOM.costMin},${DOM.costMax},${DOM.noConsecutiveMeat},${DOM.preferInventory},${DOM.preferExpiry},${DOM.dishRoleFilter}`)
       .on("change input", syncCfgTextareaFromForm);
     $(`${DOM.meatTypes} input[type=checkbox]`).on("change", syncCfgTextareaFromForm);
     $(DOM.scheduleWeekdayChecks).on("change", () => {
@@ -509,6 +538,7 @@ $(async function () {
     $(DOM.btnApplyJson).on("click", () => {
       try {
         const cfg = JSON.parse($(DOM.cfgJson).val());
+        state.lastCfg = cfg;
         applyCfgToForm(cfg);
         syncCfgTextareaFromForm();
         setMsg("已套用 JSON 到表單。");
@@ -576,6 +606,24 @@ $(async function () {
       } catch (e) {
         setMsg(String(e.message || e), true);
       }
+    });
+
+    $(document).on("change", ".day-people-input", function () {
+      const date = String($(this).data("date") || "");
+      const people = Math.max(1, parseInt($(this).val() || "250", 10));
+      if (!date || !state.lastCfg) return;
+      state.lastCfg.schedule = state.lastCfg.schedule || {};
+      const overrides = { ...(state.lastCfg.schedule.people_overrides || {}) };
+      if (people === Number(state.lastCfg.people || 250)) {
+        delete overrides[date];
+      } else {
+        overrides[date] = people;
+      }
+      state.lastCfg.schedule.people_overrides = overrides;
+      $(DOM.cfgJson).val(pretty(state.lastCfg));
+      applyPeopleOverride({ date, people });
+      renderResult(state.lastResult, state.lastCfg, { editable: true });
+      setMsg(`已更新 ${date} 用餐人數為 ${people}（匯出 Excel 將套用）。`);
     });
 
     bindResultEditing();

@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 import json
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
@@ -133,7 +133,7 @@ def _append_procurement_sheet(wb: Workbook, result: Dict[str, Any]) -> None:
     for day in (result.get("days") or []):
         procurement = day.get("procurement") or {}
         date_text = day.get("date", "")
-        people = procurement.get("people", 1)
+        people = procurement.get("people", 250)
         for dish in (procurement.get("dishes") or []):
             role = dish.get("role", "")
             dish_name = dish.get("dish_name", "")
@@ -157,6 +157,69 @@ def _append_procurement_sheet(wb: Workbook, result: Dict[str, Any]) -> None:
     _set_col_width(ws, {
         1: 12, 2: 10, 3: 20, 4: 18, 5: 12, 6: 8, 7: 12, 8: 10, 9: 10, 10: 12, 11: 10, 12: 12
     })
+
+
+def _append_procurement_summary_sheet(wb: Workbook, result: Dict[str, Any]) -> None:
+    ws = wb.create_sheet("採買彙總")
+    header = ["週次", "日期", "食材", "單價", "單價單位", "總量", "需求單位", "總價格", "備註"]
+    ws.append(header)
+    bold = Font(bold=True)
+    for c in range(1, len(header) + 1):
+        ws.cell(row=1, column=c).font = bold
+
+    grand_total = 0.0
+    week_total = 0.0
+    week_index = 1
+    valid_days = [d for d in (result.get("days") or []) if d.get("procurement")]
+
+    for day_idx, day in enumerate(valid_days):
+        procurement = day.get("procurement") or {}
+        date_text = day.get("date", "")
+        people = procurement.get("people", "")
+        agg: Dict[Tuple[str, str, str, float], Dict[str, Any]] = {}
+
+        for dish in (procurement.get("dishes") or []):
+            for ing in (dish.get("ingredients") or []):
+                unit_price = _num(ing.get("unit_price"), 0.0)
+                key = (
+                    str(ing.get("ingredient_name", "")),
+                    str(ing.get("qty_unit", "")),
+                    str(ing.get("unit_price_unit", "")),
+                    unit_price,
+                )
+                bucket = agg.setdefault(key, {"qty": 0.0, "total": 0.0})
+                bucket["qty"] += _num(ing.get("qty_for_people"), 0.0)
+                bucket["total"] += _num(ing.get("line_total"), 0.0)
+
+        day_total = 0.0
+        for (name, qty_unit, price_unit, unit_price), val in sorted(agg.items(), key=lambda kv: kv[0][0]):
+            total = round(val["total"], 2)
+            day_total += total
+            ws.append([
+                f"第{week_index}週",
+                date_text,
+                name,
+                round(unit_price, 4) if unit_price else "",
+                price_unit,
+                round(val["qty"], 4),
+                qty_unit,
+                total,
+                f"人數={people}",
+            ])
+
+        ws.append([f"第{week_index}週", date_text, "每日小計", "", "", "", "", round(day_total, 2), ""])
+        week_total += day_total
+        grand_total += day_total
+
+        week_done = ((day_idx + 1) % 7 == 0) or (day_idx == len(valid_days) - 1)
+        if week_done:
+            ws.append([f"第{week_index}週", "", "每週小計", "", "", "", "", round(week_total, 2), ""])
+            week_index += 1
+            week_total = 0.0
+
+    ws.append(["", "", "全部合計", "", "", "", "", round(grand_total, 2), ""])
+    ws.freeze_panes = "A2"
+    _set_col_width(ws, {1: 10, 2: 12, 3: 18, 4: 10, 5: 10, 6: 12, 7: 10, 8: 12, 9: 14})
 
 def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     """
@@ -276,7 +339,7 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     ws2["B1"].font = bold
 
     ws2.append(["天數", days_n])
-    ws2.append(["人數", int((cfg or {}).get("people", 1) or 1)])
+    ws2.append(["人數", int((cfg or {}).get("people", 250) or 250)])
     ws2.append(["總成本", round(total_cost, 2)])
     ws2.append(["平均/日", round(total_cost / max(days_n, 1), 2)])
     
@@ -302,6 +365,7 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     _set_col_width(ws3, {1: 110})
 
     _append_procurement_sheet(wb, result)
+    _append_procurement_summary_sheet(wb, result)
 
     bio = io.BytesIO()
     wb.save(bio)

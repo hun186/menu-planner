@@ -56,7 +56,7 @@ function renderProcurementDetail(day) {
         <td>${escapeHtml(dish.dish_name || "")}</td>
         <td>${escapeHtml(ing.ingredient_name || "")}</td>
         <td>${ing.qty_per_person ?? ""}</td>
-        <td>${procurement.people ?? 1}</td>
+        <td>${procurement.people ?? 250}</td>
         <td>${ing.qty_for_people ?? ""} ${escapeHtml(ing.qty_unit || "")}</td>
         <td>${ing.unit_price ?? ""} ${escapeHtml(ing.unit_price_unit || "")}</td>
         <td>${ing.line_total ?? ""}</td>
@@ -64,7 +64,7 @@ function renderProcurementDetail(day) {
     });
   });
 
-  return `<div class="ex-title">採買估算（依人數 ${procurement.people ?? 1}）</div>
+  return `<div class="ex-title">採買估算（依人數 ${procurement.people ?? 250}，日小計 ${procurement.day_total ?? 0}）</div>
     <table class="tbl">
       <thead><tr><th>菜名</th><th>食材</th><th>每人用量</th><th>人數</th><th>需求量</th><th>單價</th><th>小計</th></tr></thead>
       <tbody>${rows.join("")}</tbody>
@@ -89,6 +89,8 @@ export function renderResult(result, cfg, options = {}) {
 
   const s = result.summary || {};
   const days = result.days || [];
+  const defaultPeople = Number(cfg?.people || s?.people || 250);
+  const peopleOverrides = cfg?.schedule?.people_overrides || s?.people_overrides || {};
 
   let html = "";
   const rawTotal = Number(s.total_score ?? 0);
@@ -110,7 +112,7 @@ export function renderResult(result, cfg, options = {}) {
   html += `<table class="tbl">
     <thead>
       <tr>
-        <th>日期</th><th>主菜</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>符合度</th>
+        <th>日期</th><th>人數</th><th>主菜</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>符合度</th>
       </tr>
     </thead>
     <tbody>`;
@@ -124,6 +126,7 @@ export function renderResult(result, cfg, options = {}) {
     if (!isScheduled) {
       html += `<tr class="row-offday">
         <td>${d.date || ""}</td>
+        <td>${defaultPeople}</td>
         <td colspan="5"><span class="muted">免排日（依排程設定）</span></td>
         <td>${d.day_cost ?? 0}</td>
         <td></td>
@@ -136,6 +139,7 @@ export function renderResult(result, cfg, options = {}) {
       const reason = dayErrs.map((e) => (e.message || e.code)).filter(Boolean).join(" / ") || "當天無可行組合";
       html += `<tr class="row-failed">
         <td>${d.date || ""}</td>
+        <td>${defaultPeople}</td>
         <td>${escapeHtml(mainName)}</td>
         <td colspan="4"><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
         <td>${d.day_cost ?? ""}</td>
@@ -144,7 +148,7 @@ export function renderResult(result, cfg, options = {}) {
 
       const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason });
       html += `<tr class="explain">
-        <td colspan="8">
+        <td colspan="9">
           <details open>
             <summary>原因與建議</summary>
             <pre class="pre">${escapeHtml(detailJson)}</pre>
@@ -197,8 +201,14 @@ export function renderResult(result, cfg, options = {}) {
       ? renderEditableDish({ name: fruit, dayIndex, role: "fruit", slot: "fruit", dishId: fruitObj?.id })
       : escapeHtml(fruit);
 
+    const dayPeople = Number(peopleOverrides[d.date] ?? d.procurement?.people ?? defaultPeople);
+    const peopleCell = editable && isScheduled
+      ? `<input class="day-people-input" type="number" min="1" data-date="${escapeHtml(d.date || "")}" value="${dayPeople}" title="可覆寫單日用餐人數" />`
+      : String(dayPeople);
+
     html += `<tr>
       <td>${d.date}</td>
+      <td>${peopleCell}</td>
       <td>${mainCell}</td>
       <td>${sideCell}</td>
       <td>${vegCell}</td>
@@ -237,7 +247,7 @@ export function renderResult(result, cfg, options = {}) {
     const daySummary = `今日小結：加分 ${sum.bonus.toFixed(1)} ／ 扣分 ${sum.penalty.toFixed(1)} ／ 原始 ${sum.raw.toFixed(1)}（符合度 ${sum.fitness.toFixed(1)}）`;
 
     html += `<tr class="explain">
-      <td colspan="8">
+      <td colspan="9">
         <details>
           <summary>可解釋明細</summary>
           <div class="explain-box">

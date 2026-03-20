@@ -42,6 +42,20 @@ export function showErrorDetail(payload) {
   `);
 }
 
+export function shouldRenderFailedRow(day, dayErrs = []) {
+  const hasError = (dayErrs?.length || 0) > 0 || !!day?.failed;
+  if (!hasError) return false;
+
+  const items = day?.items || {};
+  const hasSides = Array.isArray(items.sides) && items.sides.length > 0;
+  const hasVeg = !!(items.veg?.id || items.veg?.name);
+  const hasSoup = !!(items.soup?.id || items.soup?.name);
+  const hasFruit = !!(items.fruit?.id || items.fruit?.name);
+
+  // 若配菜/蔬菜/湯/水果全空，代表該日幾乎無可用內容，才渲染成「整列失敗」。
+  return !(hasSides || hasVeg || hasSoup || hasFruit);
+}
+
 
 
 function renderProcurementDetail(day) {
@@ -121,7 +135,7 @@ export function renderResult(result, cfg, options = {}) {
     const dayIndex = d.day_index ?? idx;
     const isScheduled = (d.is_scheduled !== undefined && d.is_scheduled !== null) ? !!d.is_scheduled : true;
     const dayErrs = errByDay.get(dayIndex) || [];
-    const isFailed = dayErrs.length > 0 || !!d.failed;
+    const isFailed = shouldRenderFailedRow(d, dayErrs);
 
     if (!isScheduled) {
       html += `<tr class="row-offday">
@@ -217,6 +231,19 @@ export function renderResult(result, cfg, options = {}) {
       <td>${cost}</td>
       <td><b>${fitness.toFixed(1)}</b></td>
     </tr>`;
+
+    if (dayErrs.length > 0 || d.failed) {
+      const reason = dayErrs.map((e) => (e.message || e.code)).filter(Boolean).join(" / ") || d.message || "部分欄位未滿足限制";
+      const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason, reason_code: d.reason_code, details: d.details });
+      html += `<tr class="explain">
+        <td colspan="9">
+          <details open>
+            <summary>⚠️ 部分限制未滿足：${escapeHtml(reason)}</summary>
+            <pre class="pre">${escapeHtml(detailJson)}</pre>
+          </details>
+        </td>
+      </tr>`;
+    }
 
     const breakdown = d.score_breakdown || {};
     const sum = summarizeBreakdown(breakdown);

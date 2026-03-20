@@ -91,6 +91,13 @@ textarea{
 }
 .tbl th, .tbl td{ border:1px solid var(--bd); padding:8px; vertical-align:top; }
 .tbl th{ background:#f6f6f6; }
+.tbl th.sortable-th{
+  cursor:pointer;
+  user-select:none;
+}
+.tbl th.sortable-th:hover{
+  background:#eceff4;
+}
 .row-offday td{
   background:#fbfbfb;
 }

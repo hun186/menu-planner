@@ -21,6 +21,8 @@ import { escapeHtml } from "./shared/html.js";
   let ingLabelToId = new Map();
   let editingIngId = null;
   let dishCostById = new Map();
+  const ingredientSort = { key: "id", direction: "asc" };
+  const dishSort = { key: "id", direction: "asc" };
   const ingredientPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
   const dishPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "", ingredientId: "", ingredientLabel: "" };
   let catalogLoadSeq = 0;
@@ -190,8 +192,38 @@ import { escapeHtml } from "./shared/html.js";
     return `${prefix}_${Date.now()}`;
   }
 
+  function compareNullable(a, b) {
+    const aNull = a === null || a === undefined || a === "";
+    const bNull = b === null || b === undefined || b === "";
+    if (aNull && bNull) return 0;
+    if (aNull) return 1;
+    if (bNull) return -1;
+    const aNum = typeof a === "number" ? a : Number.NaN;
+    const bNum = typeof b === "number" ? b : Number.NaN;
+    if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
+      return aNum - bNum;
+    }
+    return String(a).localeCompare(String(b), "zh-Hant", { numeric: true, sensitivity: "base" });
+  }
+
+  function applySortArrow(selector, key, direction) {
+    document.querySelectorAll(selector).forEach((th) => {
+      const baseLabel = th.dataset.baseLabel || th.textContent.trim().replace(/\s[▲▼]$/, "");
+      th.dataset.baseLabel = baseLabel;
+      if (th.dataset.ingSortKey === key || th.dataset.dishSortKey === key) {
+        th.textContent = `${baseLabel} ${direction === "asc" ? "▲" : "▼"}`;
+      } else {
+        th.textContent = baseLabel;
+      }
+    });
+  }
+
   function renderIngredients() {
-    const list = catalog.ingredients;
+    const list = [...catalog.ingredients].sort((a, b) => {
+      const result = compareNullable(a?.[ingredientSort.key], b?.[ingredientSort.key]);
+      return ingredientSort.direction === "asc" ? result : -result;
+    });
+    applySortArrow("#ing_tbl thead th[data-ing-sort-key]", ingredientSort.key, ingredientSort.direction);
 
     const $tb = $("#ing_tbl tbody").empty();
     list.forEach(x => {
@@ -257,7 +289,13 @@ import { escapeHtml } from "./shared/html.js";
   }
 
   function renderDishes() {
-    const list = catalog.dishes;
+    const list = [...catalog.dishes].sort((a, b) => {
+      const aVal = dishSort.key === "cost" ? Number(dishCostById.get(a.id)?.per_serving_cost ?? -1) : a?.[dishSort.key];
+      const bVal = dishSort.key === "cost" ? Number(dishCostById.get(b.id)?.per_serving_cost ?? -1) : b?.[dishSort.key];
+      const result = compareNullable(aVal, bVal);
+      return dishSort.direction === "asc" ? result : -result;
+    });
+    applySortArrow("#dish_tbl thead th[data-dish-sort-key]", dishSort.key, dishSort.direction);
 
     const $tb = $("#dish_tbl tbody").empty();
     list.forEach(x => {
@@ -631,6 +669,30 @@ function todayStr() {
     }, 250);
 
     $("#ing_q").on("input", onIngredientSearchInput);
+    $("#ing_tbl thead").on("click", "th[data-ing-sort-key]", function () {
+      const key = $(this).data("ing-sort-key");
+      if (!key) return;
+      if (ingredientSort.key === key) {
+        ingredientSort.direction = ingredientSort.direction === "asc" ? "desc" : "asc";
+      } else {
+        ingredientSort.key = key;
+        ingredientSort.direction = "asc";
+      }
+      renderIngredients();
+    });
+
+    $("#dish_tbl thead").on("click", "th[data-dish-sort-key]", function () {
+      const key = $(this).data("dish-sort-key");
+      if (!key) return;
+      if (dishSort.key === key) {
+        dishSort.direction = dishSort.direction === "asc" ? "desc" : "asc";
+      } else {
+        dishSort.key = key;
+        dishSort.direction = "asc";
+      }
+      renderDishes();
+    });
+
     $("#dish_q").on("input", onDishSearchInput);
     $("#dish_ing_filter").on("input", function () {
       const keyword = ($(this).val() || "").trim();

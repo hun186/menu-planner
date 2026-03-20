@@ -126,9 +126,9 @@ export function renderResult(result, cfg, options = {}) {
     if (!isScheduled) {
       html += `<tr class="row-offday">
         <td>${d.date || ""}</td>
-        <td>${defaultPeople}</td>
+        <td></td>
         <td colspan="5"><span class="muted">免排日（依排程設定）</span></td>
-        <td>${d.day_cost ?? 0}</td>
+        <td></td>
         <td></td>
       </tr>`;
       return;

@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import shutil
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
@@ -104,6 +106,10 @@ class DishIngredientIn(BaseModel):
 class DishCostPreviewIn(BaseModel):
     items: List[DishIngredientIn] = Field(default_factory=list)
     servings: float = Field(default=1.0, gt=0)
+
+
+class BackupRestoreIn(BaseModel):
+    backup_filename: str = Field(min_length=1)
 
 
 @router.get("/ingredients", dependencies=[Depends(require_admin_key)])
@@ -256,6 +262,56 @@ def list_inventory_summary(
     return repo.list_inventory_summary(q=q, only_in_stock=only_in_stock)
 
 
+def _list_backup_files(db_path: str) -> List[dict]:
+    db_file = Path(db_path).resolve()
+    backup_dir = db_file.parent / "backups"
+    if not backup_dir.exists():
+        return []
+    pattern = f"{db_file.stem}_*{db_file.suffix or '.db'}"
+    files = sorted(backup_dir.glob(pattern), key=lambda p: p.name, reverse=True)
+    return [
+        {
+            "filename": p.name,
+            "size_bytes": p.stat().st_size,
+            "modified_at": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds"),
+        }
+        for p in files
+        if p.is_file()
+    ]
+
+
+@router.get("/backups", dependencies=[Depends(require_admin_key)])
+def list_db_backups(
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    return _list_backup_files(db_path)
+
+
+@router.post("/backups/restore", dependencies=[Depends(require_admin_key)])
+def restore_db_backup(
+    body: BackupRestoreIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    db_file = Path(db_path).resolve()
+    backup_dir = db_file.parent / "backups"
+    backup_name = body.backup_filename.strip()
+    if not backup_name or "/" in backup_name or "\\" in backup_name:
+        raise HTTPException(status_code=400, detail="備份檔名格式不正確")
+    if not backup_name.startswith(f"{db_file.stem}_") or not backup_name.endswith(db_file.suffix or ".db"):
+        raise HTTPException(status_code=400, detail="備份檔名不符合目前資料庫")
+
+    src = (backup_dir / backup_name).resolve()
+    if src.parent != backup_dir.resolve() or not src.exists() or not src.is_file():
+        raise HTTPException(status_code=404, detail="找不到指定備份檔")
+
+    backup_before_modify(str(db_file))
+    try:
+        shutil.copy2(src, db_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"還原備份失敗：{e}")
+    return {"ok": True, "restored_from": backup_name}
+
+
 @router.post("/inventory/summary/merge-ingredient", dependencies=[Depends(require_admin_key)])
 def merge_inventory_ingredient(
     body: IngredientMergeIn,
@@ -263,6 +319,9 @@ def merge_inventory_ingredient(
 ):
     source_id = body.source_ingredient_id.strip()
     target_id = body.target_ingredient_id.strip()
+    if source_id == target_id:
+        raise HTTPException(status_code=400, detail="來源與目標食材不可相同")
+
     repo = SQLiteAdminRepo(db_path)
     ensure_ingredient_exists(repo, source_id)
     ensure_ingredient_exists(repo, target_id)

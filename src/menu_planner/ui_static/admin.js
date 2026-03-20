@@ -1,4 +1,4 @@
-import { deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDishIngredients, getIngredientInventory, getIngredientPrices, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, searchIngredients, upsertDish, upsertIngredient } from "./admin/api.js";
+import { deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, restoreDbBackup, searchIngredients, upsertDish, upsertIngredient } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -11,6 +11,7 @@ import { escapeHtml } from "./shared/html.js";
     msgDishIngredients: "#msg_di",
     msgDishCost: "#msg_di_cost",
     msgIngMeta: "#msg_ing_meta",
+    msgBackup: "#msg_backup",
     ingredientEditorFields: "#ing_id,#ing_name,#ing_category,#ing_protein,#ing_unit",
     dishEditorFields: "#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_tags",
   };
@@ -21,6 +22,7 @@ import { escapeHtml } from "./shared/html.js";
   let ingLabelToId = new Map();
   let editingIngId = null;
   let dishCostById = new Map();
+  let backupFiles = [];
   const ingredientSort = { key: "id", direction: "asc" };
   const dishSort = { key: "id", direction: "asc" };
   const ingredientPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
@@ -139,6 +141,25 @@ import { escapeHtml } from "./shared/html.js";
     $("#ing_page_jump").val(ingredientPager.page);
     $("#dish_page_jump").val(dishPager.page);
     await reloadDishCostPreview(dishItems.map(x => x.id));
+  }
+
+  function renderBackupOptions() {
+    const $sel = $("#db_backup_select").empty();
+    if (!backupFiles.length) {
+      $sel.append(`<option value="">（目前無可用備份檔）</option>`);
+      return;
+    }
+    backupFiles.forEach((x) => {
+      const modified = x?.modified_at || "";
+      const size = Number(x?.size_bytes || 0);
+      const label = `${x?.filename || ""}｜${modified}｜${size} bytes`;
+      $sel.append(`<option value="${escapeHtml(x?.filename || "")}">${escapeHtml(label)}</option>`);
+    });
+  }
+
+  async function refreshBackupList() {
+    backupFiles = await listDbBackups();
+    renderBackupOptions();
   }
 
   async function reloadDishCostPreview(dishIds = []) {
@@ -863,6 +884,24 @@ function todayStr() {
       }, "菜名 Excel 匯出完成。");
     });
 
+    $("#db_backup_reload").on("click", async () => {
+      await runWithMsg(DOM.msgBackup, async () => {
+        await refreshBackupList();
+      }, `已載入備份清單，共 ${backupFiles.length} 筆。`);
+    });
+
+    $("#db_backup_restore").on("click", async () => {
+      await runWithMsg(DOM.msgBackup, async () => {
+        const selected = ($("#db_backup_select").val() || "").trim();
+        if (!selected) throw new Error("請先選擇備份檔。");
+        if (!confirm(`確定還原備份檔：${selected}？\n還原前會先備份目前資料庫。`)) return;
+        await restoreDbBackup(selected);
+        await refreshBackupList();
+        await reloadCatalog();
+        renderAll();
+      }, "已完成備份還原，且已重新載入資料。");
+    });
+
     $("#modal_close").on("click", () => $("#modal").addClass("hide"));
     $("#di_add").on("click", () => addDishIngRow(null));
     $("#di_preview_cost").on("click", async () => {
@@ -938,6 +977,7 @@ function todayStr() {
       $("#ing_q").val(ingredientPager.q);
     }
     await reloadCatalog();
+    await refreshBackupList();
     rebuildIngredientDatalist([]);
     renderAll();
     syncEditorPaneHeights();

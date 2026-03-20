@@ -7,7 +7,10 @@ from src.menu_planner.api.routes import admin_catalog
 class _FakeRepo:
     ingredient_exists_value = True
     price_exists_value = True
+    delete_ingredient_count = 1
     deleted_prices = []
+    deleted_ingredients = []
+    merged_ingredients = []
 
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -21,6 +24,18 @@ class _FakeRepo:
     def delete_price(self, ingredient_id: str, price_date: str):
         self.deleted_prices.append((ingredient_id, price_date))
         return 1
+
+    def delete_ingredient(self, ingredient_id: str):
+        self.deleted_ingredients.append(ingredient_id)
+        return self.delete_ingredient_count
+
+    def merge_ingredient(self, source_ingredient_id: str, target_ingredient_id: str):
+        self.merged_ingredients.append((source_ingredient_id, target_ingredient_id))
+        return {
+            "merged_dish_count": 2,
+            "merged_price_count": 1,
+            "merged_inventory": True,
+        }
 
 
 def test_delete_price_not_found_does_not_trigger_backup(monkeypatch):
@@ -64,3 +79,116 @@ def test_delete_price_success_triggers_backup_once(monkeypatch):
     assert resp == {"ok": True}
     assert calls["backup"] == 1
     assert _FakeRepo.deleted_prices == [("ing-1", "2026-03-16")]
+
+
+def test_delete_ingredient_success_triggers_backup_once(monkeypatch):
+    calls = {"backup": 0}
+
+    _FakeRepo.ingredient_exists_value = True
+    _FakeRepo.delete_ingredient_count = 1
+    _FakeRepo.deleted_ingredients = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    resp = admin_catalog.delete_ingredient("ing-1", db_path="/tmp/menu.db")
+
+    assert resp == {"ok": True}
+    assert calls["backup"] == 1
+    assert _FakeRepo.deleted_ingredients == ["ing-1"]
+
+
+def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
+    calls = {"backup": 0}
+
+    _FakeRepo.ingredient_exists_value = True
+    _FakeRepo.merged_ingredients = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    resp = admin_catalog.merge_inventory_ingredient(
+        admin_catalog.IngredientMergeIn(source_ingredient_id="ing-a", target_ingredient_id="ing-b"),
+        db_path="/tmp/menu.db",
+    )
+
+    assert resp == {
+        "ok": True,
+        "merged_dish_count": 2,
+        "merged_price_count": 1,
+        "merged_inventory": True,
+    }
+    assert calls["backup"] == 1
+    assert _FakeRepo.merged_ingredients == [("ing-a", "ing-b")]
+
+
+def test_merge_inventory_ingredient_same_source_and_target_does_not_trigger_backup(monkeypatch):
+    calls = {"backup": 0}
+
+    _FakeRepo.ingredient_exists_value = True
+    _FakeRepo.merged_ingredients = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    with pytest.raises(HTTPException) as ex:
+        admin_catalog.merge_inventory_ingredient(
+            admin_catalog.IngredientMergeIn(source_ingredient_id="ing-a", target_ingredient_id="ing-a"),
+            db_path="/tmp/menu.db",
+        )
+
+    assert ex.value.status_code == 400
+    assert calls["backup"] == 0
+    assert _FakeRepo.merged_ingredients == []
+
+
+def test_list_db_backups_returns_descending_files(tmp_path):
+    db = tmp_path / "menu.db"
+    db.write_text("live-db", encoding="utf-8")
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    old_file = backup_dir / "menu_20260320_120000_000001.db"
+    new_file = backup_dir / "menu_20260320_120001_000001.db"
+    old_file.write_text("old", encoding="utf-8")
+    new_file.write_text("new", encoding="utf-8")
+
+    rows = admin_catalog.list_db_backups(db_path=str(db))
+
+    assert [x["filename"] for x in rows] == [new_file.name, old_file.name]
+    assert all("size_bytes" in x and "modified_at" in x for x in rows)
+
+
+def test_restore_db_backup_copies_file_and_triggers_pre_backup(monkeypatch, tmp_path):
+    calls = {"backup": 0}
+    db = tmp_path / "menu.db"
+    db.write_text("live-db", encoding="utf-8")
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    src = backup_dir / "menu_20260320_120001_000001.db"
+    src.write_text("snapshot-db", encoding="utf-8")
+
+    def _backup(_db_path: str):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    resp = admin_catalog.restore_db_backup(
+        admin_catalog.BackupRestoreIn(backup_filename=src.name),
+        db_path=str(db),
+    )
+
+    assert resp == {"ok": True, "restored_from": src.name}
+    assert calls["backup"] == 1
+    assert db.read_text(encoding="utf-8") == "snapshot-db"

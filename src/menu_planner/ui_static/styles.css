@@ -217,6 +217,9 @@ textarea{
 }
 .chip .x{ color:#777; font-weight:700; }
 .hint{ color:#777; font-size:12px; margin-top:6px; }
+.db-summary{
+  margin-top:8px;
+}
 
 .inline.left{ justify-content:flex-start; }
 select{

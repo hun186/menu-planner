@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
+from datetime import date
 from typing import Dict, List, Optional, Tuple, Any
 
 
@@ -221,3 +222,67 @@ class SQLiteRepo:
                 rows = conn.execute(SQL_FETCH_LATEST_PRICES).fetchall()
 
         return {r["ingredient_id"]: _map_price_item(r) for r in rows}
+
+    def fetch_catalog_summary(self) -> Dict[str, Any]:
+        """
+        彙整右欄可顯示的資料庫資訊：
+        - 各角色菜色數量
+        - 各角色涵蓋食材（distinct ingredient）數量
+        - 有效庫存（未過期）筆數、食材數與總量
+        """
+        today = date.today().isoformat()
+        with self.connect() as conn:
+            dish_rows = conn.execute(
+                """
+                SELECT role, COUNT(*) AS dish_count
+                FROM dishes
+                GROUP BY role
+                """
+            ).fetchall()
+
+            ingredient_rows = conn.execute(
+                """
+                SELECT d.role AS role, COUNT(DISTINCT di.ingredient_id) AS ingredient_count
+                FROM dishes d
+                LEFT JOIN dish_ingredients di ON di.dish_id = d.id
+                GROUP BY d.role
+                """
+            ).fetchall()
+
+            inventory_row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) AS row_count,
+                    COUNT(DISTINCT ingredient_id) AS ingredient_count,
+                    COALESCE(SUM(qty_on_hand), 0) AS qty_sum
+                FROM inventory
+                WHERE qty_on_hand > 0
+                  AND (expiry_date IS NULL OR date(expiry_date) >= date(?))
+                """,
+                [today],
+            ).fetchone()
+
+        roles = ["main", "side", "veg", "soup", "fruit"]
+        dish_count_by_role = {role: 0 for role in roles}
+        ingredient_count_by_role = {role: 0 for role in roles}
+
+        for r in dish_rows:
+            role = r["role"]
+            if role in dish_count_by_role:
+                dish_count_by_role[role] = int(r["dish_count"] or 0)
+
+        for r in ingredient_rows:
+            role = r["role"]
+            if role in ingredient_count_by_role:
+                ingredient_count_by_role[role] = int(r["ingredient_count"] or 0)
+
+        return {
+            "today": today,
+            "dish_count_by_role": dish_count_by_role,
+            "ingredient_count_by_role": ingredient_count_by_role,
+            "inventory": {
+                "valid_row_count": int(inventory_row["row_count"] or 0),
+                "valid_ingredient_count": int(inventory_row["ingredient_count"] or 0),
+                "valid_qty_sum": float(inventory_row["qty_sum"] or 0),
+            },
+        }

@@ -89,6 +89,11 @@ def get_ingredients(repo: SQLiteRepo = Depends(get_repo)):
     return [v.__dict__ for v in ings.values()]
 
 
+@app.get("/catalog/summary")
+def get_catalog_summary(repo: SQLiteRepo = Depends(get_repo)):
+    return repo.fetch_catalog_summary()
+
+
 @app.post("/plan")
 def post_plan(
     cfg: Dict[str, Any] = Body(...),

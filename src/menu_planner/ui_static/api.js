@@ -4,6 +4,7 @@ const API = {
   plan: "/plan",
   ingredients: "/catalog/ingredients",
   dishes: "/catalog/dishes",
+  summary: "/catalog/summary",
   exportExcel: "/export/excel",
 };
 
@@ -18,6 +19,11 @@ export async function fetchCatalog() {
     ingredients: await r1.json(),
     dishes: await r2.json(),
   };
+}
+
+export async function fetchCatalogSummary() {
+  const res = await fetch(API.summary);
+  return await res.json();
 }
 
 export async function validateCfg(cfg) {

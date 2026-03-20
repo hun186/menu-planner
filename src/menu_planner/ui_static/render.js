@@ -42,6 +42,35 @@ export function showErrorDetail(payload) {
   `);
 }
 
+
+
+function renderProcurementDetail(day) {
+  const procurement = day?.procurement || {};
+  const dishes = procurement?.dishes || [];
+  if (!dishes.length) return "<div class='muted'>（無採買明細）</div>";
+
+  const rows = [];
+  dishes.forEach((dish) => {
+    (dish.ingredients || []).forEach((ing) => {
+      rows.push(`<tr>
+        <td>${escapeHtml(dish.dish_name || "")}</td>
+        <td>${escapeHtml(ing.ingredient_name || "")}</td>
+        <td>${ing.qty_per_person ?? ""}</td>
+        <td>${procurement.people ?? 1}</td>
+        <td>${ing.qty_for_people ?? ""} ${escapeHtml(ing.qty_unit || "")}</td>
+        <td>${ing.unit_price ?? ""} ${escapeHtml(ing.unit_price_unit || "")}</td>
+        <td>${ing.line_total ?? ""}</td>
+      </tr>`);
+    });
+  });
+
+  return `<div class="ex-title">採買估算（依人數 ${procurement.people ?? 1}）</div>
+    <table class="tbl">
+      <thead><tr><th>菜名</th><th>食材</th><th>每人用量</th><th>人數</th><th>需求量</th><th>單價</th><th>小計</th></tr></thead>
+      <tbody>${rows.join("")}</tbody>
+    </table>`;
+}
+
 function renderEditableDish({ name, dayIndex, role, slot, dishId }) {
   const label = name || "（未指定）";
   const did = dishId || "";
@@ -215,6 +244,7 @@ export function renderResult(result, cfg, options = {}) {
             <div class="ex-title">${escapeHtml(daySummary)}</div>
             <div class="ex-title">打分拆解（影響大 → 小）</div>
             <div class="bd-list">${bRows || "<div class='muted'>（無）</div>"}</div>
+            ${renderProcurementDetail(d)}
             <div class="ex-title">庫存使用（ID）</div>
             <pre class="pre">${escapeHtml(pretty({
               main: d.items?.main?.used_inventory_ingredients,

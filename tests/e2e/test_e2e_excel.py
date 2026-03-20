@@ -40,6 +40,7 @@ def test_generate_and_export_excel():
 
     assert obj["ok"] is True
     assert len(obj["result"]["days"]) == 270
+    assert obj["result"]["summary"].get("people") == cfg.get("people", 1)
 
     # 驗證每日組成：1 main + 2 side + 1 veg + 1 soup + 1 fruit
     # 只檢查有排程且成功的日子（offday / failed 另有邏輯）
@@ -53,6 +54,9 @@ def test_generate_and_export_excel():
             # offday
             continue
 
+
+        procurement = d.get("procurement") or {}
+        assert procurement.get("people") == cfg.get("people", 1)
         sides = items.get("sides") or []
         veg = items.get("veg") or {}
         soup = items.get("soup") or {}
@@ -104,5 +108,7 @@ def test_generate_and_export_excel():
     wb = openpyxl.load_workbook(io.BytesIO(xb), data_only=True)
 
     sheet = wb["菜單"]
+    detail_sheet = wb["採買明細"]
 
     assert sheet.max_row == 271
+    assert detail_sheet.max_row > 1

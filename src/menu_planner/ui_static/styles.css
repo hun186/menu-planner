@@ -99,12 +99,12 @@ textarea{
   word-break:break-word;
   white-space:normal;
 }
-.ing-tbl th:nth-child(1), .ing-tbl td:nth-child(1){ width:22%; }
-.ing-tbl th:nth-child(2), .ing-tbl td:nth-child(2){ width:18%; }
-.ing-tbl th:nth-child(3), .ing-tbl td:nth-child(3){ width:18%; }
-.ing-tbl th:nth-child(4), .ing-tbl td:nth-child(4){ width:17%; }
-.ing-tbl th:nth-child(5), .ing-tbl td:nth-child(5){ width:9%; }
-.ing-tbl th:nth-child(6), .ing-tbl td:nth-child(6){ width:16%; }
+.ing-tbl th:nth-child(1), .ing-tbl td:nth-child(1){ width:19%; }
+.ing-tbl th:nth-child(2), .ing-tbl td:nth-child(2){ width:16%; }
+.ing-tbl th:nth-child(3), .ing-tbl td:nth-child(3){ width:16%; }
+.ing-tbl th:nth-child(4), .ing-tbl td:nth-child(4){ width:15%; }
+.ing-tbl th:nth-child(5), .ing-tbl td:nth-child(5){ width:10%; }
+.ing-tbl th:nth-child(6), .ing-tbl td:nth-child(6){ width:24%; }
 
 .dish-tbl th:nth-child(1), .dish-tbl td:nth-child(1){ width:19%; }
 .dish-tbl th:nth-child(2), .dish-tbl td:nth-child(2){ width:18%; }

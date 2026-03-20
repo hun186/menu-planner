@@ -113,14 +113,13 @@ textarea{
   padding:6px;
 }
 .row-actions{
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
+  display:flex;
+  flex-direction:column;
   gap:6px;
 }
-@media (max-width: 860px){
-  .row-actions{
-    grid-template-columns:minmax(0, 1fr);
-  }
+.row-actions button{
+  white-space:nowrap;
+  word-break:keep-all;
 }
 
 #di_tbl td:last-child{ min-width: 170px; }

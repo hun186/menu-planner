@@ -1,6 +1,8 @@
 import { exportInventorySummaryExcel, listInventorySummary } from "./admin/api.js";
 import { escapeHtml } from "./shared/html.js";
 
+const inventorySort = { key: "ingredient_id", direction: "asc" };
+
 function setMsg(text, isError = false) {
   $("#inv_msg").text(text || "").toggleClass("err", !!isError);
 }
@@ -26,14 +28,52 @@ function pushQueryToUrl({ q, onlyInStock }) {
   window.history.replaceState({}, "", next);
 }
 
+function compareNullable(a, b) {
+  const aNull = a === null || a === undefined || a === "";
+  const bNull = b === null || b === undefined || b === "";
+  if (aNull && bNull) return 0;
+  if (aNull) return 1;
+  if (bNull) return -1;
+  if (typeof a === "number" && typeof b === "number") {
+    return a - b;
+  }
+  return String(a).localeCompare(String(b), "zh-Hant", { numeric: true, sensitivity: "base" });
+}
+
+function applySortArrow() {
+  document.querySelectorAll("#inv_tbl thead th[data-inv-sort-key]").forEach((th) => {
+    const baseLabel = th.dataset.baseLabel || th.textContent.trim().replace(/\s[▲▼]$/, "");
+    th.dataset.baseLabel = baseLabel;
+    if (th.dataset.invSortKey === inventorySort.key) {
+      th.textContent = `${baseLabel} ${inventorySort.direction === "asc" ? "▲" : "▼"}`;
+    } else {
+      th.textContent = baseLabel;
+    }
+  });
+}
+
+function sortRows(list) {
+  return [...list].sort((a, b) => {
+    let aVal = a?.[inventorySort.key];
+    let bVal = b?.[inventorySort.key];
+    if (inventorySort.key === "qty_on_hand" || inventorySort.key === "dish_ref_count") {
+      aVal = Number(aVal ?? -1);
+      bVal = Number(bVal ?? -1);
+    }
+    const result = compareNullable(aVal, bVal);
+    return inventorySort.direction === "asc" ? result : -result;
+  });
+}
+
 function renderRows(list) {
   const $tb = $("#inv_tbl tbody").empty();
   if (!Array.isArray(list) || !list.length) {
     $tb.append("<tr><td colspan=\"9\" class=\"muted\">查無資料。</td></tr>");
+    applySortArrow();
     return;
   }
 
-  list.forEach((row) => {
+  sortRows(list).forEach((row) => {
     const qtyText = row.qty_on_hand === null || row.qty_on_hand === undefined ? "—" : Number(row.qty_on_hand).toFixed(2);
     const expiryText = row.expiry_date || "—";
     const updatedText = row.updated_at || "—";
@@ -52,6 +92,7 @@ function renderRows(list) {
     `);
     $tb.append($tr);
   });
+  applySortArrow();
 }
 
 async function loadAndRender() {
@@ -110,6 +151,17 @@ $(function () {
   $("#inv_refresh").on("click", loadAndRender);
   $("#inv_export_excel").on("click", exportInventoryExcel);
   $("#inv_only_stock").on("change", loadAndRender);
+  $("#inv_tbl thead").on("click", "th[data-inv-sort-key]", function () {
+    const key = $(this).data("inv-sort-key");
+    if (!key) return;
+    if (inventorySort.key === key) {
+      inventorySort.direction = inventorySort.direction === "asc" ? "desc" : "asc";
+    } else {
+      inventorySort.key = key;
+      inventorySort.direction = "asc";
+    }
+    loadAndRender();
+  });
   $("#inv_q").on("input", debounced);
   loadAndRender();
 });

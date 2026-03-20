@@ -1,7 +1,7 @@
 import { deleteIngredient, exportInventorySummaryExcel, listInventorySummary, mergeInventoryIngredient } from "./admin/api.js";
 import { escapeHtml } from "./shared/html.js";
 
-const inventorySort = { key: "ingredient_id", direction: "asc" };
+const inventorySort = { key: "expiry_date", direction: "asc" };
 
 function setMsg(text, isError = false) {
   $("#inv_msg").text(text || "").toggleClass("err", !!isError);

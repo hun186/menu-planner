@@ -141,3 +141,26 @@ def test_get_inventory_handles_whitespace_mismatch_in_inventory_id(tmp_path):
     assert got is not None
     assert got["qty_on_hand"] == 1.0
     assert got["unit"] == "斤"
+
+
+def test_list_inventory_summary_returns_inventory_and_reference_count(tmp_path):
+    db_path = tmp_path / "menu.db"
+    _build_db(str(db_path))
+    repo = SQLiteAdminRepo(str(db_path))
+
+    with sqlite3.connect(str(db_path)) as conn:
+        conn.execute(
+            "INSERT INTO inventory(ingredient_id, qty_on_hand, unit, updated_at, expiry_date) VALUES(?, ?, ?, ?, ?)",
+            ("ing-a", 30, "g", "2026-03-10", "2026-03-30"),
+        )
+        conn.execute(
+            "INSERT INTO inventory(ingredient_id, qty_on_hand, unit, updated_at, expiry_date) VALUES(?, ?, ?, ?, ?)",
+            ("ing-b", 0, "g", "2026-03-11", None),
+        )
+
+    out = repo.list_inventory_summary(q="ing", only_in_stock=True)
+    by_id = {x["ingredient_id"]: x for x in out}
+
+    assert set(by_id.keys()) == {"ing-a"}
+    assert by_id["ing-a"]["qty_on_hand"] == 30.0
+    assert by_id["ing-a"]["dish_ref_count"] == 1

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 class SQLiteAdminRepo:
@@ -47,6 +48,178 @@ class SQLiteAdminRepo:
         with self._conn() as conn:
             cur = conn.execute("DELETE FROM ingredients WHERE id=?", (ingredient_id,))
             return cur.rowcount
+
+    def merge_ingredient(self, source_ingredient_id: str, target_ingredient_id: str) -> Dict[str, Any]:
+        source_id = str(source_ingredient_id or "").strip()
+        target_id = str(target_ingredient_id or "").strip()
+        if not source_id or not target_id:
+            raise ValueError("source_ingredient_id / target_ingredient_id 不可為空")
+        if source_id == target_id:
+            raise ValueError("來源與目標食材不可相同")
+
+        merged_dish_count = 0
+        merged_price_count = 0
+        merged_inventory = False
+
+        with self._conn() as conn:
+            src_exists = conn.execute("SELECT 1 FROM ingredients WHERE id=? LIMIT 1", (source_id,)).fetchone()
+            tgt_exists = conn.execute("SELECT 1 FROM ingredients WHERE id=? LIMIT 1", (target_id,)).fetchone()
+            if not src_exists:
+                raise ValueError(f"找不到來源食材：{source_id}")
+            if not tgt_exists:
+                raise ValueError(f"找不到目標食材：{target_id}")
+
+            conv_map = self._fetch_unit_conversions_conn(conn)
+
+            source_rows = conn.execute(
+                """
+                SELECT dish_id, qty, unit
+                FROM dish_ingredients
+                WHERE ingredient_id=?
+                ORDER BY dish_id
+                """,
+                (source_id,),
+            ).fetchall()
+            for dish_id, src_qty_raw, src_unit in source_rows:
+                src_qty = float(src_qty_raw or 0)
+                existing = conn.execute(
+                    """
+                    SELECT qty, unit
+                    FROM dish_ingredients
+                    WHERE dish_id=? AND ingredient_id=?
+                    LIMIT 1
+                    """,
+                    (dish_id, target_id),
+                ).fetchone()
+                if not existing:
+                    conn.execute(
+                        """
+                        UPDATE dish_ingredients
+                        SET ingredient_id=?
+                        WHERE dish_id=? AND ingredient_id=?
+                        """,
+                        (target_id, dish_id, source_id),
+                    )
+                    merged_dish_count += 1
+                    continue
+
+                tgt_qty = float(existing[0] or 0)
+                tgt_unit = existing[1]
+                converted_qty = self._convert_qty(src_qty, src_unit, tgt_unit, conv_map)
+                if converted_qty is None:
+                    raise ValueError(
+                        f"菜色 {dish_id} 的食材單位無法合併：{source_id}({src_unit}) -> {target_id}({tgt_unit})"
+                    )
+
+                conn.execute(
+                    """
+                    UPDATE dish_ingredients
+                    SET qty=?
+                    WHERE dish_id=? AND ingredient_id=?
+                    """,
+                    (tgt_qty + converted_qty, dish_id, target_id),
+                )
+                conn.execute(
+                    """
+                    DELETE FROM dish_ingredients
+                    WHERE dish_id=? AND ingredient_id=?
+                    """,
+                    (dish_id, source_id),
+                )
+                merged_dish_count += 1
+
+            source_prices = conn.execute(
+                """
+                SELECT price_date, price_per_unit, unit
+                FROM ingredient_prices
+                WHERE ingredient_id=?
+                ORDER BY price_date
+                """,
+                (source_id,),
+            ).fetchall()
+            for price_date, price_per_unit, unit in source_prices:
+                exists = conn.execute(
+                    """
+                    SELECT 1
+                    FROM ingredient_prices
+                    WHERE ingredient_id=? AND price_date=?
+                    LIMIT 1
+                    """,
+                    (target_id, price_date),
+                ).fetchone()
+                if exists:
+                    continue
+                conn.execute(
+                    """
+                    INSERT INTO ingredient_prices(ingredient_id, price_date, price_per_unit, unit)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (target_id, price_date, float(price_per_unit), unit),
+                )
+                merged_price_count += 1
+
+            src_inv = conn.execute(
+                """
+                SELECT qty_on_hand, unit, updated_at, expiry_date
+                FROM inventory
+                WHERE ingredient_id=?
+                LIMIT 1
+                """,
+                (source_id,),
+            ).fetchone()
+            tgt_inv = conn.execute(
+                """
+                SELECT qty_on_hand, unit, updated_at, expiry_date
+                FROM inventory
+                WHERE ingredient_id=?
+                LIMIT 1
+                """,
+                (target_id,),
+            ).fetchone()
+            if src_inv and not tgt_inv:
+                conn.execute("UPDATE inventory SET ingredient_id=? WHERE ingredient_id=?", (target_id, source_id))
+                merged_inventory = True
+            elif src_inv and tgt_inv:
+                src_qty = float(src_inv[0] or 0)
+                src_unit = src_inv[1]
+                src_updated_at = src_inv[2]
+                src_expiry = src_inv[3]
+
+                tgt_qty = float(tgt_inv[0] or 0)
+                tgt_unit = tgt_inv[1]
+                tgt_updated_at = tgt_inv[2]
+                tgt_expiry = tgt_inv[3]
+
+                converted_qty = self._convert_qty(src_qty, src_unit, tgt_unit, conv_map)
+                if converted_qty is None:
+                    raise ValueError(f"庫存單位無法合併：{source_id}({src_unit}) -> {target_id}({tgt_unit})")
+
+                merged_qty = tgt_qty + converted_qty
+                merged_updated = max(src_updated_at or "", tgt_updated_at or "") or date.today().isoformat()
+                merged_expiry = self._earliest_date(src_expiry, tgt_expiry)
+
+                conn.execute(
+                    """
+                    UPDATE inventory
+                    SET qty_on_hand=?, unit=?, updated_at=?, expiry_date=?
+                    WHERE ingredient_id=?
+                    """,
+                    (merged_qty, tgt_unit, merged_updated, merged_expiry, target_id),
+                )
+                conn.execute("DELETE FROM inventory WHERE ingredient_id=?", (source_id,))
+                merged_inventory = True
+
+            deleted = conn.execute("DELETE FROM ingredients WHERE id=?", (source_id,)).rowcount
+            if deleted <= 0:
+                raise ValueError(f"刪除來源食材失敗：{source_id}")
+
+        return {
+            "source_ingredient_id": source_id,
+            "target_ingredient_id": target_id,
+            "merged_dish_count": merged_dish_count,
+            "merged_price_count": merged_price_count,
+            "merged_inventory": merged_inventory,
+        }
 
     def ingredient_exists(self, ingredient_id: str) -> bool:
         with self._conn() as conn:
@@ -416,6 +589,38 @@ class SQLiteAdminRepo:
     def _fetch_unit_conversions(self) -> Dict[Tuple[str, str], float]:
         with self._conn() as conn:
             rows = conn.execute("SELECT from_unit, to_unit, factor FROM unit_conversions").fetchall()
+        return {(r[0], r[1]): float(r[2]) for r in rows}
+
+    @staticmethod
+    def _convert_qty(
+        qty: float,
+        source_unit: Optional[str],
+        target_unit: Optional[str],
+        conv_map: Dict[Tuple[str, str], float],
+    ) -> Optional[float]:
+        src = str(source_unit or "").strip()
+        tgt = str(target_unit or "").strip()
+        if src == tgt:
+            return float(qty)
+        if not src or not tgt:
+            return None
+        factor = conv_map.get((src, tgt))
+        if factor is not None:
+            return float(qty) * float(factor)
+        inverse = conv_map.get((tgt, src))
+        if inverse is not None and float(inverse) != 0:
+            return float(qty) / float(inverse)
+        return None
+
+    @staticmethod
+    def _earliest_date(d1: Optional[str], d2: Optional[str]) -> Optional[str]:
+        candidates = [str(x).strip() for x in [d1, d2] if str(x or "").strip()]
+        if not candidates:
+            return None
+        return min(candidates)
+
+    def _fetch_unit_conversions_conn(self, conn: sqlite3.Connection) -> Dict[Tuple[str, str], float]:
+        rows = conn.execute("SELECT from_unit, to_unit, factor FROM unit_conversions").fetchall()
         return {(r[0], r[1]): float(r[2]) for r in rows}
 
     def _fetch_latest_prices(self, ingredient_ids: List[str]) -> Dict[str, Dict[str, Any]]:

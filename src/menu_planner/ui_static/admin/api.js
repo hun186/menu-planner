@@ -15,6 +15,7 @@ export const ADMIN_API = {
   ingPriceDelete: (id, date) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/prices/${encodeURIComponent(date)}`,
   ingInventory: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/inventory`,
   inventorySummary: "/admin/catalog/inventory/summary",
+  inventoryMergeIngredient: "/admin/catalog/inventory/summary/merge-ingredient",
   inventorySummaryExport: "/admin/catalog/inventory/summary/export",
   ingredientsExport: "/admin/catalog/ingredients/export",
   dishesExport: "/admin/catalog/dishes/export",
@@ -154,6 +155,14 @@ export function exportInventorySummaryExcel({ q = "", onlyInStock = false } = {}
   const query = params.toString();
   const url = query ? `${ADMIN_API.inventorySummaryExport}?${query}` : ADMIN_API.inventorySummaryExport;
   return fetchAdminBlob(url);
+}
+
+export function mergeInventoryIngredient(sourceIngredientId, targetIngredientId) {
+  return httpJson(
+    ADMIN_API.inventoryMergeIngredient,
+    { method: "POST", body: JSON.stringify({ source_ingredient_id: sourceIngredientId, target_ingredient_id: targetIngredientId }) },
+    { includeAdminKey: true }
+  );
 }
 
 export function exportIngredientsExcel({ q = "" } = {}) {

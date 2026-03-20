@@ -175,6 +175,11 @@ class InventoryUpsert(BaseModel):
     expiry_date: Optional[str] = None  # YYYY-MM-DD or null
 
 
+class IngredientMergeIn(BaseModel):
+    source_ingredient_id: str = Field(min_length=1)
+    target_ingredient_id: str = Field(min_length=1)
+
+
 @router.get("/ingredients/{ingredient_id}/prices", dependencies=[Depends(require_admin_key)])
 def list_prices(
     ingredient_id: str,
@@ -249,6 +254,25 @@ def list_inventory_summary(
 ):
     repo = SQLiteAdminRepo(db_path)
     return repo.list_inventory_summary(q=q, only_in_stock=only_in_stock)
+
+
+@router.post("/inventory/summary/merge-ingredient", dependencies=[Depends(require_admin_key)])
+def merge_inventory_ingredient(
+    body: IngredientMergeIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    source_id = body.source_ingredient_id.strip()
+    target_id = body.target_ingredient_id.strip()
+    repo = SQLiteAdminRepo(db_path)
+    ensure_ingredient_exists(repo, source_id)
+    ensure_ingredient_exists(repo, target_id)
+
+    repo = repo_with_backup(db_path)
+    try:
+        result = repo.merge_ingredient(source_id, target_id)
+        return {"ok": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/inventory/summary/export", dependencies=[Depends(require_admin_key)])

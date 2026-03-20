@@ -2,6 +2,12 @@ import { deleteIngredient, exportInventorySummaryExcel, listInventorySummary, me
 import { escapeHtml } from "./shared/html.js";
 
 const inventorySort = { key: "expiry_date", direction: "asc" };
+const inventoryPager = {
+  page: 1,
+  pageSize: 20,
+  total: 0,
+};
+let inventoryRows = [];
 
 function setMsg(text, isError = false) {
   $("#inv_msg").text(text || "").toggleClass("err", !!isError);
@@ -11,18 +17,27 @@ function readQueryFromLocation() {
   const params = new URLSearchParams(window.location.search || "");
   const q = (params.get("q") || "").trim();
   const onlyInStock = ["1", "true", "yes"].includes((params.get("only_in_stock") || "").toLowerCase());
-  return { q, onlyInStock };
+  const pageRaw = Number.parseInt(params.get("page") || "1", 10);
+  const pageSizeRaw = Number.parseInt(params.get("page_size") || "20", 10);
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const pageSize = [10, 20, 50, 100].includes(pageSizeRaw) ? pageSizeRaw : 20;
+  return { q, onlyInStock, page, pageSize };
 }
 
-function applyQueryToControls({ q, onlyInStock }) {
+function applyQueryToControls({ q, onlyInStock, page, pageSize }) {
   $("#inv_q").val(q || "");
   $("#inv_only_stock").prop("checked", !!onlyInStock);
+  $("#inv_page_size").val(String(pageSize || 20));
+  inventoryPager.page = page || 1;
+  inventoryPager.pageSize = pageSize || 20;
 }
 
 function pushQueryToUrl({ q, onlyInStock }) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (onlyInStock) params.set("only_in_stock", "true");
+  if (inventoryPager.page > 1) params.set("page", String(inventoryPager.page));
+  if (inventoryPager.pageSize !== 20) params.set("page_size", String(inventoryPager.pageSize));
   const query = params.toString();
   const next = query ? `${window.location.pathname}?${query}` : window.location.pathname;
   window.history.replaceState({}, "", next);
@@ -65,11 +80,39 @@ function sortRows(list) {
   });
 }
 
+function totalPages() {
+  return Math.max(1, Math.ceil(inventoryPager.total / inventoryPager.pageSize));
+}
+
+function clampPage() {
+  const maxPage = totalPages();
+  if (inventoryPager.page > maxPage) inventoryPager.page = maxPage;
+  if (inventoryPager.page < 1) inventoryPager.page = 1;
+}
+
+function getPageRows(list) {
+  clampPage();
+  const start = (inventoryPager.page - 1) * inventoryPager.pageSize;
+  return list.slice(start, start + inventoryPager.pageSize);
+}
+
+function renderPager() {
+  clampPage();
+  const pages = totalPages();
+  const from = inventoryPager.total === 0 ? 0 : (inventoryPager.page - 1) * inventoryPager.pageSize + 1;
+  const to = Math.min(inventoryPager.total, inventoryPager.page * inventoryPager.pageSize);
+  $("#inv_page_label").text(`${inventoryPager.page} / ${pages}`);
+  $("#inv_pager_meta").text(`第 ${inventoryPager.page} / ${pages} 頁（顯示 ${from}-${to} / 共 ${inventoryPager.total} 筆）`);
+  $("#inv_page_first, #inv_page_prev").prop("disabled", inventoryPager.page <= 1);
+  $("#inv_page_next, #inv_page_last").prop("disabled", inventoryPager.page >= pages);
+}
+
 function renderRows(list) {
   const $tb = $("#inv_tbl tbody").empty();
   if (!Array.isArray(list) || !list.length) {
     $tb.append("<tr><td colspan=\"9\" class=\"muted\">查無資料。</td></tr>");
     applySortArrow();
+    renderPager();
     return;
   }
 
@@ -139,6 +182,13 @@ function renderRows(list) {
     $tb.append($tr);
   });
   applySortArrow();
+  renderPager();
+}
+
+function renderInventory() {
+  const sorted = sortRows(inventoryRows);
+  const pageRows = getPageRows(sorted);
+  renderRows(pageRows);
 }
 
 async function loadAndRender() {
@@ -148,9 +198,14 @@ async function loadAndRender() {
   setMsg("載入中…");
   try {
     const list = await listInventorySummary({ q, onlyInStock });
-    renderRows(list);
-    setMsg(`完成，共 ${Array.isArray(list) ? list.length : 0} 筆。`);
+    inventoryRows = Array.isArray(list) ? list : [];
+    inventoryPager.total = inventoryRows.length;
+    clampPage();
+    renderInventory();
+    setMsg(`完成，共 ${inventoryRows.length} 筆。`);
   } catch (e) {
+    inventoryRows = [];
+    inventoryPager.total = 0;
     renderRows([]);
     setMsg(`載入失敗：${e.message || String(e)}`, true);
   }
@@ -196,7 +251,10 @@ $(function () {
 
   $("#inv_refresh").on("click", loadAndRender);
   $("#inv_export_excel").on("click", exportInventoryExcel);
-  $("#inv_only_stock").on("change", loadAndRender);
+  $("#inv_only_stock").on("change", () => {
+    inventoryPager.page = 1;
+    loadAndRender();
+  });
   $("#inv_tbl thead").on("click", "th[data-inv-sort-key]", function () {
     const key = $(this).data("inv-sort-key");
     if (!key) return;
@@ -206,8 +264,38 @@ $(function () {
       inventorySort.key = key;
       inventorySort.direction = "asc";
     }
-    loadAndRender();
+    renderInventory();
   });
-  $("#inv_q").on("input", debounced);
+  $("#inv_q").on("input", () => {
+    inventoryPager.page = 1;
+    debounced();
+  });
+  $("#inv_page_size").on("change", function () {
+    const value = Number.parseInt($(this).val(), 10);
+    inventoryPager.pageSize = [10, 20, 50, 100].includes(value) ? value : 20;
+    inventoryPager.page = 1;
+    pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
+    renderInventory();
+  });
+  $("#inv_page_first").on("click", () => {
+    inventoryPager.page = 1;
+    pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
+    renderInventory();
+  });
+  $("#inv_page_prev").on("click", () => {
+    inventoryPager.page -= 1;
+    pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
+    renderInventory();
+  });
+  $("#inv_page_next").on("click", () => {
+    inventoryPager.page += 1;
+    pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
+    renderInventory();
+  });
+  $("#inv_page_last").on("click", () => {
+    inventoryPager.page = totalPages();
+    pushQueryToUrl({ q: ($("#inv_q").val() || "").trim(), onlyInStock: $("#inv_only_stock").is(":checked") });
+    renderInventory();
+  });
   loadAndRender();
 });

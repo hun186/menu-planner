@@ -1,4 +1,4 @@
-import { fetchCatalog, fetchDefaults, planMenu, validateCfg, exportExcel } from "./api.js";
+import { fetchCatalog, fetchCatalogSummary, fetchDefaults, planMenu, validateCfg, exportExcel } from "./api.js";
 import { buildCfgFromFormData, deriveFormDataFromCfg } from "./cfg_transform.js";
 import { DOM } from "./dom.js";
 import { createAppState, setCatalog } from "./state.js";
@@ -439,10 +439,47 @@ function bindSpecialDateOverrides() {
   });
 }
 
+function renderCatalogSummary(summary) {
+  const roleLabels = {
+    main: "主菜",
+    side: "配菜",
+    veg: "純蔬配菜",
+    soup: "湯",
+    fruit: "水果",
+  };
+  const roleOrder = ["main", "side", "veg", "soup", "fruit"];
+  const rows = roleOrder.map((role) => {
+    const dishCount = summary?.dish_count_by_role?.[role] ?? 0;
+    const ingredientCount = summary?.ingredient_count_by_role?.[role] ?? 0;
+    return `
+      <tr>
+        <td>${escapeHtml(roleLabels[role])}</td>
+        <td>${dishCount}</td>
+        <td>${ingredientCount}</td>
+      </tr>`;
+  }).join("");
+
+  const inventory = summary?.inventory || {};
+  const html = `
+    <table class="mini-table">
+      <thead>
+        <tr><th>角色</th><th>菜名數量</th><th>食材數量</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="hint" style="margin-top:8px;">
+      庫存統計（${escapeHtml(summary?.today || "")}）：有效庫存筆數 ${inventory.valid_row_count ?? 0}、
+      有效庫存食材數 ${inventory.valid_ingredient_count ?? 0}、有效庫存總量 ${Number(inventory.valid_qty_sum ?? 0).toFixed(2)}。
+      <br />（有效＝庫存量 &gt; 0 且未過期）
+    </div>
+  `;
+  $(DOM.dbSummary).html(html);
+}
+
 $(async function () {
   try {
     setMsg("載入資料中…");
-    await loadCatalogIntoState();
+    await Promise.all([loadCatalogIntoState(), fetchCatalogSummary().then(renderCatalogSummary)]);
     await loadDefaultsAndApply();
 
     bindIngredientSearch();
@@ -541,6 +578,7 @@ $(async function () {
     bindResultEditing();
     setMsg("就緒。");
   } catch (e) {
+    $(DOM.dbSummary).text("資料庫摘要載入失敗。");
     setMsg("初始化失敗：請檢查後端是否啟動、資料庫是否存在。", true);
   }
 });

@@ -2,6 +2,7 @@ export const DOM = {
   msg: "#msg",
   result: "#result",
   cfgJson: "#cfg_json",
+  dbSummary: "#db_summary",
   horizonDays: "#horizon_days",
   costMin: "#cost_min",
   costMax: "#cost_max",

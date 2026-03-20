@@ -128,6 +128,15 @@
           <input id="dish_q" type="text" placeholder="名稱或 ID" />
         </div>
         <div class="row">
+          <label>食材過濾</label>
+          <input id="dish_ing_filter" type="text" list="dl_ingredients" placeholder="輸入食材名稱或ID（例如：胡蘿蔔、ing-carrot）" />
+        </div>
+        <div class="btns">
+          <button id="dish_ing_filter_apply">套用食材過濾</button>
+          <button id="dish_ing_filter_clear">清除食材過濾</button>
+        </div>
+        <div class="hint" id="dish_ing_filter_hint"></div>
+        <div class="row">
           <label>每頁</label>
           <select id="dish_page_size">
             <option value="20">20</option>

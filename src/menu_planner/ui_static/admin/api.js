@@ -24,6 +24,7 @@ export async function loadCatalogPage({
   dishPage = 1,
   dishPageSize = 50,
   dishQ = "",
+  dishIngredientId = "",
 } = {}) {
   const ingParams = new URLSearchParams({
     page: String(ingredientPage),
@@ -36,6 +37,7 @@ export async function loadCatalogPage({
     page_size: String(dishPageSize),
   });
   if (dishQ) dishParams.set("q", dishQ);
+  if (dishIngredientId) dishParams.set("ingredient_id", dishIngredientId);
 
   const [ingredients, dishes] = await Promise.all([
     httpJson(`${ADMIN_API.ingredients}?${ingParams.toString()}`, { method: "GET", headers: {} }, { includeAdminKey: true }),

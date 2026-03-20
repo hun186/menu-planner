@@ -37,6 +37,15 @@ def _build_db(path: str):
             unit TEXT NOT NULL
         );
 
+        CREATE TABLE dishes (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            cuisine TEXT,
+            meat_type TEXT,
+            tags_json TEXT
+        );
+
         CREATE TABLE inventory (
             ingredient_id TEXT PRIMARY KEY,
             qty_on_hand REAL NOT NULL,
@@ -62,6 +71,14 @@ def _build_db(path: str):
         ],
     )
     conn.execute("INSERT INTO unit_conversions(from_unit, to_unit, factor) VALUES(?, ?, ?)", ("g", "kg", 0.001))
+    conn.executemany(
+        "INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json) VALUES(?, ?, ?, ?, ?, ?)",
+        [
+            ("dish-1", "胡蘿蔔炒飯", "main", None, None, "[]"),
+            ("dish-2", "胡蘿蔔濃湯", "soup", None, None, "[]"),
+            ("dish-3", "清蒸白飯", "side", None, None, "[]"),
+        ],
+    )
     conn.executemany(
         "INSERT INTO dish_ingredients(dish_id, ingredient_id, qty, unit) VALUES(?, ?, ?, ?)",
         [
@@ -164,3 +181,15 @@ def test_list_inventory_summary_returns_inventory_and_reference_count(tmp_path):
     assert set(by_id.keys()) == {"ing-a"}
     assert by_id["ing-a"]["qty_on_hand"] == 30.0
     assert by_id["ing-a"]["dish_ref_count"] == 1
+
+
+def test_list_dishes_can_filter_by_ingredient_id(tmp_path):
+    db_path = tmp_path / "menu.db"
+    _build_db(str(db_path))
+    repo = SQLiteAdminRepo(str(db_path))
+
+    out = repo.list_dishes(ingredient_id="ing-b", page=1, page_size=10)
+    dish_ids = [x["id"] for x in out["items"]]
+
+    assert out["total"] == 2
+    assert dish_ids == ["dish-1", "dish-2"]

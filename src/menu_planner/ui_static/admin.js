@@ -22,7 +22,7 @@ import { escapeHtml } from "./shared/html.js";
   let editingIngId = null;
   let dishCostById = new Map();
   const ingredientPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
-  const dishPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
+  const dishPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "", ingredientId: "", ingredientLabel: "" };
   let catalogLoadSeq = 0;
   let ingredientSuggestSeq = 0;
 
@@ -97,6 +97,7 @@ import { escapeHtml } from "./shared/html.js";
       dishPage: dishPager.page,
       dishPageSize: dishPager.pageSize,
       dishQ: dishPager.q,
+      dishIngredientId: dishPager.ingredientId,
     });
     if (requestSeq !== catalogLoadSeq) return;
 
@@ -110,6 +111,10 @@ import { escapeHtml } from "./shared/html.js";
 
     $("#ing_page_info").text(`第 ${ingredientPager.page} / ${ingredientPager.totalPages} 頁，共 ${ingredientPager.total} 筆`);
     $("#dish_page_info").text(`第 ${dishPager.page} / ${dishPager.totalPages} 頁，共 ${dishPager.total} 筆`);
+    const dishFilterHint = dishPager.ingredientId
+      ? `目前僅顯示有使用「${dishPager.ingredientLabel || dishPager.ingredientId}」的菜色。`
+      : "目前顯示全部菜色。";
+    $("#dish_ing_filter_hint").text(dishFilterHint);
     $("#ing_prev_page").prop("disabled", ingredientPager.page <= 1);
     $("#ing_next_page").prop("disabled", ingredientPager.page >= ingredientPager.totalPages);
     $("#dish_prev_page").prop("disabled", dishPager.page <= 1);
@@ -187,6 +192,7 @@ import { escapeHtml } from "./shared/html.js";
               <button class="btn_edit" title="編輯">修</button>
               <button class="btn_meta" title="價格/庫存">價/庫</button>
               <button class="btn_inventory" title="庫存統整">總</button>
+              <button class="btn_find_dishes" title="找菜名">菜</button>
               <button class="btn_del" title="刪除">刪</button>
             </div>
           </td>
@@ -211,6 +217,14 @@ import { escapeHtml } from "./shared/html.js";
 
       $tr.find(".btn_inventory").on("click", () => {
         window.location.href = `/inventory.html?q=${encodeURIComponent(x.id)}`;
+      });
+
+      $tr.find(".btn_find_dishes").on("click", async () => {
+        await runWithMsg(DOM.msgDish, async () => {
+          await applyDishIngredientFilter(x.id, x.name);
+          document.getElementById("dish_ing_filter")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          $("#dish_ing_filter").trigger("focus");
+        }, `已過濾：顯示有使用「${x.name}」的菜色。`);
       });
 
       $tr.find(".btn_del").on("click", async () => {
@@ -456,6 +470,19 @@ import { escapeHtml } from "./shared/html.js";
     $("#ing_q").trigger("focus");
   }
 
+  async function applyDishIngredientFilter(ingredientId, ingredientName = "") {
+    const id = String(ingredientId || "").trim();
+    if (!id) {
+      throw new Error("請輸入有效食材，再套用菜色過濾。");
+    }
+    dishPager.ingredientId = id;
+    dishPager.ingredientLabel = ingredientName || id;
+    dishPager.page = 1;
+    $("#dish_ing_filter").val(ingredientName ? `${ingredientName} (${id})` : id);
+    await reloadCatalog();
+    renderDishes();
+  }
+
   async function saveDishIngredients() {
     const dishId = editingDishId;
     const rows = collectDishIngredientRows();
@@ -584,6 +611,36 @@ function todayStr() {
 
     $("#ing_q").on("input", onIngredientSearchInput);
     $("#dish_q").on("input", onDishSearchInput);
+    $("#dish_ing_filter").on("input", function () {
+      const keyword = ($(this).val() || "").trim();
+      debouncedSuggestIngredients(keyword);
+    });
+    $("#dish_ing_filter_apply").on("click", async () => {
+      await runWithMsg(DOM.msgDish, async () => {
+        const rawText = ($("#dish_ing_filter").val() || "").trim();
+        const resolvedId = resolveIngredientId(rawText);
+        if (!resolvedId) {
+          throw new Error("食材過濾只接受食材名稱/ID，請從提示清單選取或輸入正確 ID。");
+        }
+        let ing = catalog.ingById.get(resolvedId);
+        if (!ing) {
+          const found = await searchIngredients(resolvedId, 20);
+          ing = (Array.isArray(found) ? found : []).find(x => x?.id === resolvedId) || null;
+        }
+        await applyDishIngredientFilter(resolvedId, ing?.name || "");
+      }, "已套用食材過濾。");
+    });
+
+    $("#dish_ing_filter_clear").on("click", async () => {
+      await runWithMsg(DOM.msgDish, async () => {
+        dishPager.ingredientId = "";
+        dishPager.ingredientLabel = "";
+        dishPager.page = 1;
+        $("#dish_ing_filter").val("");
+        await reloadCatalog();
+        renderDishes();
+      }, "已清除食材過濾。");
+    });
 
     $("#ing_page_size").on("change", async function () {
       ingredientPager.pageSize = Number($(this).val() || 50);

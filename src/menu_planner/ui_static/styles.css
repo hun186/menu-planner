@@ -89,6 +89,7 @@ button.primary{ background:#111; color:#fff; border-color:#111; }
 .btn-link:hover{ background:#f8f8f8; }
 
 .msg{ margin-top:10px; font-size:13px; color:#1a7f37; white-space:pre-line; }
+.msg:empty{ display:none; }
 .msg.err{ color:#b42318; }
 
 textarea{
@@ -331,7 +332,7 @@ select{
   display:flex;
   gap:8px;
   flex-wrap:wrap;
-  margin-bottom:8px;
+  margin-bottom:0;
 }
 .inventory-pager{
   margin-top:10px;

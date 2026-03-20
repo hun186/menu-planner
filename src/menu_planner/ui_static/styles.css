@@ -58,6 +58,13 @@ h2{ margin:0 0 10px 0; font-size:16px; }
 
 .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; }
 .row label{ font-size:13px; color:#333; min-width:120px; }
+.row-compact{
+  justify-content:flex-start;
+  gap:8px;
+}
+.row-compact label{
+  min-width:auto;
+}
 .inline{ display:flex; align-items:center; gap:8px; width:100%; justify-content:flex-end; }
 .sep{ color:#777; }
 input[type=number]{ width:110px; padding:6px 8px; border:1px solid var(--bd); border-radius:8px; }

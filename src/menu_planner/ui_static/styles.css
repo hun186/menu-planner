@@ -326,6 +326,26 @@ select{
   flex-wrap:wrap;
   margin-bottom:8px;
 }
+.inventory-pager{
+  margin-top:10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.inventory-pager-controls{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.inventory-pager-controls select{
+  min-width:66px;
+}
+.inventory-pager-controls button:disabled{
+  cursor:not-allowed;
+  opacity:.5;
+}
 
 .dish-cost-cell{
   white-space:nowrap;

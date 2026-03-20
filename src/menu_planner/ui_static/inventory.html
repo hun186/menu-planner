@@ -36,6 +36,22 @@
         <button id="inv_export_excel">匯出 Excel</button>
       </div>
       <div id="inv_msg" class="msg"></div>
+      <div class="inventory-pager">
+        <div id="inv_pager_meta" class="muted">第 1 / 1 頁，共 0 筆</div>
+        <div class="inventory-pager-controls">
+          <label for="inv_page_size">每頁</label>
+          <select id="inv_page_size">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <button id="inv_page_prev" type="button">上一頁</button>
+          <button id="inv_page_next" type="button">下一頁</button>
+          <input id="inv_page_jump" type="number" min="1" style="width:90px;" placeholder="頁碼" />
+          <button id="inv_jump_btn" type="button">跳頁</button>
+        </div>
+      </div>
 
       <div class="tbl-scroll" style="margin-top:8px;">
         <table class="tbl" id="inv_tbl">

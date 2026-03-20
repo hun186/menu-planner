@@ -39,6 +39,16 @@ import { escapeHtml } from "./shared/html.js";
     $(selector).val("");
   }
 
+  function scrollToEditor(editorSelector, focusSelector) {
+    const el = document.querySelector(editorSelector);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (focusSelector) {
+      $(focusSelector).trigger("focus");
+    }
+  }
+
   async function runWithMsg(msgSelector, fn, successText) {
     try {
       await fn();
@@ -182,6 +192,7 @@ import { escapeHtml } from "./shared/html.js";
         $("#ing_protein").val(x.protein_group || "");
         $("#ing_unit").val(x.default_unit);
         clearMsg(DOM.msgIng);
+        scrollToEditor(".grid .manage-card:first-child .editor-pane", "#ing_name");
       });
 	  
       $tr.find(".btn_meta").on("click", async () => {
@@ -238,6 +249,7 @@ import { escapeHtml } from "./shared/html.js";
         })();
         $("#dish_tags").val(Array.isArray(tags) ? JSON.stringify(tags) : "[]");
         clearMsg(DOM.msgDish);
+        scrollToEditor(".grid .manage-card:nth-child(2) .editor-pane", "#dish_name");
       });
 
       $tr.find(".btn_del").on("click", async () => {
@@ -369,13 +381,20 @@ import { escapeHtml } from "./shared/html.js";
   
     const $qty = $(`<input class="di_qty" type="number" step="0.1">`).val(row?.qty ?? 100);
     const $unit = $(`<input class="di_unit" type="text">`).val(row?.unit ?? "g");
+    const $openIng = $(`<button type="button" class="di_open_ing">食材管理</button>`);
+    $openIng.on("click", async () => {
+      await runWithMsg(DOM.msgDishIngredients, async () => {
+        await filterIngredientListFromDishRow($ing);
+      });
+    });
   
-    const $del = $(`<button>刪除</button>`).on("click", () => $tr.remove());
+    const $del = $(`<button type="button">刪除</button>`).on("click", () => $tr.remove());
+    const $actions = $(`<div class="di_actions"></div>`).append($openIng, $del);
   
     $tr.append($("<td></td>").append($ing));
     $tr.append($("<td></td>").append($qty));
     $tr.append($("<td></td>").append($unit));
-    $tr.append($("<td></td>").append($del));
+    $tr.append($("<td></td>").append($actions));
   
     $("#di_tbl tbody").append($tr);
   }
@@ -392,6 +411,35 @@ import { escapeHtml } from "./shared/html.js";
     if (!items || !items.length) addDishIngRow(null);
 
     $("#modal").removeClass("hide");
+  }
+
+  async function filterIngredientListFromDishRow($ingInput) {
+    const rawText = ($ingInput.val() || "").trim();
+    const resolvedId = $ingInput.data("ing_id") || resolveIngredientId(rawText);
+    if (!resolvedId) {
+      throw new Error("請先選擇有效食材，再開啟食材管理。");
+    }
+
+    let ing = catalog.ingById.get(resolvedId);
+    if (!ing) {
+      const found = await searchIngredients(resolvedId, 20);
+      ing = (Array.isArray(found) ? found : []).find(x => x?.id === resolvedId) || null;
+    }
+    if (!ing) {
+      throw new Error(`找不到食材：${resolvedId}`);
+    }
+
+    const keyword = (ing.name || rawText || "").trim();
+    ingredientPager.q = keyword;
+    ingredientPager.page = 1;
+    $("#ing_q").val(keyword);
+    clearFields(DOM.ingredientEditorFields);
+    clearMsg(DOM.msgIng);
+    await reloadCatalog();
+    renderAll();
+    $("#modal").addClass("hide");
+    document.getElementById("ing_q")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    $("#ing_q").trigger("focus");
   }
 
   async function saveDishIngredients() {

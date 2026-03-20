@@ -39,6 +39,16 @@ import { escapeHtml } from "./shared/html.js";
     $(selector).val("");
   }
 
+  function scrollToEditor(editorSelector, focusSelector) {
+    const el = document.querySelector(editorSelector);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (focusSelector) {
+      $(focusSelector).trigger("focus");
+    }
+  }
+
   async function runWithMsg(msgSelector, fn, successText) {
     try {
       await fn();
@@ -182,6 +192,7 @@ import { escapeHtml } from "./shared/html.js";
         $("#ing_protein").val(x.protein_group || "");
         $("#ing_unit").val(x.default_unit);
         clearMsg(DOM.msgIng);
+        scrollToEditor(".grid .manage-card:first-child .editor-pane", "#ing_name");
       });
 	  
       $tr.find(".btn_meta").on("click", async () => {
@@ -238,6 +249,7 @@ import { escapeHtml } from "./shared/html.js";
         })();
         $("#dish_tags").val(Array.isArray(tags) ? JSON.stringify(tags) : "[]");
         clearMsg(DOM.msgDish);
+        scrollToEditor(".grid .manage-card:nth-child(2) .editor-pane", "#dish_name");
       });
 
       $tr.find(".btn_del").on("click", async () => {

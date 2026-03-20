@@ -34,9 +34,28 @@ def _iter_day_dishes(day: Dict[str, Any]) -> Iterable[Tuple[str, Dict[str, Any]]
             yield "side", side
 
 
+def _resolve_day_people(
+    day: Dict[str, Any],
+    default_people: int,
+    people_overrides: Dict[str, Any],
+) -> int:
+    date_key = str(day.get("date") or "").strip()
+    day_index = day.get("day_index")
+    override = None
+    if date_key and date_key in people_overrides:
+        override = people_overrides.get(date_key)
+    elif day_index is not None and str(day_index) in people_overrides:
+        override = people_overrides.get(str(day_index))
+    try:
+        return max(1, int(_to_float(override, default_people)))
+    except Exception:
+        return default_people
+
+
 def build_procurement_days(
     result: Dict[str, Any],
-    people: int,
+    default_people: int,
+    people_overrides: Optional[Dict[str, Any]],
     dish_ingredients: List[DishIngredient],
     ingredients: Dict[str, Ingredient],
     prices: Dict[str, PriceItem],
@@ -47,7 +66,9 @@ def build_procurement_days(
         by_dish[di.dish_id].append(di)
 
     out_days: List[Dict[str, Any]] = []
+    override_map = people_overrides or {}
     for day in (result.get("days") or []):
+        people = _resolve_day_people(day, default_people=default_people, people_overrides=override_map)
         dish_rows: List[Dict[str, Any]] = []
         day_total = 0.0
 
@@ -112,7 +133,9 @@ def build_procurement_days(
 
 
 def attach_procurement_details(result: Dict[str, Any], cfg: Dict[str, Any], repo: SQLiteRepo) -> Dict[str, Any]:
-    people = max(1, int(_to_float((cfg or {}).get("people"), 1)))
+    people = max(1, int(_to_float((cfg or {}).get("people"), 250)))
+    schedule = (cfg or {}).get("schedule") or {}
+    people_overrides = schedule.get("people_overrides") if isinstance(schedule, dict) else {}
 
     dish_ids: List[str] = []
     for day in (result.get("days") or []):
@@ -128,7 +151,8 @@ def attach_procurement_details(result: Dict[str, Any], cfg: Dict[str, Any], repo
 
     procurement_days = build_procurement_days(
         result=result,
-        people=people,
+        default_people=people,
+        people_overrides=people_overrides,
         dish_ingredients=dish_ingredients,
         ingredients=ingredients,
         prices=prices,
@@ -138,5 +162,7 @@ def attach_procurement_details(result: Dict[str, Any], cfg: Dict[str, Any], repo
     for day, detail in zip((result.get("days") or []), procurement_days):
         day["procurement"] = detail
 
-    result.setdefault("summary", {})["people"] = people
+    summary = result.setdefault("summary", {})
+    summary["people"] = people
+    summary["people_overrides"] = people_overrides or {}
     return result

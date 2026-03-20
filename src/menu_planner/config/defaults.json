@@ -3,9 +3,10 @@
   "schedule": {
     "weekdays": [1, 2, 3, 4, 5],
     "force_include_dates": [],
-    "force_exclude_dates": []
+    "force_exclude_dates": [],
+    "people_overrides": {}
   },
-  "people": 1,
+  "people": 250,
   "per_day_roles": { "main": 1, "side": 2, "veg": 1, "fruit": 1, "soup": 1 },
   "seed": "time",
   "seed_choices": ["random", "time", "date", 7],

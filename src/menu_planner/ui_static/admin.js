@@ -163,17 +163,19 @@ import { escapeHtml } from "./shared/html.js";
     }
   }
 
+  function formatCostWarningItem(w, idx, separator = "：") {
+    const ing = w?.ingredient_name || w?.ingredient_id || "未知食材";
+    const reason = formatCostWarningReason(w?.reason);
+    const unitText = w?.reason === "unit_mismatch" && w?.unit && w?.price_unit
+      ? `（${w.unit} → ${w.price_unit}）`
+      : "";
+    return `${idx + 1}. ${ing}${separator}${reason}${unitText}`;
+  }
+
   function buildDishCostWarningTitle(cost) {
     const warnings = Array.isArray(cost?.warnings) ? cost.warnings : [];
     if (!warnings.length) return "";
-    const lines = warnings.map((w, idx) => {
-      const ing = w.ingredient_name || w.ingredient_id || "未知食材";
-      const reason = formatCostWarningReason(w.reason);
-      const unitText = w.reason === "unit_mismatch" && w.unit && w.price_unit
-        ? `（${w.unit} → ${w.price_unit}）`
-        : "";
-      return `${idx + 1}. ${ing}：${reason}${unitText}`;
-    });
+    const lines = warnings.map((w, idx) => formatCostWarningItem(w, idx));
     return `成本計算異常：\n${lines.join("\n")}`;
   }
 
@@ -614,9 +616,13 @@ import { escapeHtml } from "./shared/html.js";
     }
 
     const preview = await previewDishCost(rows, 1);
-    const warningCount = Array.isArray(preview.warnings) ? preview.warnings.length : 0;
+    const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
+    const warningCount = warnings.length;
+    const warningDetail = warningCount > 0
+      ? `；異常明細：${warnings.map((w, idx) => formatCostWarningItem(w, idx, "-")).join("；")}`
+      : "";
     const warningText = warningCount > 0
-      ? `（⚠️ ${warningCount} 項警示：可能是單位對不上或缺價格）`
+      ? `（⚠️ ${warningCount} 項警示：可能是單位對不上或缺價格${warningDetail}）`
       : "";
     setMsg($(DOM.msgDishCost), `預估 1 人份成本：${preview.per_serving_cost.toFixed(2)} ${warningText}`, warningCount > 0);
   }

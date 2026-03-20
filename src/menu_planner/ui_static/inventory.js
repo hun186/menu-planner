@@ -1,4 +1,4 @@
-import { exportInventorySummaryExcel, listInventorySummary } from "./admin/api.js";
+import { deleteIngredient, exportInventorySummaryExcel, listInventorySummary, mergeInventoryIngredient } from "./admin/api.js";
 import { escapeHtml } from "./shared/html.js";
 
 const inventorySort = { key: "ingredient_id", direction: "asc" };
@@ -87,9 +87,55 @@ function renderRows(list) {
         <td>${escapeHtml(updatedText)}</td>
         <td>${escapeHtml(expiryText)}</td>
         <td>${escapeHtml(String(row.dish_ref_count ?? 0))}</td>
-        <td><a class="btn-link" href="/admin?q=${encodeURIComponent(row.ingredient_id || "")}">去食材管理</a></td>
+        <td>
+          <div class="row-actions">
+            <a class="btn-link" href="/admin?q=${encodeURIComponent(row.ingredient_id || "")}">去食材管理</a>
+            <button class="btn_inv_del" title="刪除多餘食材">刪除</button>
+            <button class="btn_inv_merge" title="合併到其他食材">合併</button>
+          </div>
+        </td>
       </tr>
     `);
+    $tr.find(".btn_inv_del").on("click", async () => {
+      const ingredientId = row.ingredient_id || "";
+      const ingredientName = row.ingredient_name || ingredientId;
+      if (!ingredientId) return;
+      if (!window.confirm(`確定刪除食材：${ingredientName}（${ingredientId}）？`)) return;
+      setMsg(`刪除中：${ingredientName}…`);
+      try {
+        await deleteIngredient(ingredientId);
+        await loadAndRender();
+        setMsg(`已刪除：${ingredientName}。`);
+      } catch (e) {
+        setMsg(`刪除失敗：${e.message || String(e)}`, true);
+      }
+    });
+
+    $tr.find(".btn_inv_merge").on("click", async () => {
+      const sourceId = row.ingredient_id || "";
+      const sourceName = row.ingredient_name || sourceId;
+      if (!sourceId) return;
+      const targetInput = window.prompt(`請輸入要合併到的目標食材 ID（來源：${sourceName} / ${sourceId}）`);
+      const targetId = (targetInput || "").trim();
+      if (!targetId) return;
+      if (targetId === sourceId) {
+        setMsg("合併失敗：來源與目標 ID 不可相同。", true);
+        return;
+      }
+      if (!window.confirm(`確定把 ${sourceName}（${sourceId}）合併到 ${targetId}？\n會合併菜色引用、價格、庫存，並刪除來源食材。`)) {
+        return;
+      }
+      setMsg(`合併中：${sourceId} -> ${targetId}…`);
+      try {
+        const result = await mergeInventoryIngredient(sourceId, targetId);
+        await loadAndRender();
+        setMsg(
+          `合併完成：${sourceId} -> ${targetId}（菜色 ${result?.merged_dish_count ?? 0} 筆、價格 ${result?.merged_price_count ?? 0} 筆、庫存${result?.merged_inventory ? "有" : "無"}調整）`
+        );
+      } catch (e) {
+        setMsg(`合併失敗：${e.message || String(e)}`, true);
+      }
+    });
     $tb.append($tr);
   });
   applySortArrow();

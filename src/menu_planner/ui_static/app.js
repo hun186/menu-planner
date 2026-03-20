@@ -1,4 +1,12 @@
-import { fetchCatalog, fetchCatalogSummary, fetchDefaults, planMenu, validateCfg, exportExcel } from "./api.js";
+import {
+  fetchCatalog,
+  fetchCatalogSummary,
+  fetchDefaults,
+  planMenu,
+  validateCfg,
+  exportExcel,
+  enrichResult,
+} from "./api.js";
 import { buildCfgFromFormData, deriveFormDataFromCfg } from "./cfg_transform.js";
 import { DOM } from "./dom.js";
 import { createAppState, setCatalog } from "./state.js";
@@ -297,6 +305,76 @@ function normalizeDishForResult(base, dish) {
   };
 }
 
+function round2(v) {
+  return Math.round(Number(v || 0) * 100) / 100;
+}
+
+function toNum(v, fallback = null) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function recomputeDayMetrics(day, cfg) {
+  if (!day || typeof day !== "object") return;
+  const people = Math.max(1, toNum(day?.procurement?.people, toNum(cfg?.people, 250)));
+  const dayTotal = toNum(day?.procurement?.day_total, null);
+  if (dayTotal !== null) {
+    day.day_cost = round2(dayTotal / people);
+  }
+
+  const breakdown = { ...(day.score_breakdown || {}) };
+  const hard = cfg?.hard || {};
+  const weights = cfg?.weights || {};
+  const cr = hard?.cost_range_per_person_per_day || {};
+  const maxv = toNum(cr?.max, null);
+  const minv = toNum(cr?.min, null);
+  const dayCost = toNum(day.day_cost, 0);
+
+  delete breakdown.cost_over_max;
+  delete breakdown.cost_under_min;
+  if (maxv !== null && dayCost > maxv) {
+    breakdown.cost_over_max = round2((dayCost - maxv) * Number(weights.cost_over_max_penalty || 0));
+  }
+  if (minv !== null && dayCost < minv) {
+    breakdown.cost_under_min = round2((minv - dayCost) * Number(weights.cost_under_min_penalty || 0));
+  }
+
+  const raw = round2(Object.values(breakdown).reduce((acc, v) => acc + Number(v || 0), 0));
+  const penalty = round2(Object.values(breakdown).reduce((acc, v) => acc + (Number(v || 0) > 0 ? Number(v) : 0), 0));
+  const bonus = round2(Object.values(breakdown).reduce((acc, v) => acc + (Number(v || 0) < 0 ? -Number(v) : 0), 0));
+  const fitness = round2(-raw);
+
+  day.score_breakdown = breakdown;
+  day.score = raw;
+  day.score_fitness = fitness;
+  day.score_summary = {
+    bonus,
+    penalty,
+    raw,
+    fitness,
+  };
+}
+
+function recomputeResultSummary(result, cfg) {
+  const days = result?.days || [];
+  let totalCost = 0;
+  let totalScore = 0;
+  let totalFitness = 0;
+  days.forEach((day) => {
+    recomputeDayMetrics(day, cfg);
+    totalCost += Number(day.day_cost || 0);
+    totalScore += Number(day.score || 0);
+    totalFitness += Number(day.score_fitness || 0);
+  });
+
+  result.summary = result.summary || {};
+  result.summary.days = days.length;
+  result.summary.total_cost = round2(totalCost);
+  result.summary.avg_cost_per_day = round2(totalCost / Math.max(days.length, 1));
+  result.summary.total_score = round2(totalScore);
+  result.summary.total_fitness = round2(totalFitness);
+}
+
 function applyDishEdit({ dayIndex, slot, dishId }) {
   const day = findDayByIndex(dayIndex);
   const dish = state.dishById.get(dishId);
@@ -370,7 +448,7 @@ function bindResultEditing() {
     modal.addClass("hide");
   });
 
-  modal.on("click", "[data-action=save]", () => {
+  modal.on("click", "[data-action=save]", async () => {
     const dishId = String($select.val() || "");
     if (!dishId || ctx.dayIndex === null) return;
     const ok = applyDishEdit({ dayIndex: ctx.dayIndex, slot: ctx.slot, dishId });
@@ -378,8 +456,18 @@ function bindResultEditing() {
       setMsg("調整失敗：找不到要更新的項目。", true);
       return;
     }
+    setMsg("正在同步調整後的成本與評分…");
+    try {
+      const sync = await enrichResult(state.lastCfg, state.lastResult);
+      if (sync.ok && sync.payload?.ok && sync.payload?.result) {
+        state.lastResult = sync.payload.result;
+      }
+    } catch (e) {
+      // ignore: fallback to local recompute
+    }
+    recomputeResultSummary(state.lastResult, state.lastCfg);
     renderResult(state.lastResult, state.lastCfg, { editable: true });
-    setMsg("已套用手動調整（可直接匯出 Excel）。");
+    setMsg("已套用手動調整，成本/符合度與可解釋結果已同步更新。");
     modal.addClass("hide");
   });
 }

@@ -105,6 +105,17 @@ def post_plan(
     return {"ok": True, "result": enriched}
 
 
+@app.post("/result/enrich")
+def post_enrich_result(
+    payload: Dict[str, Any] = Body(...),
+    db_path: str = Depends(get_db_path),
+):
+    cfg = payload.get("cfg") if isinstance(payload.get("cfg"), dict) else {}
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    enriched = attach_procurement_details(result=result, cfg=cfg, repo=SQLiteRepo(db_path))
+    return {"ok": True, "result": enriched}
+
+
 @app.post("/export/excel")
 def post_export_excel(
     payload: Dict[str, Any] = Body(...),

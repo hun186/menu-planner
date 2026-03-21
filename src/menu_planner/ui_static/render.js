@@ -192,15 +192,16 @@ export function renderResult(result, cfg, options = {}) {
       : escapeHtml(main);
 
     const sideCell = editable && isScheduled
-      ? (sideObjs.length
-        ? sideObjs.map((it, i) => renderEditableDish({
-          name: it?.name || `配菜${i + 1}`,
+      ? Array.from({ length: Math.max(sideObjs.length, 2) }, (_, i) => {
+        const it = sideObjs[i] || {};
+        return renderEditableDish({
+          name: it?.name || `（選擇配菜${i + 1}）`,
           dayIndex,
           role: "side",
           slot: `side_${i}`,
           dishId: it?.id,
-        })).join("<span class=\"dish-sep\">、</span>")
-        : "<span class='muted'>（無配菜）</span>")
+        });
+      }).join("<span class=\"dish-sep\">、</span>")
       : escapeHtml(sides);
 
     const vegCell = editable && isScheduled

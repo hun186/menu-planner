@@ -3,7 +3,14 @@ import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
 
-(function () {
+export function shouldRenameEntity(sourceId, targetId) {
+  const source = String(sourceId || "").trim();
+  const target = String(targetId || "").trim();
+  return Boolean(source) && source !== target;
+}
+
+if (typeof window !== "undefined" && typeof document !== "undefined" && typeof window.$ !== "undefined") {
+  (function () {
 
   const DOM = {
     msgIng: "#msg_ing",
@@ -305,6 +312,7 @@ import { escapeHtml } from "./shared/html.js";
 
       $tr.find(".btn_edit").on("click", () => {
         editingIngredientId = x.id;
+        $("#ing_source_id").val(x.id);
         $("#ing_id").val(x.id);
         $("#ing_name").val(x.name);
         $("#ing_category").val(x.category);
@@ -384,6 +392,7 @@ import { escapeHtml } from "./shared/html.js";
 
       $tr.find(".btn_edit").on("click", () => {
         editingDishId = x.id;
+        $("#dish_source_id").val(x.id);
         $("#dish_id").val(x.id);
         $("#dish_name").val(x.name);
         $("#dish_role").val(x.role);
@@ -460,6 +469,7 @@ import { escapeHtml } from "./shared/html.js";
   }, 250);
   
   async function saveIngredient() {
+    const sourceId = ($("#ing_source_id").val() || "").trim();
     const id = ($("#ing_id").val() || "").trim() || genId("ing");
     const body = {
       name: ($("#ing_name").val() || "").trim(),
@@ -472,19 +482,21 @@ import { escapeHtml } from "./shared/html.js";
       throw new Error("食材：名稱 / 分類 / 預設單位 為必填。");
     }
 
-    if (editingIngredientId && editingIngredientId !== id) {
-      await renameIngredient(editingIngredientId, id, body);
+    if (shouldRenameEntity(sourceId, id)) {
+      await renameIngredient(sourceId, id, body);
     } else {
       await upsertIngredient(id, body);
     }
 
     editingIngredientId = id;
+    $("#ing_source_id").val(id);
     $("#ing_id").val(id); // 若自動產生，回填給使用者
     await reloadCatalog();
     renderAll();
   }
 
   async function saveDish() {
+    const sourceId = ($("#dish_source_id").val() || "").trim();
     const id = ($("#dish_id").val() || "").trim() || genId("dish");
     const body = {
       name: ($("#dish_name").val() || "").trim(),
@@ -498,13 +510,14 @@ import { escapeHtml } from "./shared/html.js";
       throw new Error("菜色：名稱 / 角色 為必填。");
     }
 
-    if (editingDishId && editingDishId !== id) {
-      await renameDish(editingDishId, id, body);
+    if (shouldRenameEntity(sourceId, id)) {
+      await renameDish(sourceId, id, body);
     } else {
       await upsertDish(id, body);
     }
 
     editingDishId = id;
+    $("#dish_source_id").val(id);
     $("#dish_id").val(id);
     await reloadCatalog();
     renderAll();
@@ -863,12 +876,14 @@ function todayStr() {
 
     $("#ing_clear").on("click", () => {
       editingIngredientId = null;
+      $("#ing_source_id").val("");
       clearFields(DOM.ingredientEditorFields);
       clearMsg(DOM.msgIng);
     });
 
     $("#dish_clear").on("click", () => {
       editingDishId = null;
+      $("#dish_source_id").val("");
       clearFields(DOM.dishEditorFields);
       $("#dish_role").val("main");
       clearMsg(DOM.msgDish);
@@ -998,4 +1013,5 @@ function todayStr() {
     renderAll();
     syncEditorPaneHeights();
   });
-})();
+  })();
+}

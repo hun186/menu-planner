@@ -51,3 +51,35 @@ def test_create_db_backup_keeps_previous_day_files(monkeypatch, tmp_path):
 
     assert yesterday.exists()
     assert len(today_files) == 10
+
+
+def test_create_db_backup_default_keeps_latest_50_per_day(monkeypatch, tmp_path):
+    monkeypatch.setattr(backup_mod, "datetime", _FakeDateTime)
+
+    db = tmp_path / "menu.db"
+    db.write_text("seed", encoding="utf-8")
+
+    for i in range(55):
+        _FakeDateTime._now = datetime(2026, 3, 16, 11, 0, 0, i)
+        backup_mod.create_db_backup(str(db))
+
+    today_files = sorted((tmp_path / "backups").glob("menu_20260316_*.db"))
+
+    assert len(today_files) == 50
+    assert today_files[0].name.endswith("000005.db")
+    assert today_files[-1].name.endswith("000054.db")
+
+
+def test_create_db_backup_writes_reason_and_comment_metadata(monkeypatch, tmp_path):
+    monkeypatch.setattr(backup_mod, "datetime", _FakeDateTime)
+
+    db = tmp_path / "menu.db"
+    db.write_text("seed", encoding="utf-8")
+
+    _FakeDateTime._now = datetime(2026, 3, 16, 12, 0, 0, 1)
+    created = backup_mod.create_db_backup(str(db), reason="inventory_bulk_import", comment="匯入前備份")
+
+    meta = backup_mod.get_backup_metadata_map(str(db))
+    assert created.name in meta
+    assert meta[created.name]["reason"] == "inventory_bulk_import"
+    assert meta[created.name]["comment"] == "匯入前備份"

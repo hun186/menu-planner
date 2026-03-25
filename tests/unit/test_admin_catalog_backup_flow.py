@@ -74,7 +74,7 @@ def test_delete_price_not_found_does_not_trigger_backup(monkeypatch):
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -96,7 +96,7 @@ def test_delete_price_success_triggers_backup_once(monkeypatch):
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -117,7 +117,7 @@ def test_delete_ingredient_success_triggers_backup_once(monkeypatch):
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -137,7 +137,7 @@ def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -165,7 +165,7 @@ def test_merge_inventory_ingredient_same_source_and_target_does_not_trigger_back
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -206,7 +206,7 @@ def test_restore_db_backup_copies_file_and_triggers_pre_backup(monkeypatch, tmp_
     src = backup_dir / "menu_20260320_120001_000001.db"
     src.write_text("snapshot-db", encoding="utf-8")
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -221,13 +221,70 @@ def test_restore_db_backup_copies_file_and_triggers_pre_backup(monkeypatch, tmp_
     assert db.read_text(encoding="utf-8") == "snapshot-db"
 
 
+def test_delete_db_backup_deletes_selected_file(tmp_path):
+    db = tmp_path / "menu.db"
+    db.write_text("live-db", encoding="utf-8")
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    target = backup_dir / "menu_20260320_120001_000001.db"
+    target.write_text("snapshot-db", encoding="utf-8")
+
+    resp = admin_catalog.delete_db_backup(target.name, db_path=str(db))
+
+    assert resp == {"ok": True, "deleted": target.name}
+    assert not target.exists()
+
+
+def test_get_db_backup_stats_warns_after_500mb(tmp_path):
+    db = tmp_path / "menu.db"
+    db.write_text("live-db", encoding="utf-8")
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    (backup_dir / "menu_20260320_120001_000001.db").write_bytes(b"a" * (300 * 1024 * 1024))
+    (backup_dir / "menu_20260320_120002_000001.db").write_bytes(b"b" * (250 * 1024 * 1024))
+
+    stats = admin_catalog.get_db_backup_stats(db_path=str(db))
+
+    assert stats["count"] == 2
+    assert stats["total_size_bytes"] == 550 * 1024 * 1024
+    assert stats["warning_threshold_bytes"] == 500 * 1024 * 1024
+    assert stats["is_over_warning_threshold"] is True
+
+
+def test_update_db_backup_comment_updates_comment_and_preserves_reason(tmp_path):
+    db = tmp_path / "menu.db"
+    db.write_text("live-db", encoding="utf-8")
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    target = backup_dir / "menu_20260320_120001_000001.db"
+    target.write_text("snapshot-db", encoding="utf-8")
+
+    admin_catalog.upsert_backup_metadata(
+        db_path=str(db),
+        backup_filename=target.name,
+        reason="admin_restore_pre_snapshot",
+        comment="old",
+    )
+
+    resp = admin_catalog.update_db_backup_comment(
+        target.name,
+        admin_catalog.BackupCommentIn(comment="release-ready backup"),
+        db_path=str(db),
+    )
+
+    assert resp == {"ok": True, "filename": target.name, "comment": "release-ready backup"}
+    rows = admin_catalog.list_db_backups(db_path=str(db))
+    assert rows[0]["action_reason"] == "admin_restore_pre_snapshot"
+    assert rows[0]["comment"] == "release-ready backup"
+
+
 def test_rename_ingredient_success_triggers_backup_once(monkeypatch):
     calls = {"backup": 0}
     _FakeRepo.rename_ingredients = []
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -273,7 +330,7 @@ def test_rename_ingredient_same_id_does_not_trigger_backup(monkeypatch):
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -302,7 +359,7 @@ def test_rename_dish_success_triggers_backup_once(monkeypatch):
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
@@ -348,7 +405,7 @@ def test_rename_dish_same_id_does_not_trigger_backup(monkeypatch):
 
     monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
 
-    def _backup(_db_path: str):
+    def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)

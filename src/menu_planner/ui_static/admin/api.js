@@ -20,7 +20,10 @@ export const ADMIN_API = {
   inventoryMergeIngredient: "/admin/catalog/inventory/summary/merge-ingredient",
   inventorySummaryExport: "/admin/catalog/inventory/summary/export",
   backups: "/admin/catalog/backups",
+  backupStats: "/admin/catalog/backups/stats",
   backupRestore: "/admin/catalog/backups/restore",
+  backupDelete: (filename) => `/admin/catalog/backups/${encodeURIComponent(filename)}`,
+  backupComment: (filename) => `/admin/catalog/backups/${encodeURIComponent(filename)}/comment`,
   ingredientsExport: "/admin/catalog/ingredients/export",
   dishesExport: "/admin/catalog/dishes/export",
 };
@@ -201,6 +204,22 @@ export function restoreDbBackup(backupFilename) {
   return httpJson(
     ADMIN_API.backupRestore,
     { method: "POST", body: JSON.stringify({ backup_filename: backupFilename }) },
+    { includeAdminKey: true }
+  );
+}
+
+export function deleteDbBackup(backupFilename) {
+  return httpJson(ADMIN_API.backupDelete(backupFilename), { method: "DELETE" }, { includeAdminKey: true });
+}
+
+export function getDbBackupStats() {
+  return httpJson(ADMIN_API.backupStats, { method: "GET", headers: {} }, { includeAdminKey: true });
+}
+
+export function updateDbBackupComment(backupFilename, comment = "") {
+  return httpJson(
+    ADMIN_API.backupComment(backupFilename),
+    { method: "PATCH", body: JSON.stringify({ comment }) },
     { includeAdminKey: true }
   );
 }

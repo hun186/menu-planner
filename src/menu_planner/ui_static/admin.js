@@ -1,4 +1,4 @@
-import { deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, renameDish, renameIngredient, restoreDbBackup, searchIngredients, upsertDish, upsertIngredient } from "./admin/api.js";
+import { deleteDbBackup, deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDbBackupStats, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, renameDish, renameIngredient, restoreDbBackup, searchIngredients, updateDbBackupComment, upsertDish, upsertIngredient } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -31,6 +31,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   let editingIngId = null;
   let dishCostById = new Map();
   let backupFiles = [];
+  let backupStats = { count: 0, total_size_bytes: 0, warning_threshold_bytes: 500 * 1024 * 1024, is_over_warning_threshold: false };
   const ingredientSort = { key: "id", direction: "asc" };
   const dishSort = { key: "id", direction: "asc" };
   const ingredientPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
@@ -161,14 +162,50 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     backupFiles.forEach((x) => {
       const modified = x?.modified_at || "";
       const size = Number(x?.size_bytes || 0);
-      const label = `${x?.filename || ""}｜${modified}｜${size} bytes`;
+      const label = `${x?.filename || ""}｜${modified}｜${formatBytes(size)}`;
       $sel.append(`<option value="${escapeHtml(x?.filename || "")}">${escapeHtml(label)}</option>`);
     });
   }
 
+  function formatBytes(sizeBytes) {
+    const size = Number(sizeBytes || 0);
+    if (size < 1024) return `${size} bytes`;
+    const kb = size / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(1)} MB`;
+    return `${(mb / 1024).toFixed(2)} GB`;
+  }
+
+  function renderBackupUsage() {
+    const total = Number(backupStats?.total_size_bytes || 0);
+    const threshold = Number(backupStats?.warning_threshold_bytes || 0);
+    const count = Number(backupStats?.count || backupFiles.length || 0);
+    const over = Boolean(backupStats?.is_over_warning_threshold);
+    const summary = `目前備份：${count} 筆，已使用 ${formatBytes(total)}。每日自動備份上限為 50 筆。`;
+    const warning = over
+      ? `⚠ 備份容量已達 ${formatBytes(total)}（≥ ${formatBytes(threshold)}），建議盡快刪除過舊備份。`
+      : "";
+    const text = warning ? `${summary} ${warning}` : summary;
+    $("#backup_usage_info").text(text).toggleClass("warn-text", over);
+  }
+
+  function syncSelectedBackupMeta() {
+    const selected = ($("#db_backup_select").val() || "").trim();
+    const item = backupFiles.find((x) => (x?.filename || "") === selected) || null;
+    const reason = item?.action_reason || "—";
+    const comment = item?.comment || "";
+    $("#backup_reason_text").text(reason);
+    $("#db_backup_comment").val(comment);
+  }
+
   async function refreshBackupList() {
-    backupFiles = await listDbBackups();
+    const [files, stats] = await Promise.all([listDbBackups(), getDbBackupStats()]);
+    backupFiles = Array.isArray(files) ? files : [];
+    backupStats = stats || backupStats;
     renderBackupOptions();
+    renderBackupUsage();
+    syncSelectedBackupMeta();
   }
 
   async function reloadDishCostPreview(dishIds = []) {
@@ -931,6 +968,30 @@ function todayStr() {
         await reloadCatalog();
         renderAll();
       }, "已完成備份還原，且已重新載入資料。");
+    });
+
+    $("#db_backup_delete").on("click", async () => {
+      await runWithMsg(DOM.msgBackup, async () => {
+        const selected = ($("#db_backup_select").val() || "").trim();
+        if (!selected) throw new Error("請先選擇要刪除的備份檔。");
+        if (!confirm(`確定刪除備份檔：${selected}？\n此操作無法復原。`)) return;
+        await deleteDbBackup(selected);
+        await refreshBackupList();
+      }, "已刪除備份檔。");
+    });
+
+    $("#db_backup_select").on("change", () => {
+      syncSelectedBackupMeta();
+    });
+
+    $("#db_backup_save_comment").on("click", async () => {
+      await runWithMsg(DOM.msgBackup, async () => {
+        const selected = ($("#db_backup_select").val() || "").trim();
+        if (!selected) throw new Error("請先選擇要註解的備份檔。");
+        const comment = ($("#db_backup_comment").val() || "").trim();
+        await updateDbBackupComment(selected, comment);
+        await refreshBackupList();
+      }, "已儲存備份註解。");
     });
 
     $("#modal_close").on("click", () => $("#modal").addClass("hide"));

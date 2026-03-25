@@ -17,11 +17,18 @@ from openpyxl.utils import get_column_letter
 from pydantic import BaseModel, Field
 
 from ...db.admin_repo import SQLiteAdminRepo
-from ...db.backup import create_db_backup
+from ...db.backup import (
+    BACKUP_REASON_DEFAULT,
+    create_db_backup,
+    get_backup_metadata_map,
+    remove_backup_metadata,
+    upsert_backup_metadata,
+)
 
 DEFAULT_DB_PATH = str((__import__("pathlib").Path.cwd() / "data" / "menu.db").resolve())
 
 router = APIRouter(prefix="/admin/catalog", tags=["admin-catalog"])
+BACKUP_WARNING_THRESHOLD_BYTES = 500 * 1024 * 1024
 
 
 def _timestamp_for_filename() -> str:
@@ -52,9 +59,13 @@ def _build_excel_response(filename_prefix: str, sheet_name: str, headers: List[s
     )
 
 
-def backup_before_modify(db_path: str) -> None:
+def backup_before_modify(
+    db_path: str,
+    reason: str = BACKUP_REASON_DEFAULT,
+    comment: str = "",
+) -> None:
     try:
-        create_db_backup(db_path)
+        create_db_backup(db_path, reason=reason, comment=comment)
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail=f"資料庫檔案不存在：{db_path}")
     except Exception as e:
@@ -110,6 +121,10 @@ class DishCostPreviewIn(BaseModel):
 
 class BackupRestoreIn(BaseModel):
     backup_filename: str = Field(min_length=1)
+
+
+class BackupCommentIn(BaseModel):
+    comment: str = Field(default="", max_length=500)
 
 
 class DishRenameIn(DishUpsert):
@@ -308,15 +323,28 @@ def _list_backup_files(db_path: str) -> List[dict]:
         return []
     pattern = f"{db_file.stem}_*{db_file.suffix or '.db'}"
     files = sorted(backup_dir.glob(pattern), key=lambda p: p.name, reverse=True)
+    metadata_map = get_backup_metadata_map(db_path)
     return [
         {
             "filename": p.name,
             "size_bytes": p.stat().st_size,
             "modified_at": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds"),
+            "action_reason": str((metadata_map.get(p.name) or {}).get("reason") or BACKUP_REASON_DEFAULT),
+            "comment": str((metadata_map.get(p.name) or {}).get("comment") or ""),
         }
         for p in files
         if p.is_file()
     ]
+
+
+def _summarize_backup_usage(files: List[dict]) -> dict:
+    total_bytes = sum(int(x.get("size_bytes") or 0) for x in files)
+    return {
+        "count": len(files),
+        "total_size_bytes": total_bytes,
+        "warning_threshold_bytes": BACKUP_WARNING_THRESHOLD_BYTES,
+        "is_over_warning_threshold": total_bytes >= BACKUP_WARNING_THRESHOLD_BYTES,
+    }
 
 
 @router.get("/backups", dependencies=[Depends(require_admin_key)])
@@ -324,6 +352,14 @@ def list_db_backups(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     return _list_backup_files(db_path)
+
+
+@router.get("/backups/stats", dependencies=[Depends(require_admin_key)])
+def get_db_backup_stats(
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    files = _list_backup_files(db_path)
+    return _summarize_backup_usage(files)
 
 
 @router.post("/backups/restore", dependencies=[Depends(require_admin_key)])
@@ -343,12 +379,64 @@ def restore_db_backup(
     if src.parent != backup_dir.resolve() or not src.exists() or not src.is_file():
         raise HTTPException(status_code=404, detail="找不到指定備份檔")
 
-    backup_before_modify(str(db_file))
+    backup_before_modify(str(db_file), reason="admin_restore_pre_snapshot")
     try:
         shutil.copy2(src, db_file)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"還原備份失敗：{e}")
     return {"ok": True, "restored_from": backup_name}
+
+
+@router.delete("/backups/{backup_name}", dependencies=[Depends(require_admin_key)])
+def delete_db_backup(
+    backup_name: str,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    db_file = Path(db_path).resolve()
+    backup_dir = db_file.parent / "backups"
+    name = backup_name.strip()
+    if not name or "/" in name or "\\" in name:
+        raise HTTPException(status_code=400, detail="備份檔名格式不正確")
+    if not name.startswith(f"{db_file.stem}_") or not name.endswith(db_file.suffix or ".db"):
+        raise HTTPException(status_code=400, detail="備份檔名不符合目前資料庫")
+
+    target = (backup_dir / name).resolve()
+    if target.parent != backup_dir.resolve() or not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="找不到指定備份檔")
+
+    try:
+        target.unlink()
+        remove_backup_metadata(db_path, name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"刪除備份失敗：{e}")
+    return {"ok": True, "deleted": name}
+
+
+@router.patch("/backups/{backup_name}/comment", dependencies=[Depends(require_admin_key)])
+def update_db_backup_comment(
+    backup_name: str,
+    body: BackupCommentIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    db_file = Path(db_path).resolve()
+    backup_dir = db_file.parent / "backups"
+    name = backup_name.strip()
+    if not name or "/" in name or "\\" in name:
+        raise HTTPException(status_code=400, detail="備份檔名格式不正確")
+    if not name.startswith(f"{db_file.stem}_") or not name.endswith(db_file.suffix or ".db"):
+        raise HTTPException(status_code=400, detail="備份檔名不符合目前資料庫")
+    target = (backup_dir / name).resolve()
+    if target.parent != backup_dir.resolve() or not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="找不到指定備份檔")
+
+    existing_meta = get_backup_metadata_map(db_path).get(name) or {}
+    upsert_backup_metadata(
+        db_path=db_path,
+        backup_filename=name,
+        reason=str(existing_meta.get("reason") or BACKUP_REASON_DEFAULT),
+        comment=body.comment,
+    )
+    return {"ok": True, "filename": name, "comment": body.comment}
 
 
 @router.post("/inventory/summary/merge-ingredient", dependencies=[Depends(require_admin_key)])

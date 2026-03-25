@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createCatalogCache, setCatalogCache } from '../../src/menu_planner/ui_static/shared/catalog_cache.js';
 import { httpJson } from '../../src/menu_planner/ui_static/shared/http.js';
-import { loadCatalog, upsertIngredient } from '../../src/menu_planner/ui_static/admin/api.js';
+import { deleteDbBackup, getDbBackupStats, loadCatalog, updateDbBackupComment, upsertIngredient } from '../../src/menu_planner/ui_static/admin/api.js';
 
 test('catalog cache + admin api smoke flow with mocked fetch', async () => {
   const calls = [];
@@ -78,4 +78,31 @@ test('httpJson throws detail message on non-2xx response', async () => {
     () => httpJson('/x', { method: 'GET' }),
     /bad request/,
   );
+});
+
+test('backup api helpers call expected endpoints', async () => {
+  const calls = [];
+
+  global.localStorage = {
+    getItem(key) {
+      if (key === 'menu_admin_key') return 'secret';
+      return null;
+    },
+  };
+
+  global.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      json: async () => ({ ok: true, count: 1 }),
+    };
+  };
+
+  await getDbBackupStats();
+  await deleteDbBackup('menu_20260320_120001_000001.db');
+  await updateDbBackupComment('menu_20260320_120001_000001.db', 'release before schema update');
+
+  assert.ok(calls.some((x) => x.url === '/admin/catalog/backups/stats' && x.options.method === 'GET'));
+  assert.ok(calls.some((x) => String(x.url).includes('/admin/catalog/backups/menu_20260320_120001_000001.db') && x.options.method === 'DELETE'));
+  assert.ok(calls.some((x) => String(x.url).includes('/admin/catalog/backups/menu_20260320_120001_000001.db/comment') && x.options.method === 'PATCH'));
 });

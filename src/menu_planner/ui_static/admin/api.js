@@ -5,7 +5,9 @@ export const ADMIN_API = {
   dishes: "/admin/catalog/dishes",
   ingUpsert: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}`,
   ingDelete: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}`,
+  ingRename: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/rename`,
   dishUpsert: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}`,
+  dishRename: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}/rename`,
   dishDelete: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}`,
   dishIngGet: (dishId) => `/admin/catalog/dishes/${encodeURIComponent(dishId)}/ingredients`,
   dishIngPut: (dishId) => `/admin/catalog/dishes/${encodeURIComponent(dishId)}/ingredients`,
@@ -93,12 +95,28 @@ export function upsertIngredient(id, body) {
   return httpJson(ADMIN_API.ingUpsert(id), { method: "PUT", body: JSON.stringify(body) }, { includeAdminKey: true });
 }
 
+export function renameIngredient(sourceId, targetId, body) {
+  return httpJson(
+    ADMIN_API.ingRename(sourceId),
+    { method: "POST", body: JSON.stringify({ ...body, target_id: targetId }) },
+    { includeAdminKey: true }
+  );
+}
+
 export function deleteIngredient(id) {
   return httpJson(ADMIN_API.ingDelete(id), { method: "DELETE" }, { includeAdminKey: true });
 }
 
 export function upsertDish(id, body) {
   return httpJson(ADMIN_API.dishUpsert(id), { method: "PUT", body: JSON.stringify(body) }, { includeAdminKey: true });
+}
+
+export function renameDish(sourceId, targetId, body) {
+  return httpJson(
+    ADMIN_API.dishRename(sourceId),
+    { method: "POST", body: JSON.stringify({ ...body, target_id: targetId }) },
+    { includeAdminKey: true }
+  );
 }
 
 export function deleteDish(id) {

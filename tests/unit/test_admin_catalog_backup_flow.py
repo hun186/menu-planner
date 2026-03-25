@@ -11,6 +11,8 @@ class _FakeRepo:
     deleted_prices = []
     deleted_ingredients = []
     merged_ingredients = []
+    rename_dishes = []
+    rename_ingredients = []
 
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -35,6 +37,31 @@ class _FakeRepo:
             "merged_dish_count": 2,
             "merged_price_count": 1,
             "merged_inventory": True,
+        }
+
+    def dish_exists(self, dish_id: str) -> bool:
+        return dish_id != "missing-dish"
+
+    def rename_dish(self, source_dish_id: str, target_dish_id: str, body):
+        if target_dish_id == "dish-exists":
+            raise ValueError("目標菜色已存在：dish-exists")
+        self.rename_dishes.append((source_dish_id, target_dish_id, body))
+        return {
+            "source_dish_id": source_dish_id,
+            "target_dish_id": target_dish_id,
+            "moved_ingredient_count": 3,
+        }
+
+    def rename_ingredient(self, source_ingredient_id: str, target_ingredient_id: str, body):
+        if target_ingredient_id == "ing-exists":
+            raise ValueError("目標食材已存在：ing-exists")
+        self.rename_ingredients.append((source_ingredient_id, target_ingredient_id, body))
+        return {
+            "source_ingredient_id": source_ingredient_id,
+            "target_ingredient_id": target_ingredient_id,
+            "moved_dish_count": 2,
+            "moved_price_count": 1,
+            "moved_inventory": True,
         }
 
 
@@ -192,3 +219,154 @@ def test_restore_db_backup_copies_file_and_triggers_pre_backup(monkeypatch, tmp_
     assert resp == {"ok": True, "restored_from": src.name}
     assert calls["backup"] == 1
     assert db.read_text(encoding="utf-8") == "snapshot-db"
+
+
+def test_rename_ingredient_success_triggers_backup_once(monkeypatch):
+    calls = {"backup": 0}
+    _FakeRepo.rename_ingredients = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    resp = admin_catalog.rename_ingredient(
+        "ing-a",
+        admin_catalog.IngredientRenameIn(
+            target_id="ing-a-new",
+            name="白米（新）",
+            category="穀物",
+            protein_group=None,
+            default_unit="g",
+        ),
+        db_path="/tmp/menu.db",
+    )
+
+    assert resp == {
+        "ok": True,
+        "source_ingredient_id": "ing-a",
+        "target_ingredient_id": "ing-a-new",
+        "moved_dish_count": 2,
+        "moved_price_count": 1,
+        "moved_inventory": True,
+    }
+    assert calls["backup"] == 1
+    assert _FakeRepo.rename_ingredients == [
+        (
+            "ing-a",
+            "ing-a-new",
+            {
+                "name": "白米（新）",
+                "category": "穀物",
+                "protein_group": None,
+                "default_unit": "g",
+            },
+        )
+    ]
+
+
+def test_rename_ingredient_same_id_does_not_trigger_backup(monkeypatch):
+    calls = {"backup": 0}
+    _FakeRepo.rename_ingredients = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    with pytest.raises(HTTPException) as ex:
+        admin_catalog.rename_ingredient(
+            "ing-a",
+            admin_catalog.IngredientRenameIn(
+                target_id="ing-a",
+                name="白米",
+                category="穀物",
+                protein_group=None,
+                default_unit="g",
+            ),
+            db_path="/tmp/menu.db",
+        )
+
+    assert ex.value.status_code == 400
+    assert calls["backup"] == 0
+    assert _FakeRepo.rename_ingredients == []
+
+
+def test_rename_dish_success_triggers_backup_once(monkeypatch):
+    calls = {"backup": 0}
+    _FakeRepo.rename_dishes = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    resp = admin_catalog.rename_dish(
+        "dish-a",
+        admin_catalog.DishRenameIn(
+            target_id="dish-a-new",
+            name="菜色A 新版",
+            role="main",
+            cuisine="tw",
+            meat_type=None,
+            tags=["new"],
+        ),
+        db_path="/tmp/menu.db",
+    )
+
+    assert resp == {
+        "ok": True,
+        "source_dish_id": "dish-a",
+        "target_dish_id": "dish-a-new",
+        "moved_ingredient_count": 3,
+    }
+    assert calls["backup"] == 1
+    assert _FakeRepo.rename_dishes == [
+        (
+            "dish-a",
+            "dish-a-new",
+            {
+                "name": "菜色A 新版",
+                "role": "main",
+                "cuisine": "tw",
+                "meat_type": None,
+                "tags": ["new"],
+            },
+        )
+    ]
+
+
+def test_rename_dish_same_id_does_not_trigger_backup(monkeypatch):
+    calls = {"backup": 0}
+    _FakeRepo.rename_dishes = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    with pytest.raises(HTTPException) as ex:
+        admin_catalog.rename_dish(
+            "dish-a",
+            admin_catalog.DishRenameIn(
+                target_id="dish-a",
+                name="菜色A",
+                role="main",
+                cuisine=None,
+                meat_type=None,
+                tags=[],
+            ),
+            db_path="/tmp/menu.db",
+        )
+
+    assert ex.value.status_code == 400
+    assert calls["backup"] == 0
+    assert _FakeRepo.rename_dishes == []

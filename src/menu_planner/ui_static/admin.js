@@ -1,4 +1,4 @@
-import { deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, restoreDbBackup, searchIngredients, upsertDish, upsertIngredient } from "./admin/api.js";
+import { deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, renameDish, renameIngredient, restoreDbBackup, searchIngredients, upsertDish, upsertIngredient } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -18,6 +18,7 @@ import { escapeHtml } from "./shared/html.js";
 
   const catalog = createCatalogCache();
 
+  let editingIngredientId = null;
   let editingDishId = null;
   let ingLabelToId = new Map();
   let editingIngId = null;
@@ -303,6 +304,7 @@ import { escapeHtml } from "./shared/html.js";
       `);
 
       $tr.find(".btn_edit").on("click", () => {
+        editingIngredientId = x.id;
         $("#ing_id").val(x.id);
         $("#ing_name").val(x.name);
         $("#ing_category").val(x.category);
@@ -381,6 +383,7 @@ import { escapeHtml } from "./shared/html.js";
       `);
 
       $tr.find(".btn_edit").on("click", () => {
+        editingDishId = x.id;
         $("#dish_id").val(x.id);
         $("#dish_name").val(x.name);
         $("#dish_role").val(x.role);
@@ -469,8 +472,13 @@ import { escapeHtml } from "./shared/html.js";
       throw new Error("食材：名稱 / 分類 / 預設單位 為必填。");
     }
 
-    await upsertIngredient(id, body);
+    if (editingIngredientId && editingIngredientId !== id) {
+      await renameIngredient(editingIngredientId, id, body);
+    } else {
+      await upsertIngredient(id, body);
+    }
 
+    editingIngredientId = id;
     $("#ing_id").val(id); // 若自動產生，回填給使用者
     await reloadCatalog();
     renderAll();
@@ -490,8 +498,13 @@ import { escapeHtml } from "./shared/html.js";
       throw new Error("菜色：名稱 / 角色 為必填。");
     }
 
-    await upsertDish(id, body);
+    if (editingDishId && editingDishId !== id) {
+      await renameDish(editingDishId, id, body);
+    } else {
+      await upsertDish(id, body);
+    }
 
+    editingDishId = id;
     $("#dish_id").val(id);
     await reloadCatalog();
     renderAll();
@@ -849,11 +862,13 @@ function todayStr() {
     });
 
     $("#ing_clear").on("click", () => {
+      editingIngredientId = null;
       clearFields(DOM.ingredientEditorFields);
       clearMsg(DOM.msgIng);
     });
 
     $("#dish_clear").on("click", () => {
+      editingDishId = null;
       clearFields(DOM.dishEditorFields);
       $("#dish_role").val("main");
       clearMsg(DOM.msgDish);

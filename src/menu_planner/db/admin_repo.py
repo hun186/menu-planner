@@ -49,6 +49,88 @@ class SQLiteAdminRepo:
             cur = conn.execute("DELETE FROM ingredients WHERE id=?", (ingredient_id,))
             return cur.rowcount
 
+    def rename_ingredient(self, source_ingredient_id: str, target_ingredient_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        source_id = str(source_ingredient_id or "").strip()
+        target_id = str(target_ingredient_id or "").strip()
+        if not source_id or not target_id:
+            raise ValueError("source_ingredient_id / target_ingredient_id 不可為空")
+        if source_id == target_id:
+            raise ValueError("來源與目標 ingredient_id 不可相同")
+
+        with self._conn() as conn:
+            src_row = conn.execute(
+                "SELECT id FROM ingredients WHERE id=? LIMIT 1",
+                (source_id,),
+            ).fetchone()
+            if not src_row:
+                raise ValueError(f"找不到來源食材：{source_id}")
+
+            tgt_row = conn.execute(
+                "SELECT id FROM ingredients WHERE id=? LIMIT 1",
+                (target_id,),
+            ).fetchone()
+            if tgt_row:
+                raise ValueError(f"目標食材已存在：{target_id}")
+
+            conn.execute(
+                """
+                INSERT INTO ingredients(id, name, category, protein_group, default_unit)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    target_id,
+                    body["name"],
+                    body["category"],
+                    body.get("protein_group"),
+                    body["default_unit"],
+                ),
+            )
+
+            moved_dish_count = conn.execute(
+                """
+                INSERT INTO dish_ingredients(dish_id, ingredient_id, qty, unit)
+                SELECT dish_id, ?, qty, unit
+                FROM dish_ingredients
+                WHERE ingredient_id=?
+                """,
+                (target_id, source_id),
+            ).rowcount
+            conn.execute("DELETE FROM dish_ingredients WHERE ingredient_id=?", (source_id,))
+
+            moved_price_count = conn.execute(
+                """
+                INSERT INTO ingredient_prices(ingredient_id, price_date, price_per_unit, unit)
+                SELECT ?, price_date, price_per_unit, unit
+                FROM ingredient_prices
+                WHERE ingredient_id=?
+                """,
+                (target_id, source_id),
+            ).rowcount
+            conn.execute("DELETE FROM ingredient_prices WHERE ingredient_id=?", (source_id,))
+
+            moved_inventory = conn.execute(
+                """
+                INSERT INTO inventory(ingredient_id, qty_on_hand, unit, updated_at, expiry_date)
+                SELECT ?, qty_on_hand, unit, updated_at, expiry_date
+                FROM inventory
+                WHERE ingredient_id=?
+                """,
+                (target_id, source_id),
+            ).rowcount > 0
+            conn.execute("DELETE FROM inventory WHERE ingredient_id=?", (source_id,))
+
+            deleted = conn.execute("DELETE FROM ingredients WHERE id=?", (source_id,)).rowcount
+            if deleted == 0:
+                raise ValueError(f"刪除來源食材失敗：{source_id}")
+
+        return {
+            "source_ingredient_id": source_id,
+            "target_ingredient_id": target_id,
+            "moved_dish_count": int(moved_dish_count or 0),
+            "moved_price_count": int(moved_price_count or 0),
+            "moved_inventory": bool(moved_inventory),
+        }
+
     def merge_ingredient(self, source_ingredient_id: str, target_ingredient_id: str) -> Dict[str, Any]:
         source_id = str(source_ingredient_id or "").strip()
         target_id = str(target_ingredient_id or "").strip()
@@ -470,6 +552,65 @@ class SQLiteAdminRepo:
         with self._conn() as conn:
             cur = conn.execute("DELETE FROM dishes WHERE id=?", (dish_id,))
             return cur.rowcount
+
+    def rename_dish(self, source_dish_id: str, target_dish_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        source_id = str(source_dish_id or "").strip()
+        target_id = str(target_dish_id or "").strip()
+        if not source_id or not target_id:
+            raise ValueError("source_dish_id / target_dish_id 不可為空")
+        if source_id == target_id:
+            raise ValueError("來源與目標 dish_id 不可相同")
+
+        tags_json = json.dumps(body.get("tags", []), ensure_ascii=False)
+
+        with self._conn() as conn:
+            src_row = conn.execute(
+                "SELECT id FROM dishes WHERE id=? LIMIT 1",
+                (source_id,),
+            ).fetchone()
+            if not src_row:
+                raise ValueError(f"找不到來源菜色：{source_id}")
+
+            tgt_row = conn.execute(
+                "SELECT id FROM dishes WHERE id=? LIMIT 1",
+                (target_id,),
+            ).fetchone()
+            if tgt_row:
+                raise ValueError(f"目標菜色已存在：{target_id}")
+
+            conn.execute(
+                """
+                INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    target_id,
+                    body["name"],
+                    body["role"],
+                    body.get("cuisine"),
+                    body.get("meat_type"),
+                    tags_json,
+                ),
+            )
+            moved = conn.execute(
+                """
+                INSERT INTO dish_ingredients(dish_id, ingredient_id, qty, unit)
+                SELECT ?, ingredient_id, qty, unit
+                FROM dish_ingredients
+                WHERE dish_id=?
+                """,
+                (target_id, source_id),
+            ).rowcount
+            conn.execute("DELETE FROM dish_ingredients WHERE dish_id=?", (source_id,))
+            deleted = conn.execute("DELETE FROM dishes WHERE id=?", (source_id,)).rowcount
+            if deleted == 0:
+                raise ValueError(f"刪除來源菜色失敗：{source_id}")
+
+        return {
+            "source_dish_id": source_id,
+            "target_dish_id": target_id,
+            "moved_ingredient_count": int(moved or 0),
+        }
 
     def dish_exists(self, dish_id: str) -> bool:
         with self._conn() as conn:

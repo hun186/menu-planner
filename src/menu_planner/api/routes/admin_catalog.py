@@ -112,6 +112,10 @@ class BackupRestoreIn(BaseModel):
     backup_filename: str = Field(min_length=1)
 
 
+class DishRenameIn(DishUpsert):
+    target_id: str = Field(min_length=1)
+
+
 @router.get("/ingredients", dependencies=[Depends(require_admin_key)])
 def list_ingredients(
     q: Optional[str] = Query(default=None),
@@ -169,6 +173,37 @@ def delete_ingredient(
         )
 
 
+@router.post("/ingredients/{ingredient_id}/rename", dependencies=[Depends(require_admin_key)])
+def rename_ingredient(
+    ingredient_id: str,
+    body: IngredientRenameIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    ensure_ingredient_exists(repo, ingredient_id)
+    target_id = str(body.target_id or "").strip()
+    if not target_id:
+        raise HTTPException(status_code=400, detail="target_id 不可為空")
+    if target_id == ingredient_id:
+        raise HTTPException(status_code=400, detail="target_id 不可與來源 ingredient_id 相同")
+
+    repo = repo_with_backup(db_path)
+    try:
+        result = repo.rename_ingredient(
+            ingredient_id,
+            target_id,
+            IngredientUpsert(
+                name=body.name,
+                category=body.category,
+                protein_group=body.protein_group,
+                default_unit=body.default_unit,
+            ).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, **result}
+
+
 class PriceUpsert(BaseModel):
     price_per_unit: float = Field(gt=0)
     unit: str = Field(min_length=1)
@@ -184,6 +219,10 @@ class InventoryUpsert(BaseModel):
 class IngredientMergeIn(BaseModel):
     source_ingredient_id: str = Field(min_length=1)
     target_ingredient_id: str = Field(min_length=1)
+
+
+class IngredientRenameIn(IngredientUpsert):
+    target_id: str = Field(min_length=1)
 
 
 @router.get("/ingredients/{ingredient_id}/prices", dependencies=[Depends(require_admin_key)])
@@ -436,6 +475,38 @@ def delete_dish(
     if n == 0:
         raise HTTPException(status_code=404, detail="找不到此菜色")
     return {"ok": True}
+
+
+@router.post("/dishes/{dish_id}/rename", dependencies=[Depends(require_admin_key)])
+def rename_dish(
+    dish_id: str,
+    body: DishRenameIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    ensure_dish_exists(repo, dish_id)
+    target_id = str(body.target_id or "").strip()
+    if not target_id:
+        raise HTTPException(status_code=400, detail="target_id 不可為空")
+    if target_id == dish_id:
+        raise HTTPException(status_code=400, detail="target_id 不可與來源 dish_id 相同")
+
+    repo = repo_with_backup(db_path)
+    try:
+        result = repo.rename_dish(
+            dish_id,
+            target_id,
+            DishUpsert(
+                name=body.name,
+                role=body.role,
+                cuisine=body.cuisine,
+                meat_type=body.meat_type,
+                tags=body.tags,
+            ).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, **result}
 
 
 @router.get("/dishes/{dish_id}/ingredients", dependencies=[Depends(require_admin_key)])

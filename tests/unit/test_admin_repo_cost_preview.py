@@ -193,3 +193,78 @@ def test_list_dishes_can_filter_by_ingredient_id(tmp_path):
 
     assert out["total"] == 2
     assert dish_ids == ["dish-1", "dish-2"]
+
+
+def test_rename_dish_moves_ingredients_and_updates_fields(tmp_path):
+    db_path = tmp_path / "menu.db"
+    _build_db(str(db_path))
+    repo = SQLiteAdminRepo(str(db_path))
+
+    out = repo.rename_dish(
+        "dish-1",
+        "dish-1-updated",
+        {
+            "name": "胡蘿蔔炒飯-新版",
+            "role": "main",
+            "cuisine": "tw",
+            "meat_type": "vegetarian",
+            "tags": ["new"],
+        },
+    )
+
+    assert out["source_dish_id"] == "dish-1"
+    assert out["target_dish_id"] == "dish-1-updated"
+    assert out["moved_ingredient_count"] == 2
+    assert repo.dish_exists("dish-1") is False
+    assert repo.dish_exists("dish-1-updated") is True
+
+    rows = repo.get_dish_ingredients("dish-1-updated")
+    ingredient_ids = [x["ingredient_id"] for x in rows]
+    assert ingredient_ids == ["ing-a", "ing-b"]
+
+    dishes = repo.list_dishes(q="新版", page=1, page_size=10)["items"]
+    assert len(dishes) == 1
+    assert dishes[0]["id"] == "dish-1-updated"
+    assert dishes[0]["tags"] == ["new"]
+
+
+def test_rename_ingredient_moves_related_rows(tmp_path):
+    db_path = tmp_path / "menu.db"
+    _build_db(str(db_path))
+    repo = SQLiteAdminRepo(str(db_path))
+
+    with sqlite3.connect(str(db_path)) as conn:
+        conn.execute(
+            "INSERT INTO inventory(ingredient_id, qty_on_hand, unit, updated_at, expiry_date) VALUES(?, ?, ?, ?, ?)",
+            ("ing-a", 88, "g", "2026-03-20", "2026-03-30"),
+        )
+
+    out = repo.rename_ingredient(
+        "ing-a",
+        "ing-a-new",
+        {
+            "name": "白米（新）",
+            "category": "穀物",
+            "protein_group": None,
+            "default_unit": "g",
+        },
+    )
+
+    assert out["source_ingredient_id"] == "ing-a"
+    assert out["target_ingredient_id"] == "ing-a-new"
+    assert out["moved_dish_count"] == 1
+    assert out["moved_price_count"] == 2
+    assert out["moved_inventory"] is True
+    assert repo.ingredient_exists("ing-a") is False
+    assert repo.ingredient_exists("ing-a-new") is True
+
+    dish_rows = repo.get_dish_ingredients("dish-1")
+    assert any(x["ingredient_id"] == "ing-a-new" for x in dish_rows)
+    assert all(x["ingredient_id"] != "ing-a" for x in dish_rows)
+
+    prices = repo.list_prices("ing-a-new", limit=10)
+    assert len(prices) == 2
+
+    inv = repo.get_inventory("ing-a-new")
+    assert inv is not None
+    assert inv["qty_on_hand"] == 88.0

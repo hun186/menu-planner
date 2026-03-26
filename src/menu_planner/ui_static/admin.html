@@ -38,12 +38,10 @@
           <label>備份檔</label>
           <select id="db_backup_select"></select>
         </div>
-        <div class="btns">
+        <div class="btns backup-primary-actions">
           <button id="db_backup_create">建立備份</button>
           <button id="db_backup_restore" class="primary" title="還原前會先再建立一次目前資料庫備份">還原選取備份</button>
           <button id="db_backup_delete" title="刪除選取備份檔（無法復原）">刪除選取備份</button>
-        </div>
-        <div class="btns">
           <button id="db_backup_manage">管理備份</button>
           <button id="db_backup_reload">重新整理清單</button>
         </div>
@@ -284,6 +282,18 @@
         <label>備份檔</label>
         <select id="db_backup_select_modal"></select>
       </div>
+      <div class="row">
+        <label>日期篩選</label>
+        <input id="db_backup_filter_date" type="date" />
+      </div>
+      <div class="row">
+        <label>關鍵字篩選</label>
+        <input id="db_backup_filter_keyword" type="text" placeholder="可輸入說明、原因代碼、檔名關鍵字" />
+      </div>
+      <div class="btns">
+        <button id="db_backup_filter_clear">清除篩選</button>
+      </div>
+      <div id="backup_filter_info" class="hint"></div>
       <div class="btns">
         <button id="db_backup_reload_modal">重新整理清單</button>
         <button id="db_backup_create_modal">建立備份</button>

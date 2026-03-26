@@ -39,23 +39,17 @@
           <select id="db_backup_select"></select>
         </div>
         <div class="btns">
-          <button id="db_backup_reload">重新整理清單</button>
+          <button id="db_backup_create">建立備份</button>
           <button id="db_backup_restore" class="primary" title="還原前會先再建立一次目前資料庫備份">還原選取備份</button>
           <button id="db_backup_delete" title="刪除選取備份檔（無法復原）">刪除選取備份</button>
         </div>
-        <div class="hint">還原前會先建立一次「目前資料庫」備份，避免誤操作無法回復。</div>
-        <div id="backup_usage_info" class="hint"></div>
-        <div class="row top">
-          <label>備份原因</label>
-          <div id="backup_reason_text" class="hint" style="margin-top:0;">—</div>
-        </div>
-        <div class="row top">
-          <label>備份註解</label>
-          <textarea id="db_backup_comment" rows="3" placeholder="可自行輸入此份備份用途、對應操作等說明"></textarea>
-        </div>
         <div class="btns">
-          <button id="db_backup_save_comment">儲存註解</button>
+          <button id="db_backup_manage">管理備份</button>
+          <button id="db_backup_reload">重新整理清單</button>
         </div>
+        <div class="hint">還原前會先建立一次「目前資料庫」備份，避免誤操作無法回復；進階註解與完整管理請按「管理備份」。</div>
+        <div id="backup_usage_info" class="hint"></div>
+        <div id="backup_basic_info" class="hint"></div>
         <div id="msg_backup" class="msg"></div>
       </div>
     </div>
@@ -277,6 +271,37 @@
       </div>
   
       <div id="msg_ing_meta" class="msg"></div>
+    </div>
+  </div>
+
+  <div id="modal_backup" class="mp-modal hide">
+    <div class="mp-modal-card">
+      <div class="mp-modal-hd">
+        <div class="mp-modal-title">完整備份管理</div>
+        <button id="modal_backup_close">關閉</button>
+      </div>
+      <div class="row">
+        <label>備份檔</label>
+        <select id="db_backup_select_modal"></select>
+      </div>
+      <div class="btns">
+        <button id="db_backup_reload_modal">重新整理清單</button>
+        <button id="db_backup_create_modal">建立備份</button>
+        <button id="db_backup_restore_modal" class="primary">還原選取備份</button>
+        <button id="db_backup_delete_modal">刪除選取備份</button>
+      </div>
+      <div class="row top">
+        <label>備份原因</label>
+        <div id="backup_reason_text" class="hint" style="margin-top:0;">—</div>
+      </div>
+      <div class="row top">
+        <label>備份註解</label>
+        <textarea id="db_backup_comment" class="backup-comment-textarea" rows="4" placeholder="可自行輸入此份備份用途、對應操作等說明"></textarea>
+      </div>
+      <div class="btns">
+        <button id="db_backup_save_comment">儲存註解</button>
+      </div>
+      <div id="msg_backup_modal" class="msg"></div>
     </div>
   </div>
 

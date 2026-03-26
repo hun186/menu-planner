@@ -21,6 +21,7 @@ export const ADMIN_API = {
   inventorySummaryExport: "/admin/catalog/inventory/summary/export",
   backups: "/admin/catalog/backups",
   backupStats: "/admin/catalog/backups/stats",
+  backupCreate: "/admin/catalog/backups/create",
   backupRestore: "/admin/catalog/backups/restore",
   backupDelete: (filename) => `/admin/catalog/backups/${encodeURIComponent(filename)}`,
   backupComment: (filename) => `/admin/catalog/backups/${encodeURIComponent(filename)}/comment`,
@@ -204,6 +205,14 @@ export function restoreDbBackup(backupFilename) {
   return httpJson(
     ADMIN_API.backupRestore,
     { method: "POST", body: JSON.stringify({ backup_filename: backupFilename }) },
+    { includeAdminKey: true }
+  );
+}
+
+export function createDbBackup({ reason = "admin_manual_snapshot", comment = "" } = {}) {
+  return httpJson(
+    ADMIN_API.backupCreate,
+    { method: "POST", body: JSON.stringify({ reason, comment }) },
     { includeAdminKey: true }
   );
 }

@@ -130,7 +130,7 @@ def test_delete_ingredient_success_triggers_backup_once(monkeypatch):
 
 
 def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
-    calls = {"backup": 0}
+    calls = {"backup": 0, "reason": None}
 
     _FakeRepo.ingredient_exists_value = True
     _FakeRepo.merged_ingredients = []
@@ -139,6 +139,7 @@ def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
 
     def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
+        calls["reason"] = kwargs.get("reason")
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
 
@@ -154,7 +155,29 @@ def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
         "merged_inventory": True,
     }
     assert calls["backup"] == 1
+    assert calls["reason"] == "ingredient_merge:ing-a->ing-b"
     assert _FakeRepo.merged_ingredients == [("ing-a", "ing-b")]
+
+
+def test_repo_with_backup_passes_reason_and_comment(monkeypatch):
+    calls = {"reason": None, "comment": None}
+
+    def _backup(_db_path: str, *args, **kwargs):
+        calls["reason"] = kwargs.get("reason")
+        calls["comment"] = kwargs.get("comment")
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    repo = admin_catalog.repo_with_backup(
+        "/tmp/menu.db",
+        reason="ingredient_upsert",
+        comment="manual note",
+    )
+
+    assert isinstance(repo, _FakeRepo)
+    assert calls["reason"] == "ingredient_upsert"
+    assert calls["comment"] == "manual note"
 
 
 def test_merge_inventory_ingredient_same_source_and_target_does_not_trigger_backup(monkeypatch):
@@ -276,6 +299,27 @@ def test_update_db_backup_comment_updates_comment_and_preserves_reason(tmp_path)
     rows = admin_catalog.list_db_backups(db_path=str(db))
     assert rows[0]["action_reason"] == "admin_restore_pre_snapshot"
     assert rows[0]["comment"] == "release-ready backup"
+
+
+def test_create_manual_db_backup_calls_backup_with_reason_and_comment(monkeypatch):
+    calls = {"count": 0, "reason": None, "comment": None}
+
+    def _backup(_db_path: str, *args, **kwargs):
+        calls["count"] += 1
+        calls["reason"] = kwargs.get("reason")
+        calls["comment"] = kwargs.get("comment")
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    resp = admin_catalog.create_manual_db_backup(
+        admin_catalog.BackupCreateIn(reason="manual_snapshot", comment="before holiday"),
+        db_path="/tmp/menu.db",
+    )
+
+    assert resp == {"ok": True, "reason": "manual_snapshot", "comment": "before holiday"}
+    assert calls["count"] == 1
+    assert calls["reason"] == "manual_snapshot"
+    assert calls["comment"] == "before holiday"
 
 
 def test_rename_ingredient_success_triggers_backup_once(monkeypatch):

@@ -72,8 +72,13 @@ def backup_before_modify(
         raise HTTPException(status_code=500, detail=f"建立資料庫備份失敗：{e}")
 
 
-def repo_with_backup(db_path: str) -> SQLiteAdminRepo:
-    backup_before_modify(db_path)
+def repo_with_backup(
+    db_path: str,
+    *,
+    reason: str = BACKUP_REASON_DEFAULT,
+    comment: str = "",
+) -> SQLiteAdminRepo:
+    backup_before_modify(db_path, reason=reason, comment=comment)
     return SQLiteAdminRepo(db_path)
 
 
@@ -127,6 +132,11 @@ class BackupCommentIn(BaseModel):
     comment: str = Field(default="", max_length=500)
 
 
+class BackupCreateIn(BaseModel):
+    reason: str = Field(default="admin_manual_snapshot", max_length=120)
+    comment: str = Field(default="", max_length=500)
+
+
 class DishRenameIn(DishUpsert):
     target_id: str = Field(min_length=1)
 
@@ -161,7 +171,7 @@ def upsert_ingredient(
     body: IngredientUpsert,
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="ingredient_upsert")
     repo.upsert_ingredient(ingredient_id, body.model_dump())
     return {"ok": True, "id": ingredient_id}
 
@@ -174,7 +184,7 @@ def delete_ingredient(
     repo = SQLiteAdminRepo(db_path)
     ensure_ingredient_exists(repo, ingredient_id)
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="ingredient_delete")
     try:
         n = repo.delete_ingredient(ingredient_id)
         if n == 0:
@@ -202,7 +212,7 @@ def rename_ingredient(
     if target_id == ingredient_id:
         raise HTTPException(status_code=400, detail="target_id 不可與來源 ingredient_id 相同")
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="ingredient_rename")
     try:
         result = repo.rename_ingredient(
             ingredient_id,
@@ -261,7 +271,7 @@ def upsert_price(
     repo = SQLiteAdminRepo(db_path)
     ensure_ingredient_exists(repo, ingredient_id)
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="ingredient_price_upsert")
     repo.upsert_price(ingredient_id, price_date, body.model_dump())
     return {"ok": True}
 
@@ -277,7 +287,7 @@ def delete_price(
     if not repo.price_exists(ingredient_id, price_date):
         raise HTTPException(status_code=404, detail="找不到此價格紀錄")
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="ingredient_price_delete")
     repo.delete_price(ingredient_id, price_date)
     return {"ok": True}
 
@@ -301,7 +311,7 @@ def upsert_inventory(
     repo = SQLiteAdminRepo(db_path)
     ensure_ingredient_exists(repo, ingredient_id)
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="ingredient_inventory_upsert")
     repo.upsert_inventory(ingredient_id, body.model_dump())
     return {"ok": True}
 
@@ -360,6 +370,17 @@ def get_db_backup_stats(
 ):
     files = _list_backup_files(db_path)
     return _summarize_backup_usage(files)
+
+
+@router.post("/backups/create", dependencies=[Depends(require_admin_key)])
+def create_manual_db_backup(
+    body: BackupCreateIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    reason = str(body.reason or "admin_manual_snapshot").strip() or "admin_manual_snapshot"
+    comment = str(body.comment or "").strip()
+    backup_before_modify(db_path, reason=reason, comment=comment)
+    return {"ok": True, "reason": reason, "comment": comment}
 
 
 @router.post("/backups/restore", dependencies=[Depends(require_admin_key)])
@@ -453,7 +474,10 @@ def merge_inventory_ingredient(
     ensure_ingredient_exists(repo, source_id)
     ensure_ingredient_exists(repo, target_id)
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(
+        db_path,
+        reason=f"ingredient_merge:{source_id}->{target_id}",
+    )
     try:
         result = repo.merge_ingredient(source_id, target_id)
         return {"ok": True, **result}
@@ -545,7 +569,7 @@ def upsert_dish(
     body: DishUpsert,
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="dish_upsert")
     repo.upsert_dish(dish_id, body.model_dump())
     return {"ok": True, "id": dish_id}
 
@@ -558,7 +582,7 @@ def delete_dish(
     repo = SQLiteAdminRepo(db_path)
     ensure_dish_exists(repo, dish_id)
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="dish_delete")
     n = repo.delete_dish(dish_id)
     if n == 0:
         raise HTTPException(status_code=404, detail="找不到此菜色")
@@ -579,7 +603,7 @@ def rename_dish(
     if target_id == dish_id:
         raise HTTPException(status_code=400, detail="target_id 不可與來源 dish_id 相同")
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="dish_rename")
     try:
         result = repo.rename_dish(
             dish_id,
@@ -620,7 +644,7 @@ def put_dish_ingredients(
     if missing:
         raise HTTPException(status_code=400, detail={"message": "有不存在的食材 id", "missing": missing})
 
-    repo = repo_with_backup(db_path)
+    repo = repo_with_backup(db_path, reason="dish_ingredients_replace")
     repo.replace_dish_ingredients(dish_id, [x.model_dump() for x in items])
     return {"ok": True}
 

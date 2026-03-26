@@ -98,6 +98,10 @@ textarea{
   padding:10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size:12px; line-height:1.4;
 }
+.backup-comment-textarea{
+  height:150px;
+  min-height:120px;
+}
 
 .summary{ display:flex; gap:16px; flex-wrap:wrap; font-size:13px; padding:8px 0 14px 0; }
 .tbl{ width:100%; border-collapse:collapse; font-size:13px; }

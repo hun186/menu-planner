@@ -72,6 +72,12 @@ input[type=number]{ width:110px; padding:6px 8px; border:1px solid var(--bd); bo
 .chips{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; width:100%; }
 .chips label{ font-size:13px; color:#333; display:flex; align-items:center; gap:6px; }
 .btns{ display:flex; gap:8px; margin-top:12px; }
+.backup-primary-actions{
+  flex-wrap:wrap;
+}
+.backup-primary-actions button{
+  flex:1 1 150px;
+}
 button{ padding:8px 10px; border:1px solid var(--bd); background:#fff; border-radius:10px; cursor:pointer; }
 button.primary{ background:#111; color:#fff; border-color:#111; }
 .btn-link{

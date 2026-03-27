@@ -300,6 +300,24 @@
         <button id="db_backup_restore_modal" class="primary">還原選取備份</button>
         <button id="db_backup_delete_modal">刪除選取備份</button>
       </div>
+      <div class="row">
+        <label>批次刪除（單日）</label>
+        <input id="db_backup_delete_date" type="date" />
+      </div>
+      <div class="btns">
+        <button id="db_backup_delete_day">刪除該日全部備份</button>
+      </div>
+      <div class="row">
+        <label>批次刪除（日期區間）</label>
+        <div class="inline-grid">
+          <input id="db_backup_delete_from" type="date" />
+          <span>～</span>
+          <input id="db_backup_delete_to" type="date" />
+        </div>
+      </div>
+      <div class="btns">
+        <button id="db_backup_delete_range">刪除區間備份</button>
+      </div>
       <div class="row top">
         <label>備份原因</label>
         <div id="backup_reason_text" class="hint" style="margin-top:0;">—</div>

@@ -23,6 +23,7 @@ export const ADMIN_API = {
   backupStats: "/admin/catalog/backups/stats",
   backupCreate: "/admin/catalog/backups/create",
   backupRestore: "/admin/catalog/backups/restore",
+  backupBatchDelete: "/admin/catalog/backups/batch-delete",
   backupDelete: (filename) => `/admin/catalog/backups/${encodeURIComponent(filename)}`,
   backupComment: (filename) => `/admin/catalog/backups/${encodeURIComponent(filename)}/comment`,
   ingredientsExport: "/admin/catalog/ingredients/export",
@@ -219,6 +220,21 @@ export function createDbBackup({ reason = "admin_manual_snapshot", comment = "" 
 
 export function deleteDbBackup(backupFilename) {
   return httpJson(ADMIN_API.backupDelete(backupFilename), { method: "DELETE" }, { includeAdminKey: true });
+}
+
+export function deleteDbBackupsByDateRange({ date = "", dateFrom = "", dateTo = "" } = {}) {
+  const payload = {};
+  if (date) {
+    payload.date = date;
+  } else {
+    if (dateFrom) payload.date_from = dateFrom;
+    if (dateTo) payload.date_to = dateTo;
+  }
+  return httpJson(
+    ADMIN_API.backupBatchDelete,
+    { method: "POST", body: JSON.stringify(payload) },
+    { includeAdminKey: true }
+  );
 }
 
 export function getDbBackupStats() {

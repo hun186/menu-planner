@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import shutil
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import List, Optional
@@ -143,6 +143,12 @@ class BackupCommentIn(BaseModel):
 class BackupCreateIn(BaseModel):
     reason: str = Field(default="admin_manual_snapshot", max_length=120)
     comment: str = Field(default="", max_length=500)
+
+
+class BackupBatchDeleteIn(BaseModel):
+    date: Optional[str] = Field(default=None, min_length=10, max_length=10)
+    date_from: Optional[str] = Field(default=None, min_length=10, max_length=10)
+    date_to: Optional[str] = Field(default=None, min_length=10, max_length=10)
 
 
 class DishRenameIn(DishUpsert):
@@ -389,6 +395,27 @@ def _summarize_backup_usage(files: List[dict]) -> dict:
     }
 
 
+def _parse_ymd(value: str, field_name: str) -> date:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"{field_name} 日期格式錯誤，需為 YYYY-MM-DD")
+
+
+def _extract_backup_date_from_filename(filename: str, db_stem: str, db_suffix: str) -> Optional[date]:
+    prefix = f"{db_stem}_"
+    if not filename.startswith(prefix) or not filename.endswith(db_suffix):
+        return None
+    tail = filename[len(prefix):]
+    day_key = tail[:8]
+    if len(day_key) != 8 or not day_key.isdigit():
+        return None
+    try:
+        return datetime.strptime(day_key, "%Y%m%d").date()
+    except Exception:
+        return None
+
+
 @router.get("/backups", dependencies=[Depends(require_admin_key)])
 def list_db_backups(
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -467,6 +494,54 @@ def delete_db_backup(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"刪除備份失敗：{e}")
     return {"ok": True, "deleted": name}
+
+
+@router.post("/backups/batch-delete", dependencies=[Depends(require_admin_key)])
+def batch_delete_db_backups(
+    body: BackupBatchDeleteIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    raw_date = str(body.date or "").strip()
+    raw_from = str(body.date_from or "").strip()
+    raw_to = str(body.date_to or "").strip()
+    if raw_date:
+        date_from = _parse_ymd(raw_date, "date")
+        date_to = date_from
+    else:
+        if not raw_from and not raw_to:
+            raise HTTPException(status_code=400, detail="請提供 date，或提供 date_from/date_to")
+        date_from = _parse_ymd(raw_from or raw_to, "date_from")
+        date_to = _parse_ymd(raw_to or raw_from, "date_to")
+
+    if date_to < date_from:
+        raise HTTPException(status_code=400, detail="date_to 不可早於 date_from")
+
+    db_file = Path(db_path).resolve()
+    backup_dir = db_file.parent / "backups"
+    files = _list_backup_files(db_path)
+    deleted: List[str] = []
+    try:
+        for item in files:
+            name = str(item.get("filename") or "").strip()
+            file_date = _extract_backup_date_from_filename(name, db_file.stem, db_file.suffix or ".db")
+            if file_date is None or not (date_from <= file_date <= date_to):
+                continue
+            target = (backup_dir / name).resolve()
+            if target.parent != backup_dir.resolve() or not target.exists() or not target.is_file():
+                continue
+            target.unlink()
+            remove_backup_metadata(db_path, name)
+            deleted.append(name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"批次刪除備份失敗：{e}")
+
+    return {
+        "ok": True,
+        "date_from": date_from.isoformat(),
+        "date_to": date_to.isoformat(),
+        "deleted_count": len(deleted),
+        "deleted_files": deleted,
+    }
 
 
 @router.patch("/backups/{backup_name}/comment", dependencies=[Depends(require_admin_key)])

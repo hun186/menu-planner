@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createCatalogCache, setCatalogCache } from '../../src/menu_planner/ui_static/shared/catalog_cache.js';
 import { httpJson } from '../../src/menu_planner/ui_static/shared/http.js';
-import { deleteDbBackup, getDbBackupStats, loadCatalog, updateDbBackupComment, upsertIngredient } from '../../src/menu_planner/ui_static/admin/api.js';
+import { deleteDbBackup, deleteDbBackupsByDateRange, getDbBackupStats, loadCatalog, updateDbBackupComment, upsertIngredient } from '../../src/menu_planner/ui_static/admin/api.js';
 
 test('catalog cache + admin api smoke flow with mocked fetch', async () => {
   const calls = [];
@@ -100,9 +100,11 @@ test('backup api helpers call expected endpoints', async () => {
 
   await getDbBackupStats();
   await deleteDbBackup('menu_20260320_120001_000001.db');
+  await deleteDbBackupsByDateRange({ dateFrom: '2026-03-20', dateTo: '2026-03-21' });
   await updateDbBackupComment('menu_20260320_120001_000001.db', 'release before schema update');
 
   assert.ok(calls.some((x) => x.url === '/admin/catalog/backups/stats' && x.options.method === 'GET'));
   assert.ok(calls.some((x) => String(x.url).includes('/admin/catalog/backups/menu_20260320_120001_000001.db') && x.options.method === 'DELETE'));
+  assert.ok(calls.some((x) => x.url === '/admin/catalog/backups/batch-delete' && x.options.method === 'POST'));
   assert.ok(calls.some((x) => String(x.url).includes('/admin/catalog/backups/menu_20260320_120001_000001.db/comment') && x.options.method === 'PATCH'));
 });

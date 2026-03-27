@@ -1,4 +1,4 @@
-import { createDbBackup, deleteDbBackup, deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDbBackupStats, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, renameDish, renameIngredient, restoreDbBackup, searchIngredients, updateDbBackupComment, upsertDish, upsertIngredient } from "./admin/api.js";
+import { createDbBackup, deleteDbBackup, deleteDbBackupsByDateRange, deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDbBackupStats, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, renameDish, renameIngredient, restoreDbBackup, searchIngredients, updateDbBackupComment, upsertDish, upsertIngredient } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -195,9 +195,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   }
 
   function renderBackupOptions() {
-    const selectedMain = ($("#db_backup_select").val() || "").trim();
-    const selectedModal = ($("#db_backup_select_modal").val() || "").trim();
-    const selected = selectedMain || selectedModal;
+    const selected = resolveSelectedBackup();
     const $allSelects = $("#db_backup_select, #db_backup_select_modal").empty();
     const filteredBackups = getFilteredBackups();
     if (!filteredBackups.length) {
@@ -218,6 +216,18 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     } else if (filteredBackups[0]?.filename) {
       $("#db_backup_select, #db_backup_select_modal").val(filteredBackups[0].filename);
     }
+  }
+
+  function resolveSelectedBackup(preferred = "") {
+    const fromPreferred = String(preferred || "").trim();
+    if (fromPreferred) return fromPreferred;
+
+    const selectedMain = ($("#db_backup_select").val() || "").trim();
+    const selectedModal = ($("#db_backup_select_modal").val() || "").trim();
+    const activeId = document?.activeElement?.id || "";
+    if (activeId === "db_backup_select_modal") return selectedModal || selectedMain;
+    if (activeId === "db_backup_select") return selectedMain || selectedModal;
+    return selectedModal || selectedMain;
   }
 
   function formatBytes(sizeBytes) {
@@ -243,10 +253,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     $("#backup_usage_info").text(text).toggleClass("warn-text", over);
   }
 
-  function syncSelectedBackupMeta() {
-    const selectedMain = ($("#db_backup_select").val() || "").trim();
-    const selectedModal = ($("#db_backup_select_modal").val() || "").trim();
-    const selected = selectedMain || selectedModal;
+  function syncSelectedBackupMeta(preferred = "") {
+    const selected = resolveSelectedBackup(preferred);
     $("#db_backup_select, #db_backup_select_modal").val(selected);
     const item = backupFiles.find((x) => (x?.filename || "") === selected) || null;
     const reasonCode = String(item?.action_reason || "").trim();
@@ -266,6 +274,15 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       ? `最近資訊：時間 ${modifiedAt}｜大小 ${fileSize}｜原因 ${reason}`
       : "最近資訊：尚未選取備份檔。";
     $("#backup_basic_info").text(basic);
+  }
+
+  async function runBatchDeleteBackups({ date = "", dateFrom = "", dateTo = "", confirmText = "" } = {}) {
+    if (!confirm(confirmText || "確定執行批次刪除備份？\n此操作無法復原。")) return false;
+    const result = await deleteDbBackupsByDateRange({ date, dateFrom, dateTo });
+    await refreshBackupList();
+    const count = Number(result?.deleted_count || 0);
+    setMsg($(DOM.msgBackupModal), `批次刪除完成，共刪除 ${count} 筆備份。`, false);
+    return true;
   }
 
   async function refreshBackupList() {
@@ -1086,11 +1103,13 @@ function todayStr() {
     });
 
     $("#db_backup_select").on("change", () => {
-      syncSelectedBackupMeta();
+      const selected = ($("#db_backup_select").val() || "").trim();
+      syncSelectedBackupMeta(selected);
     });
 
     $("#db_backup_select_modal").on("change", () => {
-      syncSelectedBackupMeta();
+      const selected = ($("#db_backup_select_modal").val() || "").trim();
+      syncSelectedBackupMeta(selected);
     });
 
     $("#db_backup_save_comment").on("click", async () => {
@@ -1136,6 +1155,30 @@ function todayStr() {
         await deleteDbBackup(selected);
         await refreshBackupList();
       }, "已刪除備份檔。");
+    });
+
+    $("#db_backup_delete_day").on("click", async () => {
+      await runWithMsg(DOM.msgBackupModal, async () => {
+        const date = ($("#db_backup_delete_date").val() || "").trim();
+        if (!date) throw new Error("請先選擇要刪除的日期。");
+        await runBatchDeleteBackups({
+          date,
+          confirmText: `確定刪除 ${date} 的全部備份？\n此操作無法復原。`,
+        });
+      });
+    });
+
+    $("#db_backup_delete_range").on("click", async () => {
+      await runWithMsg(DOM.msgBackupModal, async () => {
+        const dateFrom = ($("#db_backup_delete_from").val() || "").trim();
+        const dateTo = ($("#db_backup_delete_to").val() || "").trim();
+        if (!dateFrom && !dateTo) throw new Error("請至少選擇起日或迄日。");
+        await runBatchDeleteBackups({
+          dateFrom,
+          dateTo,
+          confirmText: `確定刪除 ${dateFrom || dateTo} 到 ${dateTo || dateFrom} 的備份？\n此操作無法復原。`,
+        });
+      });
     });
 
     $("#modal_close").on("click", () => $("#modal").addClass("hide"));

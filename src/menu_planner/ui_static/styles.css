@@ -278,6 +278,11 @@ textarea{
 }
 
 .inline.left{ justify-content:flex-start; }
+.inline-grid{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
 select{
   padding:6px 8px;
   border:1px solid #e6e6e6;

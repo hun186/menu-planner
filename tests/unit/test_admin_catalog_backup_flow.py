@@ -269,6 +269,69 @@ def test_delete_db_backup_deletes_selected_file(tmp_path):
     assert not target.exists()
 
 
+def test_batch_delete_db_backups_by_single_day(tmp_path):
+    db = tmp_path / "menu.db"
+    db.write_text("live-db", encoding="utf-8")
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    keep = backup_dir / "menu_20260319_120001_000001.db"
+    delete_a = backup_dir / "menu_20260320_120001_000001.db"
+    delete_b = backup_dir / "menu_20260320_130001_000001.db"
+    keep.write_text("k", encoding="utf-8")
+    delete_a.write_text("a", encoding="utf-8")
+    delete_b.write_text("b", encoding="utf-8")
+
+    resp = admin_catalog.batch_delete_db_backups(
+        admin_catalog.BackupBatchDeleteIn(date="2026-03-20"),
+        db_path=str(db),
+    )
+
+    assert resp["ok"] is True
+    assert resp["deleted_count"] == 2
+    assert sorted(resp["deleted_files"]) == sorted([delete_a.name, delete_b.name])
+    assert keep.exists()
+    assert not delete_a.exists()
+    assert not delete_b.exists()
+
+
+def test_batch_delete_db_backups_by_date_range(tmp_path):
+    db = tmp_path / "menu.db"
+    db.write_text("live-db", encoding="utf-8")
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    keep = backup_dir / "menu_20260322_120001_000001.db"
+    delete_a = backup_dir / "menu_20260320_120001_000001.db"
+    delete_b = backup_dir / "menu_20260321_130001_000001.db"
+    keep.write_text("k", encoding="utf-8")
+    delete_a.write_text("a", encoding="utf-8")
+    delete_b.write_text("b", encoding="utf-8")
+
+    resp = admin_catalog.batch_delete_db_backups(
+        admin_catalog.BackupBatchDeleteIn(date_from="2026-03-20", date_to="2026-03-21"),
+        db_path=str(db),
+    )
+
+    assert resp["ok"] is True
+    assert resp["deleted_count"] == 2
+    assert keep.exists()
+    assert not delete_a.exists()
+    assert not delete_b.exists()
+
+
+def test_batch_delete_db_backups_invalid_date_range_raises(tmp_path):
+    db = tmp_path / "menu.db"
+    db.write_text("live-db", encoding="utf-8")
+
+    with pytest.raises(HTTPException) as ex:
+        admin_catalog.batch_delete_db_backups(
+            admin_catalog.BackupBatchDeleteIn(date_from="2026-03-21", date_to="2026-03-20"),
+            db_path=str(db),
+        )
+
+    assert ex.value.status_code == 400
+    assert ex.value.detail == "date_to 不可早於 date_from"
+
+
 def test_get_db_backup_stats_warns_after_500mb(tmp_path):
     db = tmp_path / "menu.db"
     db.write_text("live-db", encoding="utf-8")

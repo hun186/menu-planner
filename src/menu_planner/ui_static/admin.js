@@ -2,6 +2,17 @@ import { createDbBackup, deleteDbBackup, deleteDbBackupsByDateRange, deleteDish,
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
+import { createIngredientLookup } from "./admin/ingredient_lookup.js";
+import {
+  clearFields,
+  clearMsg as clearMsgUi,
+  debounce,
+  downloadExcelFromResponse,
+  runWithMsg as runWithMsgUi,
+  scrollToEditor,
+  setMsg as setMsgUi,
+  syncEditorPaneHeights,
+} from "./admin/ui_helpers.js";
 import {
   buildDishCostWarningTitle,
   compareNullable,
@@ -33,7 +44,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
 
   let editingIngredientId = null;
   let editingDishId = null;
-  let ingLabelToId = new Map();
   let editingIngId = null;
   let dishCostById = new Map();
   let backupFiles = [];
@@ -58,87 +68,21 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   const ingredientPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
   const dishPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "", ingredientId: "", ingredientLabel: "" };
   let catalogLoadSeq = 0;
-  let ingredientSuggestSeq = 0;
+  const setStatusMsg = (el, text, isError) => setMsgUi(syncEditorPaneHeights, el, text, isError);
+  const clearStatusMsg = (selector) => clearMsgUi(setStatusMsg, selector);
+  const withStatusMsg = (msgSelector, fn, successText) => runWithMsgUi(setStatusMsg, msgSelector, fn, successText);
+  const { rebuildIngredientDatalist, resolveIngredientId, debouncedSuggestIngredients } = createIngredientLookup({
+    catalog,
+    searchIngredients,
+    escapeHtml,
+    debounce,
+  });
 
   function readInitialIngredientQuery() {
     const params = new URLSearchParams(window.location.search || "");
     return (params.get("q") || "").trim();
   }
   
-  function setMsg($el, text, isError) {
-    $el.css("color", isError ? "#b42318" : "#1a7f37").text(text || "");
-    requestAnimationFrame(syncEditorPaneHeights);
-  }
-
-  function clearMsg(selector) {
-    setMsg($(selector), "", false);
-  }
-
-  function clearFields(selector) {
-    $(selector).val("");
-  }
-
-  function scrollToEditor(editorSelector, focusSelector) {
-    const el = document.querySelector(editorSelector);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    if (focusSelector) {
-      $(focusSelector).trigger("focus");
-    }
-  }
-
-  async function runWithMsg(msgSelector, fn, successText) {
-    try {
-      const result = await fn();
-      if (result === false) return;
-      if (successText) {
-        setMsg($(msgSelector), successText, false);
-      }
-    } catch (e) {
-      setMsg($(msgSelector), e.message || String(e), true);
-    }
-  }
-
-
-  function syncEditorPaneHeights() {
-    const panes = Array.from(document.querySelectorAll(".manage-card .editor-pane"));
-    if (!panes.length) return;
-
-    panes.forEach((pane) => {
-      pane.style.minHeight = "0px";
-    });
-
-    const maxBottom = panes.reduce((mx, pane) => Math.max(mx, pane.offsetTop + pane.offsetHeight), 0);
-    panes.forEach((pane) => {
-      const targetHeight = Math.max(0, maxBottom - pane.offsetTop);
-      pane.style.minHeight = `${targetHeight}px`;
-    });
-  }
-
-  function debounce(fn, wait = 300) {
-    let timer = null;
-    return (...args) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => fn(...args), wait);
-    };
-  }
-
-  async function downloadExcelFromResponse(res) {
-    const blob = await res.blob();
-    const contentDisposition = res.headers.get("Content-Disposition") || "";
-    const match = contentDisposition.match(/filename=\"([^\"]+)\"/i);
-    const filename = match?.[1] || "export.xlsx";
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  }
-
   async function reloadCatalog() {
     const requestSeq = ++catalogLoadSeq;
     const { ingredients, dishes } = await loadCatalogPage({
@@ -258,7 +202,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     const result = await deleteDbBackupsByDateRange({ date, dateFrom, dateTo });
     await refreshBackupList();
     const count = Number(result?.deleted_count || 0);
-    setMsg($(DOM.msgBackupModal), `批次刪除完成，共刪除 ${count} 筆備份。`, false);
+    setStatusMsg($(DOM.msgBackupModal), `批次刪除完成，共刪除 ${count} 筆備份。`, false);
     return true;
   }
 
@@ -317,21 +261,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     };
   }
   
-  function rebuildIngredientDatalist(items = []) {
-    ingLabelToId = new Map();
-    const $dl = $("#dl_ingredients").empty();
-  
-    items.forEach(x => {
-      // 顯示用：分類｜名稱 (id) 讓人更好辨認
-      const label = `${x.category}｜${x.name} (${x.id})`;
-      ingLabelToId.set(label, x.id);
-  
-      // datalist option 的 value 就放 label
-      $dl.append(`<option value="${escapeHtml(label)}"></option>`);
-    });
-  }
-
-
   function normalizeTags(s) {
     const t = (s || "").trim();
     if (!t) return [];
@@ -399,12 +328,12 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         $("#ing_category").val(x.category);
         $("#ing_protein").val(x.protein_group || "");
         $("#ing_unit").val(x.default_unit);
-        clearMsg(DOM.msgIng);
+        clearStatusMsg(DOM.msgIng);
         scrollToEditor(".grid .manage-card:first-child .editor-pane", "#ing_name");
       });
 	  
       $tr.find(".btn_meta").on("click", async () => {
-        await runWithMsg(DOM.msgIng, async () => {
+        await withStatusMsg(DOM.msgIng, async () => {
           await openIngMeta(x.id);
         });
       });
@@ -414,7 +343,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       });
 
       $tr.find(".btn_find_dishes").on("click", async () => {
-        await runWithMsg(DOM.msgDish, async () => {
+        await withStatusMsg(DOM.msgDish, async () => {
           await applyDishIngredientFilter(x.id, x.name);
           document.getElementById("dish_ing_filter")?.scrollIntoView({ behavior: "smooth", block: "center" });
           $("#dish_ing_filter").trigger("focus");
@@ -423,7 +352,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
 
       $tr.find(".btn_del").on("click", async () => {
         if (!confirm(`確定刪除食材：${x.name}（${x.id}）？`)) return;
-        await runWithMsg(DOM.msgIng, async () => {
+        await withStatusMsg(DOM.msgIng, async () => {
           await deleteIngredient(x.id);
           await reloadCatalog();
           renderAll();
@@ -485,13 +414,13 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
           try { return JSON.parse(x.tags_json || "[]"); } catch { return []; }
         })();
         $("#dish_tags").val(Array.isArray(tags) ? JSON.stringify(tags) : "[]");
-        clearMsg(DOM.msgDish);
+        clearStatusMsg(DOM.msgDish);
         scrollToEditor(".grid .manage-card:nth-child(2) .editor-pane", "#dish_name");
       });
 
       $tr.find(".btn_del").on("click", async () => {
         if (!confirm(`確定刪除菜色：${x.name}（${x.id}）？`)) return;
-        await runWithMsg(DOM.msgDish, async () => {
+        await withStatusMsg(DOM.msgDish, async () => {
           await deleteDish(x.id);
           await reloadCatalog();
           renderAll();
@@ -499,7 +428,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       });
 
       $tr.find(".btn_ing").on("click", async () => {
-        await runWithMsg(DOM.msgDish, async () => {
+        await withStatusMsg(DOM.msgDish, async () => {
           await openDishIngredients(x.id);
         });
       });
@@ -514,41 +443,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     syncEditorPaneHeights();
   }
 
-  function resolveIngredientId(inputText) {
-    const t = (inputText || "").trim();
-    if (!t) return null;
-  
-    // 1) 直接輸入 ID
-    if (catalog.ingById.has(t)) return t;
-  
-    // 2) 從 "... (id)" 抓 id
-    const m = t.match(/\(([^()]+)\)\s*$/);
-    if (m) return m[1];
-  
-    // 3) 完整 label
-    if (ingLabelToId.has(t)) return ingLabelToId.get(t);
-
-    // 4) 最後：若只輸入名稱，嘗試唯一匹配（僅當前頁資料）
-    const exact = catalog.ingredients.filter(x => x.name === t);
-    if (exact.length === 1) return exact[0].id;
-
-    // 5) 退而求其次：允許看起來像 ID 的值（後端會最終驗證）
-    return /^[\w.-]+$/u.test(t) ? t : null;
-  }
-
-  const debouncedSuggestIngredients = debounce(async (keyword) => {
-    if (!keyword) {
-      // 未輸入時不預載部分清單，避免誤以為食材只有這些
-      ingredientSuggestSeq += 1;
-      rebuildIngredientDatalist([]);
-      return;
-    }
-    const requestSeq = ++ingredientSuggestSeq;
-    const items = await searchIngredients(keyword, 20).catch(() => []);
-    if (requestSeq !== ingredientSuggestSeq) return;
-    rebuildIngredientDatalist(items);
-  }, 250);
-  
   async function saveIngredient() {
     const sourceId = ($("#ing_source_id").val() || "").trim();
     const id = ($("#ing_id").val() || "").trim() || genId("ing");
@@ -640,7 +534,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     const $unit = $(`<input class="di_unit" type="text">`).val(row?.unit ?? "g");
     const $openIng = $(`<button type="button" class="di_open_ing">食材管理</button>`);
     $openIng.on("click", async () => {
-      await runWithMsg(DOM.msgDishIngredients, async () => {
+      await withStatusMsg(DOM.msgDishIngredients, async () => {
         await filterIngredientListFromDishRow($ing);
       });
     });
@@ -661,7 +555,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     const dish = catalog.dishById.get(dishId);
     $("#modal_title").text(`編輯菜色食材：${dish?.name || ""}（${dishId}）`);
     $("#di_tbl tbody").empty();
-    clearMsg(DOM.msgDishIngredients);
+    clearStatusMsg(DOM.msgDishIngredients);
 
     const items = await getDishIngredients(dishId);
     (Array.isArray(items) ? items : []).forEach(r => addDishIngRow(r));
@@ -691,7 +585,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     ingredientPager.page = 1;
     $("#ing_q").val(keyword);
     clearFields(DOM.ingredientEditorFields);
-    clearMsg(DOM.msgIng);
+    clearStatusMsg(DOM.msgIng);
     await reloadCatalog();
     renderAll();
     $("#modal").addClass("hide");
@@ -748,7 +642,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   async function refreshDishCostPreview() {
     const rows = collectDishIngredientRows();
     if (!rows.length) {
-      setMsg($(DOM.msgDishCost), "尚無有效食材用量，無法估算成本。", true);
+      setStatusMsg($(DOM.msgDishCost), "尚無有效食材用量，無法估算成本。", true);
       return;
     }
 
@@ -761,7 +655,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     const warningText = warningCount > 0
       ? `（⚠️ ${warningCount} 項警示：可能是單位對不上或缺價格${warningDetail}）`
       : "";
-    setMsg($(DOM.msgDishCost), `預估 1 人份成本：${preview.per_serving_cost.toFixed(2)} ${warningText}`, warningCount > 0);
+    setStatusMsg($(DOM.msgDishCost), `預估 1 人份成本：${preview.per_serving_cost.toFixed(2)} ${warningText}`, warningCount > 0);
   }
 
   function addPriceRow(row) {
@@ -785,7 +679,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
           await deleteIngredientPrice(editingIngId, date);
           $tr.remove();
         } catch (e) {
-          setMsg($(DOM.msgIngMeta), e.message || String(e), true);
+          setStatusMsg($(DOM.msgIngMeta), e.message || String(e), true);
         }
       } else {
         $tr.remove();
@@ -799,7 +693,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     editingIngId = ingId;
     const ing = catalog.ingById.get(ingId);
     $("#modal_ing_title").text(`價格/庫存：${ing?.name || ""}（${ingId}）`);
-    clearMsg(DOM.msgIngMeta);
+    clearStatusMsg(DOM.msgIngMeta);
   
     // inventory
     const inv = await getIngredientInventory(ingId).catch(() => null);
@@ -866,7 +760,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       debouncedSuggestIngredients(keyword);
     });
     $("#dish_ing_filter_apply").on("click", async () => {
-      await runWithMsg(DOM.msgDish, async () => {
+      await withStatusMsg(DOM.msgDish, async () => {
         const rawText = ($("#dish_ing_filter").val() || "").trim();
         const resolvedId = resolveIngredientId(rawText);
         if (!resolvedId) {
@@ -882,7 +776,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     });
 
     $("#dish_ing_filter_clear").on("click", async () => {
-      await runWithMsg(DOM.msgDish, async () => {
+      await withStatusMsg(DOM.msgDish, async () => {
         dishPager.ingredientId = "";
         dishPager.ingredientLabel = "";
         dishPager.page = 1;
@@ -952,7 +846,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       editingIngredientId = null;
       $("#ing_source_id").val("");
       clearFields(DOM.ingredientEditorFields);
-      clearMsg(DOM.msgIng);
+      clearStatusMsg(DOM.msgIng);
     });
 
     $("#dish_clear").on("click", () => {
@@ -960,55 +854,55 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       $("#dish_source_id").val("");
       clearFields(DOM.dishEditorFields);
       $("#dish_role").val("main");
-      clearMsg(DOM.msgDish);
+      clearStatusMsg(DOM.msgDish);
     });
 
     $("#ing_save").on("click", async () => {
-      await runWithMsg(DOM.msgIng, async () => {
+      await withStatusMsg(DOM.msgIng, async () => {
         await saveIngredient();
       }, "已儲存食材。");
     });
 
     $("#dish_save").on("click", async () => {
-      await runWithMsg(DOM.msgDish, async () => {
+      await withStatusMsg(DOM.msgDish, async () => {
         await saveDish();
       }, "已儲存菜色。");
     });
 
     $("#ing_export_excel").on("click", async () => {
-      await runWithMsg(DOM.msgIng, async () => {
+      await withStatusMsg(DOM.msgIng, async () => {
         const res = await exportIngredientsExcel({ q: ingredientPager.q });
         await downloadExcelFromResponse(res);
       }, "食材 Excel 匯出完成。");
     });
 
     $("#dish_export_excel").on("click", async () => {
-      await runWithMsg(DOM.msgDish, async () => {
+      await withStatusMsg(DOM.msgDish, async () => {
         const res = await exportDishesExcel({ q: dishPager.q, ingredientId: dishPager.ingredientId });
         await downloadExcelFromResponse(res);
       }, "菜名 Excel 匯出完成。");
     });
 
     $("#db_backup_reload").on("click", async () => {
-      await runWithMsg(DOM.msgBackup, async () => {
+      await withStatusMsg(DOM.msgBackup, async () => {
         await refreshBackupList();
       }, `已載入備份清單，共 ${backupFiles.length} 筆。`);
     });
 
     $("#db_backup_manage").on("click", () => {
-      clearMsg(DOM.msgBackupModal);
+      clearStatusMsg(DOM.msgBackupModal);
       $("#modal_backup").removeClass("hide");
     });
 
     $("#db_backup_create").on("click", async () => {
-      await runWithMsg(DOM.msgBackup, async () => {
+      await withStatusMsg(DOM.msgBackup, async () => {
         const created = await createBackupByPrompt();
         if (!created) throw new Error("已取消建立備份。");
       }, "已建立手動備份。");
     });
 
     $("#db_backup_restore").on("click", async () => {
-      await runWithMsg(DOM.msgBackup, async () => {
+      await withStatusMsg(DOM.msgBackup, async () => {
         const selected = ($("#db_backup_select").val() || "").trim();
         if (!selected) throw new Error("請先選擇備份檔。");
         if (!confirm(`確定還原備份檔：${selected}？\n還原前會先備份目前資料庫。`)) return false;
@@ -1020,7 +914,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     });
 
     $("#db_backup_delete").on("click", async () => {
-      await runWithMsg(DOM.msgBackup, async () => {
+      await withStatusMsg(DOM.msgBackup, async () => {
         const selected = ($("#db_backup_select").val() || "").trim();
         if (!selected) throw new Error("請先選擇要刪除的備份檔。");
         if (!confirm(`確定刪除備份檔：${selected}？\n此操作無法復原。`)) return false;
@@ -1040,7 +934,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     });
 
     $("#db_backup_save_comment").on("click", async () => {
-      await runWithMsg(DOM.msgBackupModal, async () => {
+      await withStatusMsg(DOM.msgBackupModal, async () => {
         const selected = ($("#db_backup_select_modal").val() || $("#db_backup_select").val() || "").trim();
         if (!selected) throw new Error("請先選擇要註解的備份檔。");
         const comment = ($("#db_backup_comment").val() || "").trim();
@@ -1050,20 +944,20 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     });
 
     $("#db_backup_reload_modal").on("click", async () => {
-      await runWithMsg(DOM.msgBackupModal, async () => {
+      await withStatusMsg(DOM.msgBackupModal, async () => {
         await refreshBackupList();
       }, `已載入備份清單，共 ${backupFiles.length} 筆。`);
     });
 
     $("#db_backup_create_modal").on("click", async () => {
-      await runWithMsg(DOM.msgBackupModal, async () => {
+      await withStatusMsg(DOM.msgBackupModal, async () => {
         const created = await createBackupByPrompt();
         if (!created) throw new Error("已取消建立備份。");
       }, "已建立手動備份。");
     });
 
     $("#db_backup_restore_modal").on("click", async () => {
-      await runWithMsg(DOM.msgBackupModal, async () => {
+      await withStatusMsg(DOM.msgBackupModal, async () => {
         const selected = ($("#db_backup_select_modal").val() || "").trim();
         if (!selected) throw new Error("請先選擇備份檔。");
         if (!confirm(`確定還原備份檔：${selected}？\n還原前會先備份目前資料庫。`)) return false;
@@ -1075,7 +969,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     });
 
     $("#db_backup_delete_modal").on("click", async () => {
-      await runWithMsg(DOM.msgBackupModal, async () => {
+      await withStatusMsg(DOM.msgBackupModal, async () => {
         const selected = ($("#db_backup_select_modal").val() || "").trim();
         if (!selected) throw new Error("請先選擇要刪除的備份檔。");
         if (!confirm(`確定刪除備份檔：${selected}？\n此操作無法復原。`)) return false;
@@ -1085,7 +979,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     });
 
     $("#db_backup_delete_day").on("click", async () => {
-      await runWithMsg(DOM.msgBackupModal, async () => {
+      await withStatusMsg(DOM.msgBackupModal, async () => {
         const date = ($("#db_backup_delete_date").val() || "").trim();
         if (!date) throw new Error("請先選擇要刪除的日期。");
         await runBatchDeleteBackups({
@@ -1096,7 +990,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     });
 
     $("#db_backup_delete_range").on("click", async () => {
-      await runWithMsg(DOM.msgBackupModal, async () => {
+      await withStatusMsg(DOM.msgBackupModal, async () => {
         const dateFrom = ($("#db_backup_delete_from").val() || "").trim();
         const dateTo = ($("#db_backup_delete_to").val() || "").trim();
         if (!dateFrom && !dateTo) throw new Error("請至少選擇起日或迄日。");
@@ -1111,12 +1005,12 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     $("#modal_close").on("click", () => $("#modal").addClass("hide"));
     $("#di_add").on("click", () => addDishIngRow(null));
     $("#di_preview_cost").on("click", async () => {
-      await runWithMsg(DOM.msgDishCost, async () => {
+      await withStatusMsg(DOM.msgDishCost, async () => {
         await refreshDishCostPreview();
       });
     });
     $("#di_save").on("click", async () => {
-      await runWithMsg(DOM.msgDishIngredients, async () => {
+      await withStatusMsg(DOM.msgDishIngredients, async () => {
         await saveDishIngredients();
         await reloadDishCostPreview(catalog.dishes.map(x => x.id));
         renderDishes();
@@ -1129,7 +1023,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     bindBackupFilterEvents();
     
     $("#inv_save").on("click", async () => {
-      await runWithMsg(DOM.msgIngMeta, async () => {
+      await withStatusMsg(DOM.msgIngMeta, async () => {
         const body = {
           qty_on_hand: parseFloat($("#inv_qty").val() || "0"),
           unit: ($("#inv_unit").val() || "").trim(),
@@ -1144,7 +1038,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     $("#price_add").on("click", () => addPriceRow(null));
     
     $("#price_save").on("click", async () => {
-      await runWithMsg(DOM.msgIngMeta, async () => {
+      await withStatusMsg(DOM.msgIngMeta, async () => {
         const ops = [];
         $("#price_tbl tbody tr").each(function () {
           const d = $(this).find(".p_date").val();

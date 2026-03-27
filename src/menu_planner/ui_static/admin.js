@@ -52,19 +52,19 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   let backupFiles = [];
   let backupStats = { count: 0, total_size_bytes: 0, warning_threshold_bytes: 500 * 1024 * 1024, is_over_warning_threshold: false };
   const backupReasonLabels = new Map([
-    ["admin_modify_before_change", "管理端修改前備份"],
-    ["admin_restore_pre_snapshot", "還原前快照備份"],
+    ["admin_modify_before_change", "管理端修改前自動備份"],
+    ["admin_restore_pre_snapshot", "還原前自動備份快照"],
     ["admin_manual_snapshot", "手動建立備份"],
-    ["ingredient_upsert", "食材新增/編輯"],
-    ["ingredient_delete", "食材刪除"],
-    ["ingredient_rename", "食材更名"],
-    ["ingredient_price_upsert", "食材價格更新"],
-    ["ingredient_price_delete", "食材價格刪除"],
-    ["ingredient_inventory_upsert", "庫存更新"],
-    ["dish_upsert", "菜色新增/編輯"],
-    ["dish_delete", "菜色刪除"],
-    ["dish_rename", "菜色更名"],
-    ["dish_ingredients_replace", "菜色食材清單更新"],
+    ["ingredient_upsert", "食材新增/編輯前自動備份"],
+    ["ingredient_delete", "食材刪除前自動備份"],
+    ["ingredient_rename", "食材更名前自動備份"],
+    ["ingredient_price_upsert", "食材價格更新前自動備份"],
+    ["ingredient_price_delete", "食材價格刪除前自動備份"],
+    ["ingredient_inventory_upsert", "庫存更新前自動備份"],
+    ["dish_upsert", "菜色新增/編輯前自動備份"],
+    ["dish_delete", "菜色刪除前自動備份"],
+    ["dish_rename", "菜色更名前自動備份"],
+    ["dish_ingredients_replace", "菜色食材清單更新前自動備份"],
   ]);
   const ingredientSort = { key: "id", direction: "asc" };
   const dishSort = { key: "id", direction: "asc" };

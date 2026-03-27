@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Code Size Report @ menu-planner</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", Arial; margin: 18px; color: #111; }
+  .meta { color:#555; font-size: 13px; margin-bottom: 10px; }  .tip {
+    position: fixed; left: 0; top: 0;
+    background: rgba(20,20,20,0.92); color: #fff; padding: 10px 12px;
+    border-radius: 10px; font-size: 12px; line-height: 1.35;
+    white-space: pre-wrap; word-break: break-word;
+    display: none; z-index: 9999;
+    max-width: min(56vw, 560px);
+    max-height: 55vh;
+    overflow: auto;
+    pointer-events: none;
+  }
+  .legend { font-size: 13px; color:#444; margin: 8px 0 14px; }
+  .box { border: 1px solid #e5e5e5; border-radius: 14px; padding: 14px; }
+  svg { width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<h2 style="margin:0 0 6px;">Code Size Report @ menu-planner</h2>
+<div class="meta">產生時間：2026-03-27 15:33:39　｜　點大小約等於 log(bytes)　｜　滑過泡泡看檔案資訊</div>
+<div class="legend">建議先看右上角（函式多、程式行也多）與「Y 很高但 X 很低」（巨型檔 / 巨型函式密度偏高）。</div>
+
+<div class="box">
+  <svg viewBox="0 0 1100 700" role="img" aria-label="bubble scatter">
+    <line x1="60" y1="640" x2="1040" y2="640" stroke="#999" />
+<line x1="60" y1="60" x2="60" y2="640" stroke="#999" />
+<line x1="60.0" y1="640" x2="60.0" y2="646" stroke="#999" />
+<text x="60.0" y="662" font-size="12" text-anchor="middle" fill="#333">0</text>
+<line x1="251.21951219512195" y1="640" x2="251.21951219512195" y2="646" stroke="#999" />
+<text x="251.21951219512195" y="662" font-size="12" text-anchor="middle" fill="#333">8</text>
+<line x1="442.4390243902439" y1="640" x2="442.4390243902439" y2="646" stroke="#999" />
+<text x="442.4390243902439" y="662" font-size="12" text-anchor="middle" fill="#333">16</text>
+<line x1="633.6585365853658" y1="640" x2="633.6585365853658" y2="646" stroke="#999" />
+<text x="633.6585365853658" y="662" font-size="12" text-anchor="middle" fill="#333">24</text>
+<line x1="824.8780487804878" y1="640" x2="824.8780487804878" y2="646" stroke="#999" />
+<text x="824.8780487804878" y="662" font-size="12" text-anchor="middle" fill="#333">32</text>
+<line x1="1016.0975609756098" y1="640" x2="1016.0975609756098" y2="646" stroke="#999" />
+<text x="1016.0975609756098" y="662" font-size="12" text-anchor="middle" fill="#333">40</text>
+<line x1="54" y1="640.0" x2="60" y2="640.0" stroke="#999" />
+<text x="50" y="644.0" font-size="12" text-anchor="end" fill="#333">0</text>
+<line x1="54" y1="524.2114858705561" x2="60" y2="524.2114858705561" stroke="#999" />
+<text x="50" y="528.2114858705561" font-size="12" text-anchor="end" fill="#333">219</text>
+<line x1="54" y1="408.4229717411121" x2="60" y2="408.4229717411121" stroke="#999" />
+<text x="50" y="412.4229717411121" font-size="12" text-anchor="end" fill="#333">438</text>
+<line x1="54" y1="292.6344576116682" x2="60" y2="292.6344576116682" stroke="#999" />
+<text x="50" y="296.6344576116682" font-size="12" text-anchor="end" fill="#333">657</text>
+<line x1="54" y1="176.84594348222424" x2="60" y2="176.84594348222424" stroke="#999" />
+<text x="50" y="180.84594348222424" font-size="12" text-anchor="end" fill="#333">876</text>
+<line x1="54" y1="61.05742935278033" x2="60" y2="61.05742935278033" stroke="#999" />
+<text x="50" y="65.05742935278033" font-size="12" text-anchor="end" fill="#333">1095</text>
+<text x="550.0" y="685" font-size="14" text-anchor="middle" fill="#111">functions（函式數）</text>
+<text x="18" y="350.0" font-size="14" text-anchor="middle" fill="#111" transform="rotate(-90 18 350.0)">code_lines（有效程式行）</text>
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\api\index.py
+code_lines=2, functions=0, classes=0
+lines/func=inf, bytes=101" cx="60.00" cy="638.94" r="10.01" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\data\taskSetting_MenuAnalysis.py
+code_lines=244, functions=0, classes=0
+lines/func=inf, bytes=17220" cx="60.00" cy="510.99" r="16.71" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\scripts\generate_360_day_plan.py
+code_lines=58, functions=3, classes=0
+lines/func=19.3, bytes=2712" cx="131.71" cy="609.33" r="14.30" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\scripts\json_to_sqlite - 複製 (2).py
+code_lines=430, functions=22, classes=0
+lines/func=19.5, bytes=18471" cx="585.85" cy="412.65" r="16.80" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\scripts\json_to_sqlite - 複製.py
+code_lines=300, functions=15, classes=0
+lines/func=20.0, bytes=11758" cx="418.54" cy="481.39" r="16.21" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\scripts\data\json_to_sqlite.py
+code_lines=696, functions=29, classes=0
+lines/func=24.0, bytes=31352" cx="753.17" cy="272.01" r="17.49" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\scripts\data\sqlite_to_excel.py
+code_lines=71, functions=5, classes=0
+lines/func=14.2, bytes=3556" cx="179.51" cy="602.46" r="14.65" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\scripts\validation\e2e_export_excel_check.py
+code_lines=83, functions=3, classes=0
+lines/func=27.7, bytes=3133" cx="131.71" cy="596.12" r="14.49" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\scripts\validation\playwright_admin_backup_panel.py
+code_lines=34, functions=2, classes=0
+lines/func=17.0, bytes=1650" cx="107.80" cy="622.02" r="13.65" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\scripts\validation\playwright_ui_smoke.py
+code_lines=44, functions=2, classes=0
+lines/func=22.0, bytes=1844" cx="107.80" cy="616.74" r="13.80" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\__init__.py
+code_lines=0, functions=0, classes=0
+lines/func=0.0, bytes=0" cx="60.00" cy="640.00" r="4.00" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\api\export_excel.py
+code_lines=297, functions=11, classes=0
+lines/func=27.0, bytes=13391" cx="322.93" cy="482.97" r="16.38" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\api\main - 複製.py
+code_lines=42, functions=0, classes=0
+lines/func=inf, bytes=1779" cx="60.00" cy="617.79" r="13.75" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\api\main.py
+code_lines=189, functions=16, classes=0
+lines/func=11.8, bytes=8405" cx="442.44" cy="540.07" r="15.77" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\api\procurement.py
+code_lines=138, functions=6, classes=0
+lines/func=23.0, bytes=6090" cx="203.41" cy="567.04" r="15.35" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\api\routes\admin_catalog.py
+code_lines=664, functions=41, classes=13
+lines/func=16.2, bytes=28884" cx="1040.00" cy="288.93" r="17.38" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\config\loader.py
+code_lines=92, functions=2, classes=0
+lines/func=46.0, bytes=3789" cx="107.80" cy="591.36" r="14.74" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\db\admin_repo.py
+code_lines=859, functions=36, classes=1
+lines/func=23.9, bytes=36870" cx="920.49" cy="185.83" r="17.70" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\db\backup.py
+code_lines=119, functions=8, classes=0
+lines/func=14.9, bytes=4460" cx="251.22" cy="577.08" r="14.95" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\db\repo.py
+code_lines=231, functions=15, classes=6
+lines/func=15.4, bytes=8927" cx="418.54" cy="517.87" r="15.85" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\engine\backtracking.py
+code_lines=778, functions=10, classes=1
+lines/func=77.8, bytes=35148" cx="299.02" cy="228.66" r="17.64" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\engine\constraints.py
+code_lines=283, functions=14, classes=1
+lines/func=20.2, bytes=11405" cx="394.63" cy="490.37" r="16.17" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\engine\errors.py
+code_lines=16, functions=1, classes=1
+lines/func=16.0, bytes=605" cx="83.90" cy="631.54" r="12.35" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\engine\explain.py
+code_lines=117, functions=3, classes=0
+lines/func=39.0, bytes=5359" cx="131.71" cy="578.14" r="15.19" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\engine\features.py
+code_lines=108, functions=4, classes=1
+lines/func=27.0, bytes=5058" cx="155.61" cy="582.90" r="15.11" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\engine\local_search.py
+code_lines=274, functions=5, classes=0
+lines/func=54.8, bytes=13131" cx="179.51" cy="495.13" r="16.35" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\engine\planner.py
+code_lines=493, functions=19, classes=2
+lines/func=25.9, bytes=19502" cx="514.15" cy="379.34" r="16.87" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\engine\scoring.py
+code_lines=163, functions=4, classes=1
+lines/func=40.8, bytes=8232" cx="155.61" cy="553.82" r="15.75" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\admin.js
+code_lines=1097, functions=33, classes=0
+lines/func=33.2, bytes=49090" cx="848.78" cy="60.00" r="18.07" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\api.js
+code_lines=59, functions=0, classes=0
+lines/func=inf, bytes=1801" cx="60.00" cy="608.81" r="13.77" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\app - 複製.js
+code_lines=146, functions=4, classes=0
+lines/func=36.5, bytes=5343" cx="155.61" cy="562.81" r="15.18" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\app.js
+code_lines=643, functions=25, classes=0
+lines/func=25.7, bytes=24432" cx="657.56" cy="300.04" r="17.16" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\cfg_transform.js
+code_lines=57, functions=1, classes=0
+lines/func=57.0, bytes=2424" cx="83.90" cy="609.86" r="14.15" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\dom.js
+code_lines=36, functions=0, classes=0
+lines/func=inf, bytes=1329" cx="60.00" cy="620.97" r="13.37" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\inventory.js
+code_lines=282, functions=14, classes=0
+lines/func=20.1, bytes=11393" cx="394.63" cy="490.90" r="16.17" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\render.js
+code_lines=260, functions=2, classes=0
+lines/func=130.0, bytes=11796" cx="107.80" cy="502.53" r="16.22" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\score_explain.js
+code_lines=119, functions=4, classes=0
+lines/func=29.8, bytes=4614" cx="155.61" cy="577.08" r="14.99" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\state.js
+code_lines=12, functions=0, classes=0
+lines/func=inf, bytes=350" cx="60.00" cy="633.66" r="11.63" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\admin\api.js
+code_lines=232, functions=0, classes=0
+lines/func=inf, bytes=10569" cx="60.00" cy="517.34" r="16.07" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\shared\catalog_cache.js
+code_lines=14, functions=0, classes=0
+lines/func=inf, bytes=478" cx="60.00" cy="632.60" r="12.04" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\shared\html.js
+code_lines=9, functions=0, classes=0
+lines/func=inf, bytes=198" cx="60.00" cy="635.24" r="10.89" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\src\menu_planner\ui_static\shared\http.js
+code_lines=34, functions=1, classes=0
+lines/func=34.0, bytes=1124" cx="83.90" cy="622.02" r="13.15" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\test_constraints.py
+code_lines=69, functions=5, classes=0
+lines/func=13.8, bytes=3023" cx="179.51" cy="603.52" r="14.44" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\test_db_backup.py
+code_lines=56, functions=5, classes=1
+lines/func=11.2, bytes=2949" cx="179.51" cy="610.39" r="14.41" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\__init__.py
+code_lines=0, functions=0, classes=0
+lines/func=0.0, bytes=0" cx="60.00" cy="640.00" r="4.00" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\e2e\test_e2e_excel.py
+code_lines=88, functions=2, classes=0
+lines/func=44.0, bytes=3907" cx="107.80" cy="593.47" r="14.78" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_admin_catalog_backup_flow.py
+code_lines=418, functions=41, classes=1
+lines/func=10.2, bytes=18663" cx="1040.00" cy="419.00" r="16.81" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_admin_catalog_cost_preview.py
+code_lines=52, functions=9, classes=1
+lines/func=5.8, bytes=2609" cx="275.12" cy="612.51" r="14.25" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_admin_repo_cost_preview.py
+code_lines=223, functions=9, classes=0
+lines/func=24.8, bytes=8995" cx="275.12" cy="522.10" r="15.86" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_backtracking_partial_fill.py
+code_lines=93, functions=3, classes=0
+lines/func=31.0, bytes=3709" cx="131.71" cy="590.83" r="14.71" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_backtracking_soup_diagnostics.py
+code_lines=66, functions=3, classes=0
+lines/func=22.0, bytes=2280" cx="131.71" cy="605.10" r="14.07" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_constraints.py
+code_lines=187, functions=10, classes=0
+lines/func=18.7, bytes=7222" cx="299.02" cy="541.13" r="15.58" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_db_backup.py
+code_lines=56, functions=5, classes=1
+lines/func=11.2, bytes=2949" cx="179.51" cy="610.39" r="14.41" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_planner_auto_relax.py
+code_lines=71, functions=7, classes=0
+lines/func=10.1, bytes=3304" cx="227.32" cy="602.46" r="14.56" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_planner_excluded_ingredients.py
+code_lines=36, functions=4, classes=0
+lines/func=9.0, bytes=1434" cx="155.61" cy="620.97" r="13.47" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_planner_ingredient_repeat_group.py
+code_lines=69, functions=5, classes=0
+lines/func=13.8, bytes=3885" cx="179.51" cy="603.52" r="14.77" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_procurement.py
+code_lines=68, functions=2, classes=0
+lines/func=34.0, bytes=2909" cx="107.80" cy="604.05" r="14.39" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_result_enrich_recompute.py
+code_lines=74, functions=8, classes=1
+lines/func=9.2, bytes=3913" cx="251.22" cy="600.88" r="14.78" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+<circle class="pt" data-tip="D:\shared\TopicClassification\menu-planner\tests\unit\test_scoring_inventory_expiry.py
+code_lines=61, functions=3, classes=0
+lines/func=20.3, bytes=2367" cx="131.71" cy="607.75" r="14.12" fill="#4C78A8" fill-opacity="0.35" stroke="#4C78A8" stroke-opacity="0.6" />
+  </svg>
+</div>
+
+<div id="tip" class="tip"></div>
+
+<script>
+  const tip = document.getElementById('tip');
+  function showTip(e, text) {
+    tip.textContent = text;
+    tip.style.display = 'block';
+
+    const offset = 12;
+    // 先把位置歸零，確保量測正確
+    tip.style.left = '0px';
+    tip.style.top  = '0px';
+
+    // 量測 tooltip 尺寸
+    const rect = tip.getBoundingClientRect();
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+
+    let x = e.clientX + offset;
+    let y = e.clientY + offset;
+
+    // 右/下邊界：避免跑出畫面
+    x = Math.min(x, vw - rect.width  - offset);
+    y = Math.min(y, vh - rect.height - offset);
+
+    // 左/上邊界：避免負值
+    x = Math.max(offset, x);
+    y = Math.max(offset, y);
+
+    tip.style.left = x + 'px';
+    tip.style.top  = y + 'px';
+  }
+  function hideTip() { tip.style.display = 'none'; }
+  document.querySelectorAll('.pt').forEach(el => {
+    el.addEventListener('mousemove', (e) => showTip(e, el.dataset.tip || ''));
+    el.addEventListener('mouseleave', hideTip);
+  });
+</script>
+</body>
+</html>

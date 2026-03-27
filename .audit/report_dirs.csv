@@ -1,0 +1,6 @@
+dir,files,code_lines,total_lines,functions,classes,bytes,lines_per_function
+src,32,7863,9276,279,27,335976,28.182795698924732
+scripts,8,1716,2230,81,0,74476,21.185185185185187
+tests,17,1687,2140,121,5,74118,13.942148760330578
+data,1,244,286,0,0,17220,inf
+api,1,2,4,0,0,101,inf

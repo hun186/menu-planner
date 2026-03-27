@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, Tuple
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
 LABEL_MAP = {
@@ -19,6 +19,11 @@ LABEL_MAP = {
     "consecutive_same_meat": "連續同肉（扣分）",
     "cuisine_consecutive": "連續同菜系（扣分）",
 }
+
+DAILY_SUBTOTAL_FILL = PatternFill(fill_type="solid", fgColor="FFFDE68A")
+WEEKLY_SUBTOTAL_FILL = PatternFill(fill_type="solid", fgColor="FFBFDBFE")
+DAILY_SUBTOTAL_FONT = Font(color="FF92400E", bold=True)
+WEEKLY_SUBTOTAL_FONT = Font(color="FF1E3A8A", bold=True)
 
 def _num(x, default=0.0) -> float:
     try:
@@ -208,17 +213,28 @@ def _append_procurement_summary_sheet(wb: Workbook, result: Dict[str, Any]) -> N
             ])
 
         ws.append([f"第{week_index}週", date_text, "每日小計", "", "", "", "", round(day_total, 2), ""])
+        daily_row = ws.max_row
+        for c in range(1, len(header) + 1):
+            cell = ws.cell(row=daily_row, column=c)
+            cell.fill = DAILY_SUBTOTAL_FILL
+            cell.font = DAILY_SUBTOTAL_FONT
         week_total += day_total
         grand_total += day_total
 
         week_done = ((day_idx + 1) % 7 == 0) or (day_idx == len(valid_days) - 1)
         if week_done:
             ws.append([f"第{week_index}週", "", "每週小計", "", "", "", "", round(week_total, 2), ""])
+            weekly_row = ws.max_row
+            for c in range(1, len(header) + 1):
+                cell = ws.cell(row=weekly_row, column=c)
+                cell.fill = WEEKLY_SUBTOTAL_FILL
+                cell.font = WEEKLY_SUBTOTAL_FONT
             week_index += 1
             week_total = 0.0
 
     ws.append(["", "", "全部合計", "", "", "", "", round(grand_total, 2), ""])
     ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:I{ws.max_row}"
     _set_col_width(ws, {1: 10, 2: 12, 3: 18, 4: 10, 5: 10, 6: 12, 7: 10, 8: 12, 9: 14})
 
 def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:

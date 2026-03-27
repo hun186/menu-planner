@@ -119,3 +119,18 @@ def test_generate_and_export_excel():
     assert "每日小計" in summary_labels
     assert "每週小計" in summary_labels
     assert "全部合計" in summary_labels
+    assert summary_sheet.auto_filter.ref == f"A1:I{summary_sheet.max_row}"
+
+    daily_row = next(r for r in range(2, summary_sheet.max_row + 1) if summary_sheet.cell(row=r, column=3).value == "每日小計")
+    weekly_row = next(r for r in range(2, summary_sheet.max_row + 1) if summary_sheet.cell(row=r, column=3).value == "每週小計")
+    daily_cell = summary_sheet.cell(row=daily_row, column=3)
+    weekly_cell = summary_sheet.cell(row=weekly_row, column=3)
+    daily_total_cell = summary_sheet.cell(row=daily_row, column=8)
+    weekly_total_cell = summary_sheet.cell(row=weekly_row, column=8)
+
+    assert daily_cell.fill.fgColor.rgb == "FFFDE68A"
+    assert weekly_cell.fill.fgColor.rgb == "FFBFDBFE"
+    assert daily_cell.font.color.rgb == "FF92400E"
+    assert weekly_cell.font.color.rgb == "FF1E3A8A"
+    assert daily_total_cell.fill.fgColor.rgb == "FFFDE68A"
+    assert weekly_total_cell.fill.fgColor.rgb == "FFBFDBFE"

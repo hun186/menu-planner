@@ -82,6 +82,14 @@ def repo_with_backup(
     return SQLiteAdminRepo(db_path)
 
 
+def _auto_backup_comment(action: str, **details: object) -> str:
+    detail_parts = [f"{k}={v}" for k, v in details.items() if str(v or "").strip()]
+    detail_text = "；".join(detail_parts)
+    if detail_text:
+        return f"自動備份：{action}（{detail_text}）"
+    return f"自動備份：{action}"
+
+
 def ensure_ingredient_exists(repo: SQLiteAdminRepo, ingredient_id: str) -> None:
     if not repo.ingredient_exists(ingredient_id):
         raise HTTPException(status_code=404, detail="找不到此食材")
@@ -171,7 +179,11 @@ def upsert_ingredient(
     body: IngredientUpsert,
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
-    repo = repo_with_backup(db_path, reason="ingredient_upsert")
+    repo = repo_with_backup(
+        db_path,
+        reason="ingredient_upsert",
+        comment=_auto_backup_comment("食材新增/編輯", ingredient_id=ingredient_id),
+    )
     repo.upsert_ingredient(ingredient_id, body.model_dump())
     return {"ok": True, "id": ingredient_id}
 
@@ -184,7 +196,11 @@ def delete_ingredient(
     repo = SQLiteAdminRepo(db_path)
     ensure_ingredient_exists(repo, ingredient_id)
 
-    repo = repo_with_backup(db_path, reason="ingredient_delete")
+    repo = repo_with_backup(
+        db_path,
+        reason="ingredient_delete",
+        comment=_auto_backup_comment("食材刪除", ingredient_id=ingredient_id),
+    )
     try:
         n = repo.delete_ingredient(ingredient_id)
         if n == 0:
@@ -212,7 +228,11 @@ def rename_ingredient(
     if target_id == ingredient_id:
         raise HTTPException(status_code=400, detail="target_id 不可與來源 ingredient_id 相同")
 
-    repo = repo_with_backup(db_path, reason="ingredient_rename")
+    repo = repo_with_backup(
+        db_path,
+        reason="ingredient_rename",
+        comment=_auto_backup_comment("食材更名", source_ingredient_id=ingredient_id, target_ingredient_id=target_id),
+    )
     try:
         result = repo.rename_ingredient(
             ingredient_id,
@@ -271,7 +291,11 @@ def upsert_price(
     repo = SQLiteAdminRepo(db_path)
     ensure_ingredient_exists(repo, ingredient_id)
 
-    repo = repo_with_backup(db_path, reason="ingredient_price_upsert")
+    repo = repo_with_backup(
+        db_path,
+        reason="ingredient_price_upsert",
+        comment=_auto_backup_comment("食材價格更新", ingredient_id=ingredient_id, price_date=price_date),
+    )
     repo.upsert_price(ingredient_id, price_date, body.model_dump())
     return {"ok": True}
 
@@ -287,7 +311,11 @@ def delete_price(
     if not repo.price_exists(ingredient_id, price_date):
         raise HTTPException(status_code=404, detail="找不到此價格紀錄")
 
-    repo = repo_with_backup(db_path, reason="ingredient_price_delete")
+    repo = repo_with_backup(
+        db_path,
+        reason="ingredient_price_delete",
+        comment=_auto_backup_comment("食材價格刪除", ingredient_id=ingredient_id, price_date=price_date),
+    )
     repo.delete_price(ingredient_id, price_date)
     return {"ok": True}
 
@@ -311,7 +339,11 @@ def upsert_inventory(
     repo = SQLiteAdminRepo(db_path)
     ensure_ingredient_exists(repo, ingredient_id)
 
-    repo = repo_with_backup(db_path, reason="ingredient_inventory_upsert")
+    repo = repo_with_backup(
+        db_path,
+        reason="ingredient_inventory_upsert",
+        comment=_auto_backup_comment("庫存更新", ingredient_id=ingredient_id, updated_at=body.updated_at),
+    )
     repo.upsert_inventory(ingredient_id, body.model_dump())
     return {"ok": True}
 
@@ -400,7 +432,11 @@ def restore_db_backup(
     if src.parent != backup_dir.resolve() or not src.exists() or not src.is_file():
         raise HTTPException(status_code=404, detail="找不到指定備份檔")
 
-    backup_before_modify(str(db_file), reason="admin_restore_pre_snapshot")
+    backup_before_modify(
+        str(db_file),
+        reason="admin_restore_pre_snapshot",
+        comment=_auto_backup_comment("還原前快照備份", restore_from=backup_name),
+    )
     try:
         shutil.copy2(src, db_file)
     except Exception as e:
@@ -477,6 +513,7 @@ def merge_inventory_ingredient(
     repo = repo_with_backup(
         db_path,
         reason=f"ingredient_merge:{source_id}->{target_id}",
+        comment=_auto_backup_comment("食材合併", source_ingredient_id=source_id, target_ingredient_id=target_id),
     )
     try:
         result = repo.merge_ingredient(source_id, target_id)
@@ -569,7 +606,11 @@ def upsert_dish(
     body: DishUpsert,
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
-    repo = repo_with_backup(db_path, reason="dish_upsert")
+    repo = repo_with_backup(
+        db_path,
+        reason="dish_upsert",
+        comment=_auto_backup_comment("菜色新增/編輯", dish_id=dish_id),
+    )
     repo.upsert_dish(dish_id, body.model_dump())
     return {"ok": True, "id": dish_id}
 
@@ -582,7 +623,11 @@ def delete_dish(
     repo = SQLiteAdminRepo(db_path)
     ensure_dish_exists(repo, dish_id)
 
-    repo = repo_with_backup(db_path, reason="dish_delete")
+    repo = repo_with_backup(
+        db_path,
+        reason="dish_delete",
+        comment=_auto_backup_comment("菜色刪除", dish_id=dish_id),
+    )
     n = repo.delete_dish(dish_id)
     if n == 0:
         raise HTTPException(status_code=404, detail="找不到此菜色")
@@ -603,7 +648,11 @@ def rename_dish(
     if target_id == dish_id:
         raise HTTPException(status_code=400, detail="target_id 不可與來源 dish_id 相同")
 
-    repo = repo_with_backup(db_path, reason="dish_rename")
+    repo = repo_with_backup(
+        db_path,
+        reason="dish_rename",
+        comment=_auto_backup_comment("菜色更名", source_dish_id=dish_id, target_dish_id=target_id),
+    )
     try:
         result = repo.rename_dish(
             dish_id,
@@ -644,7 +693,11 @@ def put_dish_ingredients(
     if missing:
         raise HTTPException(status_code=400, detail={"message": "有不存在的食材 id", "missing": missing})
 
-    repo = repo_with_backup(db_path, reason="dish_ingredients_replace")
+    repo = repo_with_backup(
+        db_path,
+        reason="dish_ingredients_replace",
+        comment=_auto_backup_comment("菜色食材清單更新", dish_id=dish_id, item_count=len(items)),
+    )
     repo.replace_dish_ingredients(dish_id, [x.model_dump() for x in items])
     return {"ok": True}
 

@@ -88,7 +88,7 @@ def test_delete_price_not_found_does_not_trigger_backup(monkeypatch):
 
 
 def test_delete_price_success_triggers_backup_once(monkeypatch):
-    calls = {"backup": 0}
+    calls = {"backup": 0, "reason": None, "comment": None}
 
     _FakeRepo.ingredient_exists_value = True
     _FakeRepo.price_exists_value = True
@@ -98,6 +98,8 @@ def test_delete_price_success_triggers_backup_once(monkeypatch):
 
     def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
+        calls["reason"] = kwargs.get("reason")
+        calls["comment"] = kwargs.get("comment")
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
 
@@ -105,6 +107,8 @@ def test_delete_price_success_triggers_backup_once(monkeypatch):
 
     assert resp == {"ok": True}
     assert calls["backup"] == 1
+    assert calls["reason"] == "ingredient_price_delete"
+    assert calls["comment"] == "自動備份：食材價格刪除（ingredient_id=ing-1；price_date=2026-03-16）"
     assert _FakeRepo.deleted_prices == [("ing-1", "2026-03-16")]
 
 
@@ -130,7 +134,7 @@ def test_delete_ingredient_success_triggers_backup_once(monkeypatch):
 
 
 def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
-    calls = {"backup": 0, "reason": None}
+    calls = {"backup": 0, "reason": None, "comment": None}
 
     _FakeRepo.ingredient_exists_value = True
     _FakeRepo.merged_ingredients = []
@@ -140,6 +144,7 @@ def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
     def _backup(_db_path: str, *args, **kwargs):
         calls["backup"] += 1
         calls["reason"] = kwargs.get("reason")
+        calls["comment"] = kwargs.get("comment")
 
     monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
 
@@ -156,6 +161,7 @@ def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
     }
     assert calls["backup"] == 1
     assert calls["reason"] == "ingredient_merge:ing-a->ing-b"
+    assert calls["comment"] == "自動備份：食材合併（source_ingredient_id=ing-a；target_ingredient_id=ing-b）"
     assert _FakeRepo.merged_ingredients == [("ing-a", "ing-b")]
 
 
@@ -178,6 +184,11 @@ def test_repo_with_backup_passes_reason_and_comment(monkeypatch):
     assert isinstance(repo, _FakeRepo)
     assert calls["reason"] == "ingredient_upsert"
     assert calls["comment"] == "manual note"
+
+
+def test_auto_backup_comment_skips_empty_details():
+    comment = admin_catalog._auto_backup_comment("菜色刪除", dish_id="dish-1", note="")
+    assert comment == "自動備份：菜色刪除（dish_id=dish-1）"
 
 
 def test_merge_inventory_ingredient_same_source_and_target_does_not_trigger_backup(monkeypatch):

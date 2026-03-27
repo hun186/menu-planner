@@ -3,6 +3,7 @@ import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
 import { createIngredientLookup } from "./admin/ingredient_lookup.js";
+import { createBackupManager } from "./admin/backup_manager.js";
 import {
   clearFields,
   clearMsg as clearMsgUi,
@@ -17,7 +18,6 @@ import {
   buildDishCostWarningTitle,
   compareNullable,
   filterBackups,
-  formatBytes,
   formatCostWarningItem,
   shouldRenameEntity,
   todayStr,
@@ -46,8 +46,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   let editingDishId = null;
   let editingIngId = null;
   let dishCostById = new Map();
-  let backupFiles = [];
-  let backupStats = { count: 0, total_size_bytes: 0, warning_threshold_bytes: 500 * 1024 * 1024, is_over_warning_threshold: false };
   const backupReasonLabels = new Map([
     ["admin_modify_before_change", "管理端修改前自動備份"],
     ["admin_restore_pre_snapshot", "還原前自動備份快照"],
@@ -71,6 +69,16 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   const setStatusMsg = (el, text, isError) => setMsgUi(syncEditorPaneHeights, el, text, isError);
   const clearStatusMsg = (selector) => clearMsgUi(setStatusMsg, selector);
   const withStatusMsg = (msgSelector, fn, successText) => runWithMsgUi(setStatusMsg, msgSelector, fn, successText);
+  const backupManager = createBackupManager({
+    dom: DOM,
+    escapeHtml,
+    backupReasonLabels,
+    listDbBackups,
+    getDbBackupStats,
+    deleteDbBackupsByDateRange,
+    createDbBackup,
+    setStatusMsg,
+  });
   const { rebuildIngredientDatalist, resolveIngredientId, debouncedSuggestIngredients } = createIngredientLookup({
     catalog,
     searchIngredients,
@@ -117,126 +125,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     $("#ing_page_jump").val(ingredientPager.page);
     $("#dish_page_jump").val(dishPager.page);
     await reloadDishCostPreview(dishItems.map(x => x.id));
-  }
-
-  function getFilteredBackups() {
-    const date = ($("#db_backup_filter_date").val() || "").trim();
-    const keyword = ($("#db_backup_filter_keyword").val() || "").trim();
-    return filterBackups(backupFiles, { date, keyword });
-  }
-
-  function renderBackupOptions() {
-    const selected = resolveSelectedBackup();
-    const $allSelects = $("#db_backup_select, #db_backup_select_modal").empty();
-    const filteredBackups = getFilteredBackups();
-    if (!filteredBackups.length) {
-      $allSelects.append(`<option value="">（目前無可用備份檔）</option>`);
-      $("#backup_filter_info").text("目前篩選條件下無備份資料。");
-      return;
-    }
-    filteredBackups.forEach((x) => {
-      const modified = x?.modified_at || "";
-      const size = Number(x?.size_bytes || 0);
-      const label = `${x?.filename || ""}｜${modified}｜${formatBytes(size)}`;
-      $allSelects.append(`<option value="${escapeHtml(x?.filename || "")}">${escapeHtml(label)}</option>`);
-    });
-    $("#backup_filter_info").text(`篩選結果：${filteredBackups.length} / ${backupFiles.length} 筆`);
-    const hasSelected = filteredBackups.some((x) => (x?.filename || "") === selected);
-    if (selected && hasSelected) {
-      $("#db_backup_select, #db_backup_select_modal").val(selected);
-    } else if (filteredBackups[0]?.filename) {
-      $("#db_backup_select, #db_backup_select_modal").val(filteredBackups[0].filename);
-    }
-  }
-
-  function resolveSelectedBackup(preferred = "") {
-    const fromPreferred = String(preferred || "").trim();
-    if (fromPreferred) return fromPreferred;
-
-    const selectedMain = ($("#db_backup_select").val() || "").trim();
-    const selectedModal = ($("#db_backup_select_modal").val() || "").trim();
-    const activeId = document?.activeElement?.id || "";
-    if (activeId === "db_backup_select_modal") return selectedModal || selectedMain;
-    if (activeId === "db_backup_select") return selectedMain || selectedModal;
-    return selectedModal || selectedMain;
-  }
-
-  function renderBackupUsage() {
-    const total = Number(backupStats?.total_size_bytes || 0);
-    const threshold = Number(backupStats?.warning_threshold_bytes || 0);
-    const count = Number(backupStats?.count || backupFiles.length || 0);
-    const over = Boolean(backupStats?.is_over_warning_threshold);
-    const summary = `目前備份：${count} 筆，已使用 ${formatBytes(total)}。每日自動備份上限為 50 筆。`;
-    const warning = over
-      ? `⚠ 備份容量已達 ${formatBytes(total)}（≥ ${formatBytes(threshold)}），建議盡快刪除過舊備份。`
-      : "";
-    const text = warning ? `${summary} ${warning}` : summary;
-    $("#backup_usage_info").text(text).toggleClass("warn-text", over);
-  }
-
-  function syncSelectedBackupMeta(preferred = "") {
-    const selected = resolveSelectedBackup(preferred);
-    $("#db_backup_select, #db_backup_select_modal").val(selected);
-    const item = backupFiles.find((x) => (x?.filename || "") === selected) || null;
-    const reasonCode = String(item?.action_reason || "").trim();
-    let reason = reasonCode || "—";
-    if (reasonCode.startsWith("ingredient_merge:")) {
-      const payload = reasonCode.replace("ingredient_merge:", "");
-      reason = `食材合併（${payload || "未提供 ID"}）`;
-    } else if (backupReasonLabels.has(reasonCode)) {
-      reason = `${backupReasonLabels.get(reasonCode)}（${reasonCode}）`;
-    }
-    const comment = item?.comment || "";
-    $("#backup_reason_text").text(reason);
-    $("#db_backup_comment").val(comment);
-    const modifiedAt = item?.modified_at || "—";
-    const fileSize = formatBytes(item?.size_bytes || 0);
-    const basic = item
-      ? `最近資訊：時間 ${modifiedAt}｜大小 ${fileSize}｜原因 ${reason}`
-      : "最近資訊：尚未選取備份檔。";
-    $("#backup_basic_info").text(basic);
-  }
-
-  async function runBatchDeleteBackups({ date = "", dateFrom = "", dateTo = "", confirmText = "" } = {}) {
-    if (!confirm(confirmText || "確定執行批次刪除備份？\n此操作無法復原。")) return false;
-    const result = await deleteDbBackupsByDateRange({ date, dateFrom, dateTo });
-    await refreshBackupList();
-    const count = Number(result?.deleted_count || 0);
-    setStatusMsg($(DOM.msgBackupModal), `批次刪除完成，共刪除 ${count} 筆備份。`, false);
-    return true;
-  }
-
-  async function refreshBackupList() {
-    const [files, stats] = await Promise.all([listDbBackups(), getDbBackupStats()]);
-    backupFiles = Array.isArray(files) ? files : [];
-    backupStats = stats || backupStats;
-    renderBackupOptions();
-    renderBackupUsage();
-    syncSelectedBackupMeta();
-  }
-
-  function bindBackupFilterEvents() {
-    $("#db_backup_filter_date, #db_backup_filter_keyword").on("input change", () => {
-      renderBackupOptions();
-      syncSelectedBackupMeta();
-    });
-    $("#db_backup_filter_clear").on("click", () => {
-      $("#db_backup_filter_date").val("");
-      $("#db_backup_filter_keyword").val("");
-      renderBackupOptions();
-      syncSelectedBackupMeta();
-    });
-  }
-
-  async function createBackupByPrompt() {
-    const reasonInput = window.prompt("請輸入備份原因代碼（可留空使用 admin_manual_snapshot）：", "admin_manual_snapshot");
-    if (reasonInput === null) return false;
-    const commentInput = window.prompt("可選：輸入備份註解", "") ?? "";
-    const reason = String(reasonInput || "").trim() || "admin_manual_snapshot";
-    const comment = String(commentInput || "").trim();
-    await createDbBackup({ reason, comment });
-    await refreshBackupList();
-    return true;
   }
 
   async function reloadDishCostPreview(dishIds = []) {
@@ -885,8 +773,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
 
     $("#db_backup_reload").on("click", async () => {
       await withStatusMsg(DOM.msgBackup, async () => {
-        await refreshBackupList();
-      }, `已載入備份清單，共 ${backupFiles.length} 筆。`);
+        await backupManager.refreshBackupList();
+      }, `已載入備份清單，共 ${backupManager.getBackupCount()} 筆。`);
     });
 
     $("#db_backup_manage").on("click", () => {
@@ -896,7 +784,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
 
     $("#db_backup_create").on("click", async () => {
       await withStatusMsg(DOM.msgBackup, async () => {
-        const created = await createBackupByPrompt();
+        const created = await backupManager.createBackupByPrompt();
         if (!created) throw new Error("已取消建立備份。");
       }, "已建立手動備份。");
     });
@@ -907,7 +795,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         if (!selected) throw new Error("請先選擇備份檔。");
         if (!confirm(`確定還原備份檔：${selected}？\n還原前會先備份目前資料庫。`)) return false;
         await restoreDbBackup(selected);
-        await refreshBackupList();
+        await backupManager.refreshBackupList();
         await reloadCatalog();
         renderAll();
       }, "已完成備份還原，且已重新載入資料。");
@@ -919,18 +807,18 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         if (!selected) throw new Error("請先選擇要刪除的備份檔。");
         if (!confirm(`確定刪除備份檔：${selected}？\n此操作無法復原。`)) return false;
         await deleteDbBackup(selected);
-        await refreshBackupList();
+        await backupManager.refreshBackupList();
       }, "已刪除備份檔。");
     });
 
     $("#db_backup_select").on("change", () => {
       const selected = ($("#db_backup_select").val() || "").trim();
-      syncSelectedBackupMeta(selected);
+      backupManager.syncSelectedBackupMeta(selected);
     });
 
     $("#db_backup_select_modal").on("change", () => {
       const selected = ($("#db_backup_select_modal").val() || "").trim();
-      syncSelectedBackupMeta(selected);
+      backupManager.syncSelectedBackupMeta(selected);
     });
 
     $("#db_backup_save_comment").on("click", async () => {
@@ -939,19 +827,19 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         if (!selected) throw new Error("請先選擇要註解的備份檔。");
         const comment = ($("#db_backup_comment").val() || "").trim();
         await updateDbBackupComment(selected, comment);
-        await refreshBackupList();
+        await backupManager.refreshBackupList();
       }, "已儲存備份註解。");
     });
 
     $("#db_backup_reload_modal").on("click", async () => {
       await withStatusMsg(DOM.msgBackupModal, async () => {
-        await refreshBackupList();
-      }, `已載入備份清單，共 ${backupFiles.length} 筆。`);
+        await backupManager.refreshBackupList();
+      }, `已載入備份清單，共 ${backupManager.getBackupCount()} 筆。`);
     });
 
     $("#db_backup_create_modal").on("click", async () => {
       await withStatusMsg(DOM.msgBackupModal, async () => {
-        const created = await createBackupByPrompt();
+        const created = await backupManager.createBackupByPrompt();
         if (!created) throw new Error("已取消建立備份。");
       }, "已建立手動備份。");
     });
@@ -962,7 +850,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         if (!selected) throw new Error("請先選擇備份檔。");
         if (!confirm(`確定還原備份檔：${selected}？\n還原前會先備份目前資料庫。`)) return false;
         await restoreDbBackup(selected);
-        await refreshBackupList();
+        await backupManager.refreshBackupList();
         await reloadCatalog();
         renderAll();
       }, "已完成備份還原，且已重新載入資料。");
@@ -974,7 +862,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         if (!selected) throw new Error("請先選擇要刪除的備份檔。");
         if (!confirm(`確定刪除備份檔：${selected}？\n此操作無法復原。`)) return false;
         await deleteDbBackup(selected);
-        await refreshBackupList();
+        await backupManager.refreshBackupList();
       }, "已刪除備份檔。");
     });
 
@@ -982,7 +870,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       await withStatusMsg(DOM.msgBackupModal, async () => {
         const date = ($("#db_backup_delete_date").val() || "").trim();
         if (!date) throw new Error("請先選擇要刪除的日期。");
-        await runBatchDeleteBackups({
+        await backupManager.runBatchDeleteBackups({
           date,
           confirmText: `確定刪除 ${date} 的全部備份？\n此操作無法復原。`,
         });
@@ -994,7 +882,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         const dateFrom = ($("#db_backup_delete_from").val() || "").trim();
         const dateTo = ($("#db_backup_delete_to").val() || "").trim();
         if (!dateFrom && !dateTo) throw new Error("請至少選擇起日或迄日。");
-        await runBatchDeleteBackups({
+        await backupManager.runBatchDeleteBackups({
           dateFrom,
           dateTo,
           confirmText: `確定刪除 ${dateFrom || dateTo} 到 ${dateTo || dateFrom} 的備份？\n此操作無法復原。`,
@@ -1020,7 +908,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
 
     $("#modal_ing_close").on("click", () => $("#modal_ing").addClass("hide"));
     $("#modal_backup_close").on("click", () => $("#modal_backup").addClass("hide"));
-    bindBackupFilterEvents();
+    backupManager.bindBackupFilterEvents();
     
     $("#inv_save").on("click", async () => {
       await withStatusMsg(DOM.msgIngMeta, async () => {
@@ -1079,7 +967,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       $("#ing_q").val(ingredientPager.q);
     }
     await reloadCatalog();
-    await refreshBackupList();
+    await backupManager.refreshBackupList();
     rebuildIngredientDatalist([]);
     renderAll();
     syncEditorPaneHeights();

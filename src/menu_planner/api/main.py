@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import io
+import re
 import traceback
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config.loader import load_defaults, validate_config
@@ -237,7 +238,15 @@ def post_export_excel(
 
 @app.get("/admin")
 def get_admin_page():
-    return FileResponse(UI_DIR / "admin.html")
+    admin_html_path = UI_DIR / "admin.html"
+    html = admin_html_path.read_text(encoding="utf-8")
+    mtime_token = str(int(admin_html_path.stat().st_mtime))
+    html = re.sub(
+        r'src="admin\.js(?:\?v=[^"]*)?"',
+        f'src="admin.js?v={mtime_token}"',
+        html,
+    )
+    return HTMLResponse(html)
 
 
 # 靜態 UI（http://localhost:18000/）

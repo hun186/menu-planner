@@ -105,7 +105,10 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   const ingredientPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
   const dishPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "", ingredientId: "", ingredientLabel: "" };
   let catalogLoadSeq = 0;
-  const setStatusMsg = (el, text, isError) => setMsgUi(syncEditorPaneHeights, el, text, isError);
+  const setStatusMsg = (el, text, isError) => {
+    const $el = el && typeof el.css === "function" ? el : $(el);
+    setMsgUi(syncEditorPaneHeights, $el, text, isError);
+  };
   const clearStatusMsg = (selector) => clearMsgUi(setStatusMsg, selector);
   const withStatusMsg = (msgSelector, fn, successText) => runWithMsgUi(setStatusMsg, msgSelector, fn, successText);
   const backupManager = createBackupManager({

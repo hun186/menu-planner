@@ -96,20 +96,36 @@ h2{ margin:0 0 10px 0; font-size:16px; }
 .collapsible-body{
   margin-top:10px;
 }
-.conv-factor-inline{
-  display:flex;
+.conv-row{
+  display:grid;
+  grid-template-columns: 120px minmax(200px, 320px) minmax(220px, 1fr);
   align-items:center;
-  justify-content:flex-end;
   gap:10px;
+}
+.conv-row label{
+  margin:0;
+  min-width:0;
+}
+.conv-row input{
   width:100%;
 }
-.conv-factor-inline #conv_factor{
-  width:170px;
+.conv-actions-placeholder{
+  min-height:1px;
 }
 .conv-inline-actions{
   margin-top:0;
   flex-wrap:wrap;
-  justify-content:flex-end;
+  justify-content:flex-start;
+}
+.conv-row-factor .conv-inline-actions{
+  width:100%;
+}
+
+@media (max-width: 900px){
+  .conv-row{
+    grid-template-columns: 1fr;
+    gap:6px;
+  }
 }
 
 .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; }

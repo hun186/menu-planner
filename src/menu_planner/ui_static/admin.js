@@ -108,6 +108,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   let editingIngId = null;
   let dishCostById = new Map();
   let unitConversions = [];
+  let unitConversionAutoCollapseTimer = null;
   const backupReasonLabels = new Map([
     ["admin_modify_before_change", "管理端修改前自動備份"],
     ["admin_restore_pre_snapshot", "還原前自動備份快照"],
@@ -423,13 +424,34 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     });
   }
 
+  function updateUnitConversionSummary() {
+    if (!$("#conv_summary_meta").length) return;
+    const count = unitConversions.length;
+    $("#conv_summary_meta").text(`目前 ${count} 筆換算規則`);
+  }
+
+  function expandUnitConversionPanelTemporarily(timeoutMs = 5000) {
+    const panel = $("#conv_panel");
+    if (!panel.length) return;
+    panel.prop("open", true);
+    if (unitConversionAutoCollapseTimer) {
+      clearTimeout(unitConversionAutoCollapseTimer);
+    }
+    unitConversionAutoCollapseTimer = setTimeout(() => {
+      panel.prop("open", false);
+      unitConversionAutoCollapseTimer = null;
+    }, timeoutMs);
+  }
+
   async function reloadUnitConversions() {
     try {
       const rows = await listUnitConversionsCompat();
       unitConversions = Array.isArray(rows) ? rows : [];
+      updateUnitConversionSummary();
       clearStatusMsg(DOM.msgConv);
     } catch (e) {
       unitConversions = [];
+      updateUnitConversionSummary();
       setStatusMsg(DOM.msgConv, `單位換算載入失敗：${e?.message || e}`, true);
     }
   }
@@ -720,6 +742,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       renderDishes();
     }, 250);
 
+    $("#conv_panel").prop("open", false);
+
     $("#ing_q").on("input", onIngredientSearchInput);
     $("#ing_tbl thead").on("click", "th[data-ing-sort-key]", function () {
       const key = $(this).data("ing-sort-key");
@@ -879,6 +903,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       clearStatusMsg(DOM.msgConv);
     });
     $("#conv_save").on("click", async () => {
+      let saveSucceeded = false;
       await withStatusMsg(DOM.msgConv, async () => {
         const fromUnit = ($("#conv_from_unit").val() || "").trim();
         const toUnit = ($("#conv_to_unit").val() || "").trim();
@@ -889,7 +914,11 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         await upsertUnitConversionCompat(fromUnit, toUnit, factor);
         await reloadUnitConversions();
         renderUnitConversions();
+        saveSucceeded = true;
       }, "已儲存單位換算。");
+      if (saveSucceeded) {
+        expandUnitConversionPanelTemporarily();
+      }
     });
 
     $("#db_backup_reload").on("click", async () => {

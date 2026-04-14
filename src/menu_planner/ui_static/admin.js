@@ -1024,9 +1024,31 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     if (ingredientPager.q) {
       $("#ing_q").val(ingredientPager.q);
     }
-    await reloadCatalog();
+    try {
+      await reloadCatalog();
+      clearStatusMsg(DOM.msgIng);
+      clearStatusMsg(DOM.msgDish);
+    } catch (e) {
+      const raw = e?.message || e;
+      const message = String(raw || "");
+      const hint = /401|未授權|X-Admin-Key/i.test(message)
+        ? "（請先在頁面下方輸入並儲存 Admin Key，再重新整理）"
+        : "";
+      setStatusMsg(DOM.msgIng, `食材載入失敗：${message}${hint}`, true);
+      setStatusMsg(DOM.msgDish, `菜色載入失敗：${message}${hint}`, true);
+    }
     await reloadUnitConversions();
-    await backupManager.refreshBackupList();
+    try {
+      await backupManager.refreshBackupList();
+      clearStatusMsg(DOM.msgBackup);
+    } catch (e) {
+      const raw = e?.message || e;
+      const message = String(raw || "");
+      const hint = /401|未授權|X-Admin-Key/i.test(message)
+        ? "（請先在頁面下方輸入並儲存 Admin Key，再重新整理）"
+        : "";
+      setStatusMsg(DOM.msgBackup, `備份清單載入失敗：${message}${hint}`, true);
+    }
     rebuildIngredientDatalist([]);
     renderAll();
     syncEditorPaneHeights();

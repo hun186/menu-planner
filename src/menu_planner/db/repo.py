@@ -33,6 +33,15 @@ SELECT from_unit, to_unit, factor
 FROM unit_conversions
 """
 
+SQL_CREATE_UNIT_CONVERSIONS_IF_NOT_EXISTS = """
+CREATE TABLE IF NOT EXISTS unit_conversions (
+    from_unit TEXT NOT NULL,
+    to_unit TEXT NOT NULL,
+    factor REAL NOT NULL,
+    PRIMARY KEY (from_unit, to_unit)
+)
+"""
+
 # Index note: keep `(ingredient_id, price_date)` indexed to avoid regressions as
 # ingredient_prices grows and latest-price lookups become more expensive.
 SQL_FETCH_LATEST_PRICES_WITH_CUTOFF = """
@@ -206,6 +215,7 @@ class SQLiteRepo:
 
     def fetch_unit_conversions(self) -> Dict[Tuple[str, str], float]:
         with self.connect() as conn:
+            conn.execute(SQL_CREATE_UNIT_CONVERSIONS_IF_NOT_EXISTS)
             rows = conn.execute(SQL_FETCH_UNIT_CONVERSIONS).fetchall()
         return {(r["from_unit"], r["to_unit"]): float(r["factor"]) for r in rows}
 

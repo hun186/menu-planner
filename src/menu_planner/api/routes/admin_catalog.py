@@ -159,7 +159,7 @@ class UnitConversionUpsertIn(BaseModel):
     factor: float = Field(gt=0)
 
 
-@router.get("/ingredients", dependencies=[Depends(require_admin_key)])
+@router.get("/ingredients")
 def list_ingredients(
     q: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -170,7 +170,7 @@ def list_ingredients(
     return repo.list_ingredients(q=q, page=page, page_size=page_size)
 
 
-@router.get("/dishes", dependencies=[Depends(require_admin_key)])
+@router.get("/dishes")
 def list_dishes(
     q: Optional[str] = Query(default=None),
     role: Optional[str] = Query(default=None),
@@ -280,7 +280,7 @@ class IngredientRenameIn(IngredientUpsert):
     target_id: str = Field(min_length=1)
 
 
-@router.get("/ingredients/{ingredient_id}/prices", dependencies=[Depends(require_admin_key)])
+@router.get("/ingredients/{ingredient_id}/prices")
 def list_prices(
     ingredient_id: str,
     limit: int = Query(default=30, ge=1, le=365),
@@ -330,7 +330,7 @@ def delete_price(
     return {"ok": True}
 
 
-@router.get("/ingredients/{ingredient_id}/inventory", dependencies=[Depends(require_admin_key)])
+@router.get("/ingredients/{ingredient_id}/inventory")
 def get_inventory(
     ingredient_id: str,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -358,7 +358,7 @@ def upsert_inventory(
     return {"ok": True}
 
 
-@router.get("/inventory/summary", dependencies=[Depends(require_admin_key)])
+@router.get("/inventory/summary")
 def list_inventory_summary(
     q: Optional[str] = Query(default=None),
     only_in_stock: bool = Query(default=False),
@@ -368,7 +368,7 @@ def list_inventory_summary(
     return repo.list_inventory_summary(q=q, only_in_stock=only_in_stock)
 
 
-@router.get("/unit-conversions", dependencies=[Depends(require_admin_key)])
+@router.get("/unit-conversions")
 def list_unit_conversions(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
@@ -473,14 +473,14 @@ def _extract_backup_date_from_filename(filename: str, db_stem: str, db_suffix: s
         return None
 
 
-@router.get("/backups", dependencies=[Depends(require_admin_key)])
+@router.get("/backups")
 def list_db_backups(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     return _list_backup_files(db_path)
 
 
-@router.get("/backups/stats", dependencies=[Depends(require_admin_key)])
+@router.get("/backups/stats")
 def get_db_backup_stats(
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
@@ -654,7 +654,7 @@ def merge_inventory_ingredient(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/inventory/summary/export", dependencies=[Depends(require_admin_key)])
+@router.get("/inventory/summary/export")
 def export_inventory_summary_excel(
     q: Optional[str] = Query(default=None),
     only_in_stock: bool = Query(default=False),
@@ -683,7 +683,7 @@ def export_inventory_summary_excel(
     )
 
 
-@router.get("/ingredients/export", dependencies=[Depends(require_admin_key)])
+@router.get("/ingredients/export")
 def export_ingredients_excel(
     q: Optional[str] = Query(default=None),
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -703,7 +703,7 @@ def export_ingredients_excel(
     )
 
 
-@router.get("/dishes/export", dependencies=[Depends(require_admin_key)])
+@router.get("/dishes/export")
 def export_dishes_excel(
     q: Optional[str] = Query(default=None),
     ingredient_id: Optional[str] = Query(default=None),
@@ -802,7 +802,7 @@ def rename_dish(
     return {"ok": True, **result}
 
 
-@router.get("/dishes/{dish_id}/ingredients", dependencies=[Depends(require_admin_key)])
+@router.get("/dishes/{dish_id}/ingredients")
 def get_dish_ingredients(
     dish_id: str,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -834,7 +834,7 @@ def put_dish_ingredients(
     return {"ok": True}
 
 
-@router.post("/dishes/cost-preview", dependencies=[Depends(require_admin_key)])
+@router.post("/dishes/cost-preview")
 def dish_cost_preview(
     body: DishCostPreviewIn,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -843,7 +843,7 @@ def dish_cost_preview(
     return repo.preview_dish_cost([x.model_dump() for x in body.items], servings=body.servings)
 
 
-@router.get("/dishes/cost-preview", dependencies=[Depends(require_admin_key)])
+@router.get("/dishes/cost-preview")
 def list_dish_cost_preview(
     dish_id: List[str] = Query(default=[]),
     db_path: str = Query(default=DEFAULT_DB_PATH),

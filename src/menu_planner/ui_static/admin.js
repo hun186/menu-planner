@@ -337,6 +337,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   }
 
   function renderUnitConversions() {
+    if (!$("#conv_tbl").length) return;
     const $tb = $("#conv_tbl tbody").empty();
     unitConversions.forEach((row) => {
       const $tr = $(`
@@ -360,7 +361,14 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   }
 
   async function reloadUnitConversions() {
-    unitConversions = await listUnitConversions();
+    try {
+      const rows = await listUnitConversions();
+      unitConversions = Array.isArray(rows) ? rows : [];
+      clearStatusMsg(DOM.msgConv);
+    } catch (e) {
+      unitConversions = [];
+      setStatusMsg(DOM.msgConv, `單位換算載入失敗：${e?.message || e}`, true);
+    }
   }
 
   async function saveIngredient() {

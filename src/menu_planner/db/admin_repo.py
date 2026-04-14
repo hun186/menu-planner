@@ -24,6 +24,19 @@ class SQLiteAdminRepo:
         return conn
 
     @staticmethod
+    def _ensure_unit_conversions_table(conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS unit_conversions (
+              from_unit TEXT NOT NULL,
+              to_unit TEXT NOT NULL,
+              factor REAL NOT NULL,
+              PRIMARY KEY (from_unit, to_unit)
+            )
+            """
+        )
+
+    @staticmethod
     def _compact_identifier(value: str) -> str:
         return (
             str(value or "")
@@ -371,6 +384,7 @@ class SQLiteAdminRepo:
     # ---------- prices ----------
     def list_unit_conversions(self) -> List[Dict[str, Any]]:
         with self._conn() as conn:
+            self._ensure_unit_conversions_table(conn)
             rows = conn.execute(
                 """
                 SELECT from_unit, to_unit, factor
@@ -389,6 +403,7 @@ class SQLiteAdminRepo:
 
     def upsert_unit_conversion(self, from_unit: str, to_unit: str, factor: float) -> None:
         with self._conn() as conn:
+            self._ensure_unit_conversions_table(conn)
             conn.execute(
                 """
                 INSERT INTO unit_conversions(from_unit, to_unit, factor)
@@ -400,6 +415,7 @@ class SQLiteAdminRepo:
 
     def delete_unit_conversion(self, from_unit: str, to_unit: str) -> int:
         with self._conn() as conn:
+            self._ensure_unit_conversions_table(conn)
             cur = conn.execute(
                 """
                 DELETE FROM unit_conversions
@@ -777,6 +793,7 @@ class SQLiteAdminRepo:
 
     def _fetch_unit_conversions(self) -> Dict[Tuple[str, str], float]:
         with self._conn() as conn:
+            self._ensure_unit_conversions_table(conn)
             rows = conn.execute("SELECT from_unit, to_unit, factor FROM unit_conversions").fetchall()
         return {(r[0], r[1]): float(r[2]) for r in rows}
 
@@ -809,6 +826,7 @@ class SQLiteAdminRepo:
         return min(candidates)
 
     def _fetch_unit_conversions_conn(self, conn: sqlite3.Connection) -> Dict[Tuple[str, str], float]:
+        self._ensure_unit_conversions_table(conn)
         rows = conn.execute("SELECT from_unit, to_unit, factor FROM unit_conversions").fetchall()
         return {(r[0], r[1]): float(r[2]) for r in rows}
 

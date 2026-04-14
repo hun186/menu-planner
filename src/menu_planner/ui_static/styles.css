@@ -37,6 +37,16 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
   .grid{
     grid-template-columns: minmax(0, 1fr);
   }
+  .conv-factor-inline{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .conv-factor-inline #conv_factor{
+    width:100%;
+  }
+  .conv-inline-actions{
+    justify-content:flex-start;
+  }
 }
 
 .manage-card{

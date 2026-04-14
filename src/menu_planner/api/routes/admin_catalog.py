@@ -155,6 +155,10 @@ class DishRenameIn(DishUpsert):
     target_id: str = Field(min_length=1)
 
 
+class UnitConversionUpsertIn(BaseModel):
+    factor: float = Field(gt=0)
+
+
 @router.get("/ingredients", dependencies=[Depends(require_admin_key)])
 def list_ingredients(
     q: Optional[str] = Query(default=None),
@@ -362,6 +366,59 @@ def list_inventory_summary(
 ):
     repo = SQLiteAdminRepo(db_path)
     return repo.list_inventory_summary(q=q, only_in_stock=only_in_stock)
+
+
+@router.get("/unit-conversions", dependencies=[Depends(require_admin_key)])
+def list_unit_conversions(
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    repo = SQLiteAdminRepo(db_path)
+    return repo.list_unit_conversions()
+
+
+@router.put("/unit-conversions/{from_unit}/{to_unit}", dependencies=[Depends(require_admin_key)])
+def upsert_unit_conversion(
+    from_unit: str,
+    to_unit: str,
+    body: UnitConversionUpsertIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    src = (from_unit or "").strip()
+    tgt = (to_unit or "").strip()
+    if not src or not tgt:
+        raise HTTPException(status_code=400, detail="from_unit / to_unit 不可為空")
+    if src == tgt:
+        raise HTTPException(status_code=400, detail="from_unit / to_unit 不可相同")
+
+    repo = repo_with_backup(
+        db_path,
+        reason="unit_conversion_upsert",
+        comment=_auto_backup_comment("單位換算新增/編輯", from_unit=src, to_unit=tgt),
+    )
+    repo.upsert_unit_conversion(src, tgt, body.factor)
+    return {"ok": True, "from_unit": src, "to_unit": tgt}
+
+
+@router.delete("/unit-conversions/{from_unit}/{to_unit}", dependencies=[Depends(require_admin_key)])
+def delete_unit_conversion(
+    from_unit: str,
+    to_unit: str,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    src = (from_unit or "").strip()
+    tgt = (to_unit or "").strip()
+    if not src or not tgt:
+        raise HTTPException(status_code=400, detail="from_unit / to_unit 不可為空")
+
+    repo = repo_with_backup(
+        db_path,
+        reason="unit_conversion_delete",
+        comment=_auto_backup_comment("單位換算刪除", from_unit=src, to_unit=tgt),
+    )
+    deleted = repo.delete_unit_conversion(src, tgt)
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="找不到此單位換算")
+    return {"ok": True}
 
 
 def _list_backup_files(db_path: str) -> List[dict]:

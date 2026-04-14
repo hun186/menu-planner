@@ -52,6 +52,41 @@
       </div>
     </div>
 
+    <section class="card" style="margin-top:14px;">
+      <h2>單位換算管理</h2>
+      <div class="row">
+        <label>from_unit</label>
+        <input id="conv_from_unit" type="text" placeholder="例如：kg" />
+      </div>
+      <div class="row">
+        <label>to_unit</label>
+        <input id="conv_to_unit" type="text" placeholder="例如：g" />
+      </div>
+      <div class="row">
+        <label>factor</label>
+        <input id="conv_factor" type="number" step="0.000001" min="0.000001" placeholder="1 from_unit = ? to_unit" />
+      </div>
+      <div class="btns">
+        <button id="conv_clear">清空</button>
+        <button id="conv_save" class="primary">新增 / 更新換算</button>
+      </div>
+      <div class="hint">範例：from=kg、to=g、factor=1000 代表 1 kg = 1000 g。</div>
+      <div class="tbl-scroll">
+        <table class="tbl" id="conv_tbl">
+          <thead>
+            <tr>
+              <th>from_unit</th>
+              <th>to_unit</th>
+              <th>factor</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="msg_conv" class="msg"></div>
+    </section>
+
     <div class="grid">
       <!-- 食材管理 -->
       <section class="card manage-card">

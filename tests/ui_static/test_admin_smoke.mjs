@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createCatalogCache, setCatalogCache } from '../../src/menu_planner/ui_static/shared/catalog_cache.js';
 import { httpJson } from '../../src/menu_planner/ui_static/shared/http.js';
-import { deleteDbBackup, deleteDbBackupsByDateRange, getDbBackupStats, loadCatalog, updateDbBackupComment, upsertIngredient } from '../../src/menu_planner/ui_static/admin/api.js';
+import { deleteDbBackup, deleteDbBackupsByDateRange, getDbBackupStats, listUnitConversions, loadCatalog, updateDbBackupComment, upsertIngredient, upsertUnitConversion } from '../../src/menu_planner/ui_static/admin/api.js';
 
 test('catalog cache + admin api smoke flow with mocked fetch', async () => {
   const calls = [];
@@ -107,4 +107,29 @@ test('backup api helpers call expected endpoints', async () => {
   assert.ok(calls.some((x) => String(x.url).includes('/admin/catalog/backups/menu_20260320_120001_000001.db') && x.options.method === 'DELETE'));
   assert.ok(calls.some((x) => x.url === '/admin/catalog/backups/batch-delete' && x.options.method === 'POST'));
   assert.ok(calls.some((x) => String(x.url).includes('/admin/catalog/backups/menu_20260320_120001_000001.db/comment') && x.options.method === 'PATCH'));
+});
+
+test('unit conversion api helpers call expected endpoints', async () => {
+  const calls = [];
+
+  global.localStorage = {
+    getItem(key) {
+      if (key === 'menu_admin_key') return 'secret';
+      return null;
+    },
+  };
+
+  global.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      json: async () => ([]),
+    };
+  };
+
+  await listUnitConversions();
+  await upsertUnitConversion('kg', 'g', 1000);
+
+  assert.ok(calls.some((x) => x.url === '/admin/catalog/unit-conversions' && x.options.method === 'GET'));
+  assert.ok(calls.some((x) => x.url === '/admin/catalog/unit-conversions/kg/g' && x.options.method === 'PUT'));
 });

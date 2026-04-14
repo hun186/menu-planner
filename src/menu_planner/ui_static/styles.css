@@ -109,6 +109,9 @@ h2{ margin:0 0 10px 0; font-size:16px; }
 .conv-row input{
   width:100%;
 }
+.conv-row input[type=number]{
+  width:100%;
+}
 .conv-actions-placeholder{
   min-height:1px;
 }

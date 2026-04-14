@@ -13,6 +13,8 @@ class _FakeRepo:
     merged_ingredients = []
     rename_dishes = []
     rename_ingredients = []
+    unit_conversions = []
+    deleted_unit_conversions = []
 
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -63,6 +65,20 @@ class _FakeRepo:
             "moved_price_count": 1,
             "moved_inventory": True,
         }
+
+    def list_unit_conversions(self):
+        return list(self.unit_conversions)
+
+    def upsert_unit_conversion(self, from_unit: str, to_unit: str, factor: float):
+        self.unit_conversions.append({
+            "from_unit": from_unit,
+            "to_unit": to_unit,
+            "factor": factor,
+        })
+
+    def delete_unit_conversion(self, from_unit: str, to_unit: str):
+        self.deleted_unit_conversions.append((from_unit, to_unit))
+        return 1
 
 
 def test_delete_price_not_found_does_not_trigger_backup(monkeypatch):
@@ -184,6 +200,42 @@ def test_repo_with_backup_passes_reason_and_comment(monkeypatch):
     assert isinstance(repo, _FakeRepo)
     assert calls["reason"] == "ingredient_upsert"
     assert calls["comment"] == "manual note"
+
+
+def test_upsert_unit_conversion_triggers_backup(monkeypatch):
+    calls = {"backup": 0, "reason": None}
+    _FakeRepo.unit_conversions = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str, *args, **kwargs):
+        calls["backup"] += 1
+        calls["reason"] = kwargs.get("reason")
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    resp = admin_catalog.upsert_unit_conversion(
+        "kg",
+        "g",
+        admin_catalog.UnitConversionUpsertIn(factor=1000),
+        db_path="/tmp/menu.db",
+    )
+    assert resp == {"ok": True, "from_unit": "kg", "to_unit": "g"}
+    assert calls["backup"] == 1
+    assert calls["reason"] == "unit_conversion_upsert"
+
+
+def test_delete_unit_conversion_not_found(monkeypatch):
+    class _RepoNotFound(_FakeRepo):
+        def delete_unit_conversion(self, from_unit: str, to_unit: str):
+            return 0
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _RepoNotFound)
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(HTTPException) as ex:
+        admin_catalog.delete_unit_conversion("kg", "g", db_path="/tmp/menu.db")
+    assert ex.value.status_code == 404
 
 
 def test_auto_backup_comment_skips_empty_details():

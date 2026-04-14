@@ -369,6 +369,47 @@ class SQLiteAdminRepo:
         }
     
     # ---------- prices ----------
+    def list_unit_conversions(self) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT from_unit, to_unit, factor
+                FROM unit_conversions
+                ORDER BY from_unit, to_unit
+                """
+            ).fetchall()
+        return [
+            {
+                "from_unit": r[0],
+                "to_unit": r[1],
+                "factor": float(r[2]),
+            }
+            for r in rows
+        ]
+
+    def upsert_unit_conversion(self, from_unit: str, to_unit: str, factor: float) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO unit_conversions(from_unit, to_unit, factor)
+                VALUES (?, ?, ?)
+                ON CONFLICT(from_unit, to_unit) DO UPDATE SET factor=excluded.factor
+                """,
+                (from_unit, to_unit, float(factor)),
+            )
+
+    def delete_unit_conversion(self, from_unit: str, to_unit: str) -> int:
+        with self._conn() as conn:
+            cur = conn.execute(
+                """
+                DELETE FROM unit_conversions
+                WHERE from_unit=? AND to_unit=?
+                """,
+                (from_unit, to_unit),
+            )
+            return cur.rowcount
+
+    # ---------- prices ----------
     def list_prices(self, ingredient_id: str, limit: int = 30):
         with self._conn() as conn:
             rows = conn.execute("""

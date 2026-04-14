@@ -37,6 +37,16 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
   .grid{
     grid-template-columns: minmax(0, 1fr);
   }
+  .conv-factor-inline{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .conv-factor-inline #conv_factor{
+    width:100%;
+  }
+  .conv-inline-actions{
+    justify-content:flex-start;
+  }
 }
 
 .manage-card{
@@ -85,6 +95,21 @@ h2{ margin:0 0 10px 0; font-size:16px; }
 }
 .collapsible-body{
   margin-top:10px;
+}
+.conv-factor-inline{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  width:100%;
+}
+.conv-factor-inline #conv_factor{
+  width:170px;
+}
+.conv-inline-actions{
+  margin-top:0;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
 
 .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; }

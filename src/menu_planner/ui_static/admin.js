@@ -56,9 +56,34 @@ const {
   upsertUnitConversion,
 } = adminApi;
 
-const deleteUnitConversion = adminApi.deleteUnitConversion || (async () => {
-  throw new Error("目前載入的 admin/api.js 版本過舊，請清除瀏覽器快取後重新整理。");
-});
+async function requestUnitConversionApi(url, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+  const key = adminKey();
+  if (key) headers["X-Admin-Key"] = key;
+  const res = await fetch(url, { ...options, headers });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = payload?.detail;
+    const msg = typeof detail === "string"
+      ? detail
+      : (detail?.message || `HTTP ${res.status}`);
+    throw new Error(msg);
+  }
+  return payload;
+}
+
+const listUnitConversionsCompat = listUnitConversions || (() => requestUnitConversionApi("/admin/catalog/unit-conversions"));
+const upsertUnitConversionCompat = upsertUnitConversion || ((fromUnit, toUnit, factor) => requestUnitConversionApi(
+  `/admin/catalog/unit-conversions/${encodeURIComponent(fromUnit)}/${encodeURIComponent(toUnit)}`,
+  { method: "PUT", body: JSON.stringify({ factor }) },
+));
+const deleteUnitConversion = adminApi.deleteUnitConversion || ((fromUnit, toUnit) => requestUnitConversionApi(
+  `/admin/catalog/unit-conversions/${encodeURIComponent(fromUnit)}/${encodeURIComponent(toUnit)}`,
+  { method: "DELETE" },
+));
 
 if (typeof window !== "undefined" && typeof document !== "undefined" && typeof window.$ !== "undefined") {
   (function () {
@@ -400,7 +425,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
 
   async function reloadUnitConversions() {
     try {
-      const rows = await listUnitConversions();
+      const rows = await listUnitConversionsCompat();
       unitConversions = Array.isArray(rows) ? rows : [];
       clearStatusMsg(DOM.msgConv);
     } catch (e) {
@@ -861,7 +886,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         if (!fromUnit || !toUnit) throw new Error("from_unit / to_unit 為必填。");
         if (fromUnit === toUnit) throw new Error("from_unit / to_unit 不可相同。");
         if (!(factor > 0)) throw new Error("factor 必須大於 0。");
-        await upsertUnitConversion(fromUnit, toUnit, factor);
+        await upsertUnitConversionCompat(fromUnit, toUnit, factor);
         await reloadUnitConversions();
         renderUnitConversions();
       }, "已儲存單位換算。");

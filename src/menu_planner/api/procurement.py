@@ -17,9 +17,12 @@ def _convert_unit(qty: float, from_unit: str, to_unit: str, conv: Dict[Tuple[str
     if from_unit == to_unit:
         return qty
     factor = conv.get((from_unit, to_unit))
-    if factor is None:
-        return None
-    return qty * factor
+    if factor is not None:
+        return qty * factor
+    inverse = conv.get((to_unit, from_unit))
+    if inverse is not None and float(inverse) != 0:
+        return qty / float(inverse)
+    return None
 
 
 def _iter_day_dishes(day: Dict[str, Any]) -> Iterable[Tuple[str, Dict[str, Any]]]:

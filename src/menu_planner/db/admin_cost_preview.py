@@ -4,6 +4,27 @@ import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
 
+def _convert_qty(
+    qty: float,
+    source_unit: Optional[str],
+    target_unit: Optional[str],
+    conv: Dict[Tuple[str, str], float],
+) -> Optional[float]:
+    src = str(source_unit or "").strip()
+    tgt = str(target_unit or "").strip()
+    if src == tgt:
+        return float(qty)
+    if not src or not tgt:
+        return None
+    factor = conv.get((src, tgt))
+    if factor is not None:
+        return float(qty) * float(factor)
+    inverse = conv.get((tgt, src))
+    if inverse is not None and float(inverse) != 0:
+        return float(qty) / float(inverse)
+    return None
+
+
 def fetch_latest_prices(conn: sqlite3.Connection, ingredient_ids: List[str]) -> Dict[str, Dict[str, Any]]:
     if not ingredient_ids:
         return {}
@@ -115,18 +136,15 @@ def build_cost_preview_rows(
             continue
 
         price_unit = p["unit"]
-        qty_in_price_unit = qty
-        if unit != price_unit:
-            factor = conv.get((unit, price_unit))
-            if factor is None:
-                row["status"] = "warning"
-                row["reason"] = "unit_mismatch"
-                row["price_date"] = p["price_date"]
-                row["price_per_unit"] = p["price_per_unit"]
-                row["price_unit"] = price_unit
-                rows.append(row)
-                continue
-            qty_in_price_unit = qty * factor
+        qty_in_price_unit = _convert_qty(qty, unit, price_unit, conv)
+        if qty_in_price_unit is None:
+            row["status"] = "warning"
+            row["reason"] = "unit_mismatch"
+            row["price_date"] = p["price_date"]
+            row["price_per_unit"] = p["price_per_unit"]
+            row["price_unit"] = price_unit
+            rows.append(row)
+            continue
 
         cost = qty_in_price_unit * float(p["price_per_unit"])
         row["price_date"] = p["price_date"]

@@ -125,6 +125,30 @@ def test_preview_dish_cost_reports_warnings(tmp_path):
     assert reasons == {"ingredient_not_found", "unit_mismatch"}
 
 
+def test_preview_dish_cost_supports_inverse_unit_conversion(tmp_path):
+    db_path = tmp_path / "menu.db"
+    _build_db(str(db_path))
+    repo = SQLiteAdminRepo(str(db_path))
+
+    with sqlite3.connect(str(db_path)) as conn:
+        conn.execute("DELETE FROM ingredient_prices WHERE ingredient_id=?", ("ing-b",))
+        conn.execute(
+            "INSERT INTO ingredient_prices(ingredient_id, price_date, price_per_unit, unit) VALUES(?, ?, ?, ?)",
+            ("ing-b", "2026-03-20", 1200, "斤"),
+        )
+        conn.execute("DELETE FROM unit_conversions")
+        conn.execute("INSERT INTO unit_conversions(from_unit, to_unit, factor) VALUES(?, ?, ?)", ("斤", "g", 600))
+
+    out = repo.preview_dish_cost(
+        [
+            {"ingredient_id": "ing-b", "qty": 300, "unit": "g"},
+        ]
+    )
+
+    assert out["warnings"] == []
+    assert out["per_serving_cost"] == 600
+
+
 def test_list_dish_cost_preview_returns_cost_and_warning_count(tmp_path):
     db_path = tmp_path / "menu.db"
     _build_db(str(db_path))

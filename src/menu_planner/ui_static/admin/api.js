@@ -19,6 +19,11 @@ export const ADMIN_API = {
   inventorySummary: "/admin/catalog/inventory/summary",
   inventoryMergeIngredient: "/admin/catalog/inventory/summary/merge-ingredient",
   inventorySummaryExport: "/admin/catalog/inventory/summary/export",
+  unitConversions: "/admin/catalog/unit-conversions",
+  unitConversionUpsert: (fromUnit, toUnit) =>
+    `/admin/catalog/unit-conversions/${encodeURIComponent(fromUnit)}/${encodeURIComponent(toUnit)}`,
+  unitConversionDelete: (fromUnit, toUnit) =>
+    `/admin/catalog/unit-conversions/${encodeURIComponent(fromUnit)}/${encodeURIComponent(toUnit)}`,
   backups: "/admin/catalog/backups",
   backupStats: "/admin/catalog/backups/stats",
   backupCreate: "/admin/catalog/backups/create",
@@ -196,6 +201,22 @@ export function mergeInventoryIngredient(sourceIngredientId, targetIngredientId)
     { method: "POST", body: JSON.stringify({ source_ingredient_id: sourceIngredientId, target_ingredient_id: targetIngredientId }) },
     { includeAdminKey: true }
   );
+}
+
+export function listUnitConversions() {
+  return httpArray(ADMIN_API.unitConversions, { method: "GET", headers: {} }, { includeAdminKey: true });
+}
+
+export function upsertUnitConversion(fromUnit, toUnit, factor) {
+  return httpJson(
+    ADMIN_API.unitConversionUpsert(fromUnit, toUnit),
+    { method: "PUT", body: JSON.stringify({ factor }) },
+    { includeAdminKey: true }
+  );
+}
+
+export function deleteUnitConversion(fromUnit, toUnit) {
+  return httpJson(ADMIN_API.unitConversionDelete(fromUnit, toUnit), { method: "DELETE" }, { includeAdminKey: true });
 }
 
 export function listDbBackups() {

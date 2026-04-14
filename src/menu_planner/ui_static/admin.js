@@ -1,4 +1,4 @@
-import { createDbBackup, deleteDbBackup, deleteDbBackupsByDateRange, deleteDish, deleteIngredient, deleteIngredientPrice, exportDishesExcel, exportIngredientsExcel, getDbBackupStats, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, renameDish, renameIngredient, restoreDbBackup, searchIngredients, updateDbBackupComment, upsertDish, upsertIngredient } from "./admin/api.js";
+import { createDbBackup, deleteDbBackup, deleteDbBackupsByDateRange, deleteDish, deleteIngredient, deleteIngredientPrice, deleteUnitConversion, exportDishesExcel, exportIngredientsExcel, getDbBackupStats, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, listUnitConversions, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, renameDish, renameIngredient, restoreDbBackup, searchIngredients, updateDbBackupComment, upsertDish, upsertIngredient, upsertUnitConversion } from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -35,6 +35,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     msgDishCost: "#msg_di_cost",
     msgIngMeta: "#msg_ing_meta",
     msgBackup: "#msg_backup",
+    msgConv: "#msg_conv",
     msgBackupModal: "#msg_backup_modal",
     ingredientEditorFields: "#ing_id,#ing_name,#ing_category,#ing_protein,#ing_unit",
     dishEditorFields: "#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_tags",
@@ -46,6 +47,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   let editingDishId = null;
   let editingIngId = null;
   let dishCostById = new Map();
+  let unitConversions = [];
   const backupReasonLabels = new Map([
     ["admin_modify_before_change", "管理端修改前自動備份"],
     ["admin_restore_pre_snapshot", "還原前自動備份快照"],
@@ -56,6 +58,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     ["ingredient_price_upsert", "食材價格更新前自動備份"],
     ["ingredient_price_delete", "食材價格刪除前自動備份"],
     ["ingredient_inventory_upsert", "庫存更新前自動備份"],
+    ["unit_conversion_upsert", "單位換算新增/編輯前自動備份"],
+    ["unit_conversion_delete", "單位換算刪除前自動備份"],
     ["dish_upsert", "菜色新增/編輯前自動備份"],
     ["dish_delete", "菜色刪除前自動備份"],
     ["dish_rename", "菜色更名前自動備份"],
@@ -328,7 +332,43 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   function renderAll() {
     renderIngredients();
     renderDishes();
+    renderUnitConversions();
     syncEditorPaneHeights();
+  }
+
+  function renderUnitConversions() {
+    if (!$("#conv_tbl").length) return;
+    const $tb = $("#conv_tbl tbody").empty();
+    unitConversions.forEach((row) => {
+      const $tr = $(`
+        <tr>
+          <td>${escapeHtml(row.from_unit)}</td>
+          <td>${escapeHtml(row.to_unit)}</td>
+          <td>${Number(row.factor || 0).toFixed(6)}</td>
+          <td><button class="btn_conv_del">刪除</button></td>
+        </tr>
+      `);
+      $tr.find(".btn_conv_del").on("click", async () => {
+        if (!confirm(`確定刪除單位換算：${row.from_unit} → ${row.to_unit}？`)) return;
+        await withStatusMsg(DOM.msgConv, async () => {
+          await deleteUnitConversion(row.from_unit, row.to_unit);
+          await reloadUnitConversions();
+          renderUnitConversions();
+        }, "已刪除單位換算。");
+      });
+      $tb.append($tr);
+    });
+  }
+
+  async function reloadUnitConversions() {
+    try {
+      const rows = await listUnitConversions();
+      unitConversions = Array.isArray(rows) ? rows : [];
+      clearStatusMsg(DOM.msgConv);
+    } catch (e) {
+      unitConversions = [];
+      setStatusMsg(DOM.msgConv, `單位換算載入失敗：${e?.message || e}`, true);
+    }
   }
 
   async function saveIngredient() {
@@ -771,6 +811,24 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       }, "菜名 Excel 匯出完成。");
     });
 
+    $("#conv_clear").on("click", () => {
+      clearFields("#conv_from_unit,#conv_to_unit,#conv_factor");
+      clearStatusMsg(DOM.msgConv);
+    });
+    $("#conv_save").on("click", async () => {
+      await withStatusMsg(DOM.msgConv, async () => {
+        const fromUnit = ($("#conv_from_unit").val() || "").trim();
+        const toUnit = ($("#conv_to_unit").val() || "").trim();
+        const factor = Number($("#conv_factor").val() || "0");
+        if (!fromUnit || !toUnit) throw new Error("from_unit / to_unit 為必填。");
+        if (fromUnit === toUnit) throw new Error("from_unit / to_unit 不可相同。");
+        if (!(factor > 0)) throw new Error("factor 必須大於 0。");
+        await upsertUnitConversion(fromUnit, toUnit, factor);
+        await reloadUnitConversions();
+        renderUnitConversions();
+      }, "已儲存單位換算。");
+    });
+
     $("#db_backup_reload").on("click", async () => {
       await withStatusMsg(DOM.msgBackup, async () => {
         await backupManager.refreshBackupList();
@@ -967,6 +1025,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       $("#ing_q").val(ingredientPager.q);
     }
     await reloadCatalog();
+    await reloadUnitConversions();
     await backupManager.refreshBackupList();
     rebuildIngredientDatalist([]);
     renderAll();

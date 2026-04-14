@@ -1,4 +1,4 @@
-import { createDbBackup, deleteDbBackup, deleteDbBackupsByDateRange, deleteDish, deleteIngredient, deleteIngredientPrice, deleteUnitConversion, exportDishesExcel, exportIngredientsExcel, getDbBackupStats, getDishIngredients, getIngredientInventory, getIngredientPrices, listDbBackups, listDishCostPreview, listUnitConversions, loadCatalogPage, previewDishCost, putDishIngredients, putIngredientInventory, putIngredientPrice, renameDish, renameIngredient, restoreDbBackup, searchIngredients, updateDbBackupComment, upsertDish, upsertIngredient, upsertUnitConversion } from "./admin/api.js";
+import * as adminApi from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
@@ -24,6 +24,41 @@ import {
 } from "./admin/utils.js";
 
 export { filterBackups, shouldRenameEntity };
+
+const {
+  createDbBackup,
+  deleteDbBackup,
+  deleteDbBackupsByDateRange,
+  deleteDish,
+  deleteIngredient,
+  deleteIngredientPrice,
+  exportDishesExcel,
+  exportIngredientsExcel,
+  getDbBackupStats,
+  getDishIngredients,
+  getIngredientInventory,
+  getIngredientPrices,
+  listDbBackups,
+  listDishCostPreview,
+  listUnitConversions,
+  loadCatalogPage,
+  previewDishCost,
+  putDishIngredients,
+  putIngredientInventory,
+  putIngredientPrice,
+  renameDish,
+  renameIngredient,
+  restoreDbBackup,
+  searchIngredients,
+  updateDbBackupComment,
+  upsertDish,
+  upsertIngredient,
+  upsertUnitConversion,
+} = adminApi;
+
+const deleteUnitConversion = adminApi.deleteUnitConversion || (async () => {
+  throw new Error("目前載入的 admin/api.js 版本過舊，請清除瀏覽器快取後重新整理。");
+});
 
 if (typeof window !== "undefined" && typeof document !== "undefined" && typeof window.$ !== "undefined") {
   (function () {

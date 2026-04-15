@@ -96,18 +96,18 @@ h2{ margin:0 0 10px 0; font-size:16px; }
 .collapsible-body{
   margin-top:10px;
 }
-.conv-row{
+.row.conv-row{
   display:grid;
   grid-template-columns: 120px minmax(200px, 320px) minmax(220px, 1fr);
   align-items:center;
   justify-content:normal;
   gap:10px;
 }
-.conv-row label{
+.row.conv-row label{
   margin:0;
   min-width:0;
 }
-.conv-row input{
+.row.conv-row input{
   width:100%;
 }
 #conv_from_unit,
@@ -128,7 +128,7 @@ h2{ margin:0 0 10px 0; font-size:16px; }
 }
 
 @media (max-width: 900px){
-  .conv-row{
+  .row.conv-row{
     grid-template-columns: 1fr;
     gap:6px;
   }

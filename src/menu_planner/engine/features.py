@@ -122,7 +122,7 @@ def build_dish_features(
 
             # inventory hit (by ingredient presence; 可再進一步檢查 qty)
             inv = inventory.get(di.ingredient_id)
-            if inv:
+            if inv and float(inv.qty_on_hand or 0) > 0:
                 used_inv.append(di.ingredient_id)
                 inv_hits += 1
                 inv_expiry_dates[di.ingredient_id] = inv.expiry_date

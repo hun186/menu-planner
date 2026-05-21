@@ -9,6 +9,18 @@
   <script src="/vendor/jquery-3.7.1.min.js"></script>
 </head>
 <body>
+  <nav class="top-nav" aria-label="主要導覽">
+    <div class="top-nav-inner">
+      <a class="brand" href="/">Menu Planner</a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav-links">☰ 選單</button>
+      <div id="primary-nav-links" class="nav-links">
+        <a href="/">排菜總覽</a>
+        <a href="/admin">資料庫管理</a>
+        <a href="/inventory.html">庫存統整</a>
+      </div>
+    </div>
+  </nav>
+
   <div class="wrap">
     <header class="hdr">
       <h1>庫存統整</h1>
@@ -75,5 +87,6 @@
   </div>
 
   <script type="module" src="inventory.js"></script>
+  <script src="nav.js"></script>
 </body>
 </html>

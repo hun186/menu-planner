@@ -135,7 +135,7 @@ def build_explanations(
             # 原本的總分（raw，可能是負）
             "total_score": round(total_raw, 2),
 
-            # ✅ 新增：總符合度（正向）
+            # ✅ 新增：總目標匹配度（正向）
             "total_fitness": round(total_fitness, 2),
 
             # ✅ 你加的說明（保留）
@@ -144,7 +144,7 @@ def build_explanations(
                 "components": {
                     "bonus": "加分項（以負數表示，例如用到庫存、接近到期）",
                     "penalty": "扣分項（以正數表示，例如超出成本、連續同肉/同菜系）",
-                    "fitness": "符合度＝-原始分數（越高越好）"
+                    "fitness": "目標匹配度＝-原始分數（越高越好）"
                 }
             }
         },

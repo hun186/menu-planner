@@ -155,9 +155,9 @@ def append_summary_sheet(
     ws.append(["人數", int((cfg or {}).get("people", 250) or 250)])
     ws.append(["總成本", round(total_cost, 2)])
     ws.append(["平均/日", round(total_cost / max(days_n, 1), 2)])
-    ws.append(["總符合度", round(total_fitness, 2)])
-    ws.append(["平均符合度/日", round(total_fitness / max(fitness_count, 1), 2)])
-    ws.append(["說明", "符合度越高越好；若未提供 score_fitness，則使用 -原始分數 當符合度。"])
+    ws.append(["總目標匹配度", round(total_fitness, 2)])
+    ws.append(["平均目標匹配度/日", round(total_fitness / max(fitness_count, 1), 2)])
+    ws.append(["說明", "目標匹配度越高越好；若未提供 score_fitness，則使用 -原始分數 當目標匹配度。"])
 
     set_col_width(ws, {1: 18, 2: 60})
 

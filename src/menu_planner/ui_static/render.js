@@ -112,7 +112,7 @@ export function renderResult(result, cfg, options = {}) {
 
   html += `<div class="score-legend">
     <div><b>分數解讀</b>：系統把「扣分（+）」與「加分（-）」加總，<b>原始分數越低越好</b>。</div>
-    <div>為了直覺，另外顯示 <b>符合度 = -原始分數（越高越好）</b>。</div>
+    <div>為了直覺，另外顯示 <b>目標匹配度 = -原始分數（越高越好）</b>。</div>
     <div class="muted">常見加分：使用庫存、使用近到期。常見扣分：成本超限、主菜連續同肉／同菜系。</div>
   </div>`;
 
@@ -120,13 +120,13 @@ export function renderResult(result, cfg, options = {}) {
     <div><b>天數</b>：${s.days}</div>
     <div><b>總成本</b>：${s.total_cost}</div>
     <div><b>平均/日</b>：${s.avg_cost_per_day}</div>
-    <div><b>符合度</b>：${fitTotal.toFixed(2)}</div>
+    <div><b>目標匹配度</b>：${fitTotal.toFixed(2)}</div>
   </div>`;
 
   html += `<table class="tbl">
     <thead>
       <tr>
-        <th>日期</th><th>人數</th><th>主菜</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>符合度</th>
+        <th>日期</th><th>人數</th><th>主菜</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>目標匹配度</th>
       </tr>
     </thead>
     <tbody>`;
@@ -272,7 +272,7 @@ export function renderResult(result, cfg, options = {}) {
       </div>`;
     }).join("");
 
-    const daySummary = `今日小結：加分 ${sum.bonus.toFixed(1)} ／ 扣分 ${sum.penalty.toFixed(1)} ／ 原始 ${sum.raw.toFixed(1)}（符合度 ${sum.fitness.toFixed(1)}）`;
+    const daySummary = `今日小結：加分 ${sum.bonus.toFixed(1)} ／ 扣分 ${sum.penalty.toFixed(1)} ／ 原始 ${sum.raw.toFixed(1)}（目標匹配度 ${sum.fitness.toFixed(1)}）`;
 
     html += `<tr class="explain">
       <td colspan="9">

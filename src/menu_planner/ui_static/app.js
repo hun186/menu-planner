@@ -467,7 +467,7 @@ function bindResultEditing() {
     }
     recomputeResultSummary(state.lastResult, state.lastCfg);
     renderResult(state.lastResult, state.lastCfg, { editable: true });
-    setMsg("已套用手動調整，成本/符合度與可解釋結果已同步更新。");
+    setMsg("已套用手動調整，成本/目標匹配度與可解釋結果已同步更新。");
     modal.addClass("hide");
   });
 }

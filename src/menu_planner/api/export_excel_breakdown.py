@@ -35,7 +35,7 @@ def build_human_breakdown(day: Dict[str, Any]) -> str:
     fitness = num(score_summary.get("fitness", day.get("score_fitness")), -raw)
 
     lines = [
-        f"今日小結：加分 {bonus:.2f} ／ 扣分 {penalty:.2f} ／ 原始 {raw:.2f}（符合度 {fitness:.2f}）",
+        f"今日小結：加分 {bonus:.2f} ／ 扣分 {penalty:.2f} ／ 原始 {raw:.2f}（目標匹配度 {fitness:.2f}）",
         "打分拆解（影響大 → 小）",
     ]
 

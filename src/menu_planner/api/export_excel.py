@@ -108,7 +108,7 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
         "湯",
         "水果",
         "成本",
-        "符合度",
+        "目標匹配度",
         "分數拆解(JSON)",
         "分數拆解(易讀)",
     ]

@@ -185,6 +185,40 @@
           </div>
         </div>
 
+
+        <hr class="hr" />
+
+        <h3 class="h3">菜色允許供應週幾（排菜設定）</h3>
+        <div class="row top">
+          <label>新增 / 調整</label>
+          <div class="grow">
+            <div class="hint">預設所有菜色皆可出現在週一～週日；只有加入下方規則的菜色會被限制供應週幾。</div>
+            <div class="inline left" style="margin-top:8px;">
+              <select id="allowed_dish_role_filter">
+                <option value="">全部</option>
+                <option value="main">主菜</option>
+                <option value="side">配菜</option>
+                <option value="veg">純蔬配菜</option>
+                <option value="soup">湯</option>
+                <option value="fruit">水果</option>
+              </select>
+              <input id="allowed_dish_search" type="text" placeholder="搜尋菜名後加入限制（例如：雞翅）" />
+            </div>
+            <div id="allowed_dish_suggest" class="suggest"></div>
+            <div class="chips inline left weekday-picker" id="allowed_dish_weekday_picker" aria-label="此菜色允許供應週幾">
+              <label><input type="checkbox" value="1" checked>週一</label>
+              <label><input type="checkbox" value="2" checked>週二</label>
+              <label><input type="checkbox" value="3" checked>週三</label>
+              <label><input type="checkbox" value="4" checked>週四</label>
+              <label><input type="checkbox" value="5" checked>週五</label>
+              <label><input type="checkbox" value="6" checked>週六</label>
+              <label><input type="checkbox" value="7" checked>週日</label>
+            </div>
+            <div id="allowed_dish_rules" class="rule-list"></div>
+            <div class="hint">例：先只勾「週三」，再搜尋並點選「雞翅」，即可讓雞翅只在週三有機會被排入。</div>
+          </div>
+        </div>
+
         <hr class="hr" />
 
         <div class="btns">

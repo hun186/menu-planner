@@ -96,6 +96,31 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
             except Exception:
                 errs.append(f"{k} 必須是整數")
 
+
+    dish_allowed_weekdays = hard.get("dish_allowed_weekdays")
+    if dish_allowed_weekdays is not None:
+        if not isinstance(dish_allowed_weekdays, dict):
+            errs.append("hard.dish_allowed_weekdays 必須是物件（dish_id -> 週幾陣列）")
+        else:
+            for dish_id, weekdays in dish_allowed_weekdays.items():
+                if not isinstance(dish_id, str) or not dish_id.strip():
+                    errs.append("hard.dish_allowed_weekdays 的 key 需為非空菜色 ID")
+                    continue
+                if not isinstance(weekdays, list):
+                    errs.append(f"hard.dish_allowed_weekdays[{dish_id}] 必須是陣列")
+                    continue
+                bad = []
+                for x in weekdays:
+                    try:
+                        wd = int(x)
+                    except Exception:
+                        bad.append(x)
+                        continue
+                    if wd < 1 or wd > 7:
+                        bad.append(x)
+                if bad:
+                    errs.append(f"hard.dish_allowed_weekdays[{dish_id}] 僅支援 1~7：{bad}")
+
     no_same_family = hard.get("no_same_ingredient_family_within_day")
     if no_same_family is not None:
         if not isinstance(no_same_family, list):

@@ -10,7 +10,7 @@ import random
 from ..db.repo import Dish
 from .features import DishFeatures
 from .constraints import PlanDay, check_main_hard 
-from .constraints import check_cost_range
+from .constraints import check_cost_range, check_soup_window_repeat
 from .scoring import score_day
 
 from .errors import PlanError
@@ -24,6 +24,33 @@ from .backtracking_selection import (
 )
 
 
+
+def _weekday_for_day(day_idx: int, start_date: Optional[date]) -> int:
+    if start_date is not None:
+        return (start_date + timedelta(days=day_idx)).isoweekday()
+    return (day_idx % 7) + 1
+
+
+def _normalize_weekday_set(value) -> Set[int]:
+    if value is None:
+        return {1, 2, 3, 4, 5, 6, 7}
+    if not isinstance(value, list):
+        return {1, 2, 3, 4, 5, 6, 7}
+    out: Set[int] = set()
+    for x in value:
+        try:
+            wd = int(x)
+        except Exception:
+            continue
+        if 1 <= wd <= 7:
+            out.add(wd)
+    return out or {1, 2, 3, 4, 5, 6, 7}
+
+
+def _dish_allowed_on_day(dish: Dish, day_idx: int, start_date: Optional[date], hard: Dict) -> bool:
+    rules = (hard.get("dish_allowed_weekdays") or {}) if isinstance(hard, dict) else {}
+    allowed = _normalize_weekday_set(rules.get(dish.id))
+    return _weekday_for_day(day_idx, start_date) in allowed
 
 
 def _failed_day_explanation(
@@ -71,6 +98,7 @@ def plan_mains_beam(
     rng = random.Random(seed)
 
     # 候選先隨機打散，再用成本/庫存等排序
+    main_by_id = {d.id: d for d in mains}
     main_ids = [d.id for d in mains if d.id in feat]
     rng.shuffle(main_ids)
 
@@ -119,6 +147,9 @@ def plan_mains_beam(
 
         for st in states:
             for did in main_ids:
+                dish = main_by_id.get(did)
+                if dish is not None and not _dish_allowed_on_day(dish, day, start_date, hard):
+                    continue
                 meat = feat[did].meat_type
 
                 if not check_main_hard(
@@ -252,11 +283,11 @@ def fill_days_after_mains(
         seed0 = int(hard.get("seed", 7))  # 或改成 cfg seed 傳進來
         rng = random.Random(seed0 + day * 10007)
         
-        # 只拿可用候選（在 feat 裡）
-        fruit_pool = fruit_pool0[:]
-        soup_pool  = soup_pool0[:]
-        side_pool  = side_pool0[:]
-        veg_pool   = veg_pool0[:]
+        # 只拿可用候選（在 feat 裡），並套用單一道菜允許供應週幾。
+        fruit_pool = [d for d in fruit_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
+        soup_pool  = [d for d in soup_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
+        side_pool  = [d for d in side_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
+        veg_pool   = [d for d in veg_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
         
         rng.shuffle(fruit_pool)
         rng.shuffle(soup_pool)

@@ -13,6 +13,7 @@
   "hard": {
     "include_dish_ids": [],
     "exclude_dish_ids": [],
+    "dish_allowed_weekdays": {},
     "exclude_ingredient_ids": [],
     "no_same_ingredient_family_within_day": ["family:tofu"],
     "allowed_main_meat_types_old": ["chicken", "pork", "beef", "fish", "seafood", "noodles", "vegetarian"],

@@ -65,7 +65,8 @@ function resetWeekdayPicker(weekdays = [1, 2, 3, 4, 5, 6, 7]) {
   });
 }
 
-function createChipElement(className) {
+// The visual CSS class remains "chip", but code uses "selected item" wording for clarity.
+function createSelectedItemElement(className) {
   return $("<span></span>")
     .addClass(className)
     .attr("data-id", "")
@@ -73,9 +74,9 @@ function createChipElement(className) {
     .append($("<span></span>").addClass("x").text("×"));
 }
 
-function addChip($box, id, label, onChanged) {
+function addSelectedItem($box, id, label, onChanged) {
   if ($box.find(`.chip[data-id="${id}"]`).length) return;
-  const $c = createChipElement("chip");
+  const $c = createSelectedItemElement("chip");
   $c.attr("data-id", id);
   $c.find(".t").text(label);
   $c.on("click", function () {
@@ -85,7 +86,7 @@ function addChip($box, id, label, onChanged) {
   $box.append($c);
 }
 
-function readChipIds($box) {
+function readSelectedItemIds($box) {
   const ids = [];
   $box.find(".chip").each(function () {
     ids.push($(this).data("id"));
@@ -93,7 +94,7 @@ function readChipIds($box) {
   return ids;
 }
 
-function clearChips($box) {
+function clearSelectedItems($box) {
   $box.empty();
 }
 
@@ -126,7 +127,7 @@ function addDishAllowedRule(dishId, weekdays, onChanged) {
   const dish = state.dishById.get(id);
   const title = dish ? `[${dish.role}] ${dish.name}` : id;
   const text = `${title}：${formatWeekdays(normalized)}`;
-  const $rule = existing.length ? existing : createChipElement("chip allowed-dish-rule");
+  const $rule = existing.length ? existing : createSelectedItemElement("chip allowed-dish-rule");
   $rule.attr("data-id", id);
   $rule.attr("data-weekdays", normalized.join(","));
   $rule.find(".t").text(text);
@@ -288,11 +289,11 @@ function readFormData() {
     repeatLimits,
     preferInventory: $(DOM.preferInventory).is(":checked"),
     preferExpiry: $(DOM.preferExpiry).is(":checked"),
-    inventoryPreferIngredientIds: readChipIds($(DOM.ingredientChips)),
-    excludeDishIds: readChipIds($(DOM.excludeDishChips)),
+    inventoryPreferIngredientIds: readSelectedItemIds($(DOM.ingredientSelectedItems)),
+    excludeDishIds: readSelectedItemIds($(DOM.excludeDishSelectedItems)),
     dishAllowedWeekdays: readDishAllowedRules(),
-    forceIncludeDates: readChipIds($(DOM.includeDateChips)),
-    forceExcludeDates: readChipIds($(DOM.excludeDateChips)),
+    forceIncludeDates: readSelectedItemIds($(DOM.includeDateSelectedItems)),
+    forceExcludeDates: readSelectedItemIds($(DOM.excludeDateSelectedItems)),
     peopleOverrides: (state.lastCfg?.schedule?.people_overrides) || {},
   };
 }
@@ -354,16 +355,16 @@ function applyCfgToForm(cfg) {
   $(DOM.preferInventory).prop("checked", form.preferInventory);
   $(DOM.preferExpiry).prop("checked", form.preferExpiry);
 
-  clearChips($(DOM.ingredientChips));
+  clearSelectedItems($(DOM.ingredientSelectedItems));
   form.inventoryPreferIngredientIds.forEach((id) => {
     const ing = state.ingById.get(id);
-    addChip($(DOM.ingredientChips), id, ing ? ing.name : id, syncCfgTextareaFromForm);
+    addSelectedItem($(DOM.ingredientSelectedItems), id, ing ? ing.name : id, syncCfgTextareaFromForm);
   });
 
-  clearChips($(DOM.excludeDishChips));
+  clearSelectedItems($(DOM.excludeDishSelectedItems));
   form.excludeDishIds.forEach((id) => {
     const d = state.dishById.get(id);
-    addChip($(DOM.excludeDishChips), id, d ? `[${d.role}] ${d.name}` : id, syncCfgTextareaFromForm);
+    addSelectedItem($(DOM.excludeDishSelectedItems), id, d ? `[${d.role}] ${d.name}` : id, syncCfgTextareaFromForm);
   });
 
   clearDishAllowedRules();
@@ -372,14 +373,14 @@ function applyCfgToForm(cfg) {
   });
   resetWeekdayPicker();
 
-  clearChips($(DOM.includeDateChips));
+  clearSelectedItems($(DOM.includeDateSelectedItems));
   form.forceIncludeDates.forEach((ds) => {
-    addChip($(DOM.includeDateChips), ds, ds, syncCfgTextareaFromForm);
+    addSelectedItem($(DOM.includeDateSelectedItems), ds, ds, syncCfgTextareaFromForm);
   });
 
-  clearChips($(DOM.excludeDateChips));
+  clearSelectedItems($(DOM.excludeDateSelectedItems));
   form.forceExcludeDates.forEach((ds) => {
-    addChip($(DOM.excludeDateChips), ds, ds, syncCfgTextareaFromForm);
+    addSelectedItem($(DOM.excludeDateSelectedItems), ds, ds, syncCfgTextareaFromForm);
   });
 }
 
@@ -676,7 +677,7 @@ function bindResultEditing() {
 function bindIngredientSearch() {
   const $input = $(DOM.ingredientSearch);
   const $suggest = $(DOM.ingredientSuggest);
-  const $chips = $(DOM.ingredientChips);
+  const $selectedItems = $(DOM.ingredientSelectedItems);
 
   $input.on("input focus", function () {
     const q = ($input.val() || "").trim().toLowerCase();
@@ -690,7 +691,7 @@ function bindIngredientSearch() {
       .map((x) => ({ id: x.id, label: x.name, meta: x.category || "" }));
 
     showSuggest($suggest, hits, (it) => {
-      addChip($chips, it.id, it.label, syncCfgTextareaFromForm);
+      addSelectedItem($selectedItems, it.id, it.label, syncCfgTextareaFromForm);
       $input.val("");
       syncCfgTextareaFromForm();
     });
@@ -707,7 +708,7 @@ function bindDishSearch() {
   const $input = $(DOM.dishSearch);
   const $role = $(DOM.dishRoleFilter);
   const $suggest = $(DOM.dishSuggest);
-  const $chips = $(DOM.excludeDishChips);
+  const $selectedItems = $(DOM.excludeDishSelectedItems);
 
   function run() {
     const q = ($input.val() || "").trim().toLowerCase();
@@ -724,7 +725,7 @@ function bindDishSearch() {
       .map((d) => ({ id: d.id, label: `[${d.role}] ${d.name}`, meta: d.meat_type || d.cuisine || "" }));
 
     showSuggest($suggest, hits, (it) => {
-      addChip($chips, it.id, it.label, syncCfgTextareaFromForm);
+      addSelectedItem($selectedItems, it.id, it.label, syncCfgTextareaFromForm);
       $input.val("");
       syncCfgTextareaFromForm();
     }, { totalCount: matches.length, limit: SUGGEST_RESULT_LIMIT });
@@ -786,7 +787,7 @@ function bindSpecialDateOverrides() {
   $(DOM.includeDateAdd).on("click", () => {
     const ds = String($(DOM.includeDateInput).val() || "").trim();
     if (!ds) return;
-    addChip($(DOM.includeDateChips), ds, ds, syncCfgTextareaFromForm);
+    addSelectedItem($(DOM.includeDateSelectedItems), ds, ds, syncCfgTextareaFromForm);
     $(DOM.includeDateInput).val("");
     syncCfgTextareaFromForm();
   });
@@ -794,7 +795,7 @@ function bindSpecialDateOverrides() {
   $(DOM.excludeDateAdd).on("click", () => {
     const ds = String($(DOM.excludeDateInput).val() || "").trim();
     if (!ds) return;
-    addChip($(DOM.excludeDateChips), ds, ds, syncCfgTextareaFromForm);
+    addSelectedItem($(DOM.excludeDateSelectedItems), ds, ds, syncCfgTextareaFromForm);
     $(DOM.excludeDateInput).val("");
     syncCfgTextareaFromForm();
   });

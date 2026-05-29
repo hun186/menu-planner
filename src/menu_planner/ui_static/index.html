@@ -183,7 +183,7 @@
             </div>
             <div id="dish_suggest" class="suggest"></div>
             <div id="exclude_dish_chips" class="chips chips-box"></div>
-            <div class="hint">可先用角色縮小範圍，再搜尋加入。</div>
+            <div class="hint">可先用角色縮小範圍，再搜尋加入。建議清單最多顯示前 12 筆；若沒看到想選的菜，請輸入更完整菜名或切換角色篩選。</div>
           </div>
         </div>
 
@@ -194,7 +194,13 @@
         <div class="row top">
           <label>新增 / 調整</label>
           <div class="grow">
-            <div class="hint">預設所有菜色皆可出現在週一～週日；只有加入下方規則的菜色會被限制供應週幾。</div>
+            <div class="hint">
+              管理者在資料庫管理設定的「允許週幾」會在載入預設設定時自動帶入這裡；若使用者在本區塊對同一菜色新增規則，會覆寫資料庫預設，只影響本次排菜 JSON，不會回寫資料庫。
+              全週（週一～週日都勾）視為沒有特別限制。
+            </div>
+            <div class="btns" style="margin-top:8px;">
+              <button id="allowed_dish_db_rules_btn" type="button">查看資料庫已設定的菜色</button>
+            </div>
             <div class="inline left" style="margin-top:8px;">
               <select id="allowed_dish_role_filter">
                 <option value="">全部</option>
@@ -217,7 +223,7 @@
               <label><input type="checkbox" value="7" checked>週日</label>
             </div>
             <div id="allowed_dish_rules" class="rule-list"></div>
-            <div class="hint">例：先只勾「週三」，再搜尋並點選「雞翅」，即可讓雞翅只在週三有機會被排入。</div>
+            <div class="hint">例：先只勾「週三」，再搜尋並點選「雞翅」，即可讓雞翅只在週三有機會被排入。下方晶片清單就是本次排菜實際送出的限制；刪除晶片代表移除此菜色在本次排菜的限制。建議清單最多顯示前 12 筆；若沒看到想選的菜，請輸入更完整菜名或切換角色篩選。</div>
           </div>
         </div>
 

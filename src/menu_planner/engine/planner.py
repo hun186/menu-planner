@@ -341,6 +341,25 @@ def _bump_soup_constraints_for_retry(hard: Dict[str, Any]) -> Dict[str, Any]:
     return changed
 
 
+
+def _merge_dish_allowed_weekdays_from_catalog(hard: Dict[str, Any], dishes: List[Dish]) -> None:
+    rules = dict(hard.get("dish_allowed_weekdays") or {})
+    for dish in dishes:
+        weekdays = getattr(dish, "allowed_weekdays", None) or []
+        normalized: List[int] = []
+        for item in weekdays:
+            try:
+                weekday = int(item)
+            except Exception:
+                continue
+            if 1 <= weekday <= 7 and weekday not in normalized:
+                normalized.append(weekday)
+        normalized = sorted(normalized) if normalized else [1, 2, 3, 4, 5, 6, 7]
+        if len(normalized) < 7 and dish.id not in rules:
+            rules[dish.id] = normalized
+    if rules:
+        hard["dish_allowed_weekdays"] = rules
+
 def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
     repo = SQLiteRepo(db_path)
 
@@ -362,6 +381,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         dish_ingredients=dish_ingredients,
         hard=hard,
     )
+    _merge_dish_allowed_weekdays_from_catalog(hard, all_dishes)
     inventory = repo.fetch_inventory()
     conv = repo.fetch_unit_conversions()
     prices = repo.fetch_latest_prices(price_date=start_date.isoformat())

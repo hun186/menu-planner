@@ -24,6 +24,42 @@ class SQLiteAdminRepo:
         return conn
 
     @staticmethod
+    def _normalize_allowed_weekdays(value: Any) -> List[int]:
+        source = value if isinstance(value, list) else []
+        out: List[int] = []
+        for item in source:
+            try:
+                weekday = int(item)
+            except Exception:
+                continue
+            if 1 <= weekday <= 7 and weekday not in out:
+                out.append(weekday)
+        return sorted(out) if out else [1, 2, 3, 4, 5, 6, 7]
+
+    @staticmethod
+    def _safe_json_weekdays(raw: Optional[str]) -> List[int]:
+        try:
+            data = json.loads(raw or "[]")
+        except Exception:
+            data = []
+        return SQLiteAdminRepo._normalize_allowed_weekdays(data)
+
+    @staticmethod
+    def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        return any(str(r[1]) == column for r in rows)
+
+    @staticmethod
+    def _ensure_dish_allowed_weekdays_column(conn: sqlite3.Connection) -> None:
+        if SQLiteAdminRepo._has_column(conn, "dishes", "allowed_weekdays_json"):
+            return
+        conn.execute("ALTER TABLE dishes ADD COLUMN allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]'")
+
+    def ensure_compatible_schema(self) -> None:
+        with self._conn() as conn:
+            self._ensure_dish_allowed_weekdays_column(conn)
+
+    @staticmethod
     def _ensure_unit_conversions_table(conn: sqlite3.Connection) -> None:
         conn.execute(
             """
@@ -593,16 +629,23 @@ class SQLiteAdminRepo:
     # ---------- dishes ----------
     def upsert_dish(self, dish_id: str, body: Dict[str, Any]) -> None:
         tags_json = json.dumps(body.get("tags", []), ensure_ascii=False)
+        allowed_weekdays_json = json.dumps(
+            self._normalize_allowed_weekdays(body.get("allowed_weekdays")),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
         with self._conn() as conn:
+            self._ensure_dish_allowed_weekdays_column(conn)
             conn.execute("""
-              INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json)
-              VALUES (?, ?, ?, ?, ?, ?)
+              INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
                 name=excluded.name,
                 role=excluded.role,
                 cuisine=excluded.cuisine,
                 meat_type=excluded.meat_type,
-                tags_json=excluded.tags_json
+                tags_json=excluded.tags_json,
+                allowed_weekdays_json=excluded.allowed_weekdays_json
             """, (
                 dish_id,
                 body["name"],
@@ -610,6 +653,7 @@ class SQLiteAdminRepo:
                 body.get("cuisine"),
                 body.get("meat_type"),
                 tags_json,
+                allowed_weekdays_json,
             ))
 
     def delete_dish(self, dish_id: str) -> int:
@@ -626,8 +670,14 @@ class SQLiteAdminRepo:
             raise ValueError("來源與目標 dish_id 不可相同")
 
         tags_json = json.dumps(body.get("tags", []), ensure_ascii=False)
+        allowed_weekdays_json = json.dumps(
+            self._normalize_allowed_weekdays(body.get("allowed_weekdays")),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
 
         with self._conn() as conn:
+            self._ensure_dish_allowed_weekdays_column(conn)
             src_row = conn.execute(
                 "SELECT id FROM dishes WHERE id=? LIMIT 1",
                 (source_id,),
@@ -644,8 +694,8 @@ class SQLiteAdminRepo:
 
             conn.execute(
                 """
-                INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     target_id,
@@ -654,6 +704,7 @@ class SQLiteAdminRepo:
                     body.get("cuisine"),
                     body.get("meat_type"),
                     tags_json,
+                    allowed_weekdays_json,
                 ),
             )
             moved = conn.execute(
@@ -715,13 +766,18 @@ class SQLiteAdminRepo:
         offset = (max(1, int(page)) - 1) * limit
 
         with self._conn() as conn:
+            allowed_weekdays_expr = (
+                "dishes.allowed_weekdays_json"
+                if self._has_column(conn, "dishes", "allowed_weekdays_json")
+                else "'[1,2,3,4,5,6,7]' AS allowed_weekdays_json"
+            )
             total = conn.execute(
                 f"SELECT COUNT(DISTINCT dishes.id) FROM dishes {join_sql} {where_sql}",
                 params,
             ).fetchone()[0]
             rows = conn.execute(
                 f"""
-                SELECT DISTINCT dishes.id, dishes.name, dishes.role, dishes.cuisine, dishes.meat_type, dishes.tags_json
+                SELECT DISTINCT dishes.id, dishes.name, dishes.role, dishes.cuisine, dishes.meat_type, dishes.tags_json, {allowed_weekdays_expr}
                 FROM dishes
                 {join_sql}
                 {where_sql}
@@ -742,6 +798,7 @@ class SQLiteAdminRepo:
                     "cuisine": r[3],
                     "meat_type": r[4],
                     "tags": self._safe_json_list(r[5]),
+                    "allowed_weekdays": self._safe_json_weekdays(r[6]),
                 }
                 for r in rows
             ],

@@ -14,6 +14,7 @@ import { escapeHtml, formatErrors, pretty, renderResult, setMsg, showErrorDetail
 
 const state = createAppState();
 const EDITOR_MODAL_ID = "#dish_editor_modal";
+const SUGGEST_RESULT_LIMIT = 12;
 
 const WEEKDAY_LABELS = new Map([
   [1, "週一"],
@@ -23,6 +24,14 @@ const WEEKDAY_LABELS = new Map([
   [5, "週五"],
   [6, "週六"],
   [7, "週日"],
+]);
+
+const ROLE_LABELS = new Map([
+  ["main", "主菜"],
+  ["side", "配菜"],
+  ["veg", "純蔬配菜"],
+  ["soup", "湯"],
+  ["fruit", "水果"],
 ]);
 
 function normalizeWeekdays(value) {
@@ -133,12 +142,98 @@ function clearDishAllowedRules() {
   $(DOM.allowedDishRules).empty();
 }
 
-function showSuggest($el, items, onPick) {
+function formatRole(role) {
+  return ROLE_LABELS.get(role) || role || "—";
+}
+
+function getCatalogDishAllowedWeekdayItems() {
+  return (state.dishes || [])
+    .map((dish) => ({
+      ...dish,
+      allowed_weekdays: normalizeWeekdays(dish.allowed_weekdays),
+    }))
+    .filter((dish) => dish.id && dish.allowed_weekdays.length < 7)
+    .sort((a, b) => {
+      const roleCompare = formatRole(a.role).localeCompare(formatRole(b.role), "zh-Hant");
+      if (roleCompare !== 0) return roleCompare;
+      return (a.name || a.id || "").localeCompare((b.name || b.id || ""), "zh-Hant");
+    });
+}
+
+function getCatalogDishAllowedWeekdayRules() {
+  const rules = {};
+  getCatalogDishAllowedWeekdayItems().forEach((dish) => {
+    rules[dish.id] = dish.allowed_weekdays;
+  });
+  return rules;
+}
+
+function ensureDbAllowedWeekdaysModal() {
+  if ($("#db_allowed_weekdays_modal").length) return;
+  const html = `
+    <div id="db_allowed_weekdays_modal" class="mp-modal hide">
+      <div class="mp-modal-card">
+        <div class="mp-modal-hd">
+          <div class="mp-modal-title">資料庫已設定允許週幾的菜色</div>
+          <button type="button" data-action="close">關閉</button>
+        </div>
+        <div class="hint">
+          這裡列出後臺資料庫中不是「全週」的菜色限制。載入預設設定時會先帶入這些資料庫預設；使用者在排菜頁對同一菜色新增規則時，會覆寫資料庫預設且只影響本次排菜 JSON。
+        </div>
+        <div id="db_allowed_weekdays_modal_body" style="margin-top:10px;"></div>
+      </div>
+    </div>`;
+  $("body").append(html);
+  const $modal = $("#db_allowed_weekdays_modal");
+  $modal.on("click", "[data-action=close]", () => $modal.addClass("hide"));
+  $modal.on("click", (event) => {
+    if (event.target === $modal[0]) $modal.addClass("hide");
+  });
+}
+
+function renderDbAllowedWeekdaysModal() {
+  ensureDbAllowedWeekdaysModal();
+  const items = getCatalogDishAllowedWeekdayItems();
+  const $body = $("#db_allowed_weekdays_modal_body").empty();
+  if (!items.length) {
+    $body.append(`<div class="hint">目前資料庫沒有特別限制允許週幾的菜色；所有菜色皆視為全週可用。</div>`);
+    return;
+  }
+  const rows = items.map((dish) => `
+    <tr>
+      <td>${escapeHtml(formatRole(dish.role))}</td>
+      <td>${escapeHtml(dish.name || dish.id)}</td>
+      <td>${escapeHtml(dish.id)}</td>
+      <td>${escapeHtml(formatWeekdays(dish.allowed_weekdays))}</td>
+    </tr>`).join("");
+  $body.append(`
+    <table class="mini-table">
+      <thead><tr><th>角色</th><th>菜名</th><th>ID</th><th>允許週幾</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`);
+}
+
+function mergeCatalogDishAllowedWeekdaysIntoCfg(cfg) {
+  const catalogRules = getCatalogDishAllowedWeekdayRules();
+  if (!Object.keys(catalogRules).length) return cfg;
+  const next = JSON.parse(JSON.stringify(cfg || {}));
+  next.hard = next.hard || {};
+  next.hard.dish_allowed_weekdays = {
+    ...catalogRules,
+    ...(next.hard.dish_allowed_weekdays || {}),
+  };
+  return next;
+}
+
+function showSuggest($el, items, onPick, options = {}) {
   if (!items.length) {
     $el.hide();
     $el.empty();
     return;
   }
+  const totalCount = Number(options.totalCount ?? items.length);
+  const limit = Number(options.limit ?? items.length);
+  const isLimited = totalCount > items.length && items.length <= limit;
   $el.empty();
   items.forEach((it) => {
     const $row = $("<div class=\"item\"></div>");
@@ -150,6 +245,11 @@ function showSuggest($el, items, onPick) {
     });
     $el.append($row);
   });
+  if (isLimited) {
+    const $notice = $("<div class=\"suggest-note\"></div>");
+    $notice.text(`僅顯示前 ${items.length} 筆，共 ${totalCount} 筆符合；請輸入更完整關鍵字或調整角色篩選。`);
+    $el.append($notice);
+  }
   $el.show();
 }
 
@@ -317,7 +417,7 @@ function applyPeopleOverride({ date, people }) {
 }
 
 async function loadDefaultsAndApply() {
-  const cfg = await fetchDefaults();
+  const cfg = mergeCatalogDishAllowedWeekdaysIntoCfg(await fetchDefaults());
   state.baseDefaults = cfg;
   $(DOM.cfgJson).val(pretty(cfg));
   applyCfgToForm(cfg);
@@ -616,17 +716,18 @@ function bindDishSearch() {
       return;
     }
     const role = $role.val();
-    const hits = state.dishes
+    const matches = state.dishes
       .filter((d) => (!role || d.role === role))
-      .filter((d) => (d.name || "").toLowerCase().includes(q))
-      .slice(0, 12)
+      .filter((d) => (d.name || "").toLowerCase().includes(q));
+    const hits = matches
+      .slice(0, SUGGEST_RESULT_LIMIT)
       .map((d) => ({ id: d.id, label: `[${d.role}] ${d.name}`, meta: d.meat_type || d.cuisine || "" }));
 
     showSuggest($suggest, hits, (it) => {
       addChip($chips, it.id, it.label, syncCfgTextareaFromForm);
       $input.val("");
       syncCfgTextareaFromForm();
-    });
+    }, { totalCount: matches.length, limit: SUGGEST_RESULT_LIMIT });
   }
 
   $input.on("input focus", run);
@@ -652,22 +753,27 @@ function bindDishAllowedWeekdayRules() {
       return;
     }
     const role = $role.val();
-    const hits = state.dishes
+    const matches = state.dishes
       .filter((d) => (!role || d.role === role))
-      .filter((d) => (d.name || "").toLowerCase().includes(q) || (d.id || "").toLowerCase().includes(q))
-      .slice(0, 12)
+      .filter((d) => (d.name || "").toLowerCase().includes(q) || (d.id || "").toLowerCase().includes(q));
+    const hits = matches
+      .slice(0, SUGGEST_RESULT_LIMIT)
       .map((d) => ({ id: d.id, label: `[${d.role}] ${d.name}`, meta: d.meat_type || d.cuisine || d.id }));
 
     showSuggest($suggest, hits, (it) => {
       addDishAllowedRule(it.id, readWeekdayPicker(), syncCfgTextareaFromForm);
       $input.val("");
       $suggest.hide();
-    });
+    }, { totalCount: matches.length, limit: SUGGEST_RESULT_LIMIT });
   }
 
   $input.on("input focus", run);
   $role.on("change", run);
   $(DOM.allowedDishWeekdayChecks).on("change", syncCfgTextareaFromForm);
+  $(DOM.allowedDishDbRulesBtn).on("click", () => {
+    renderDbAllowedWeekdaysModal();
+    $("#db_allowed_weekdays_modal").removeClass("hide");
+  });
 
   $(document).on("click", (e) => {
     if (!$(e.target).closest(`${DOM.allowedDishSearch}, ${DOM.allowedDishSuggest}, ${DOM.allowedDishRoleFilter}`).length) {

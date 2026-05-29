@@ -197,6 +197,19 @@
           <div class="row"><label>肉類</label><input id="dish_meat" type="text" placeholder="chicken/pork/..." /></div>
           <div class="row"><label>菜系</label><input id="dish_cuisine" type="text" placeholder="台式/日式/..." /></div>
           <div class="row"><label>標籤</label><input id="dish_tags" type="text" placeholder='可輸入 JSON: ["清淡","快手"] 或 逗號分隔: 清淡,快手' /></div>
+          <div class="row">
+            <label>允許週幾</label>
+            <div class="chips inline left" id="dish_allowed_weekdays">
+              <label><input type="checkbox" value="1" checked>週一</label>
+              <label><input type="checkbox" value="2" checked>週二</label>
+              <label><input type="checkbox" value="3" checked>週三</label>
+              <label><input type="checkbox" value="4" checked>週四</label>
+              <label><input type="checkbox" value="5" checked>週五</label>
+              <label><input type="checkbox" value="6" checked>週六</label>
+              <label><input type="checkbox" value="7" checked>週日</label>
+            </div>
+          </div>
+          <div class="hint">此欄會存入資料庫；排菜頁載入預設設定時會自動套用非「全週」的菜色限制。</div>
           <div class="btns">
             <button id="dish_clear">清空</button>
             <button id="dish_save" class="primary">儲存</button>
@@ -245,6 +258,7 @@
                 <th class="sortable-th" data-dish-sort-key="role">角色</th>
                 <th class="sortable-th" data-dish-sort-key="meat_type">肉類</th>
                 <th class="sortable-th" data-dish-sort-key="cuisine">菜系</th>
+                <th>允許週幾</th>
                 <th class="sortable-th" data-dish-sort-key="cost" title="1 人份估算成本（使用食材最新價格）">成本</th>
                 <th>操作</th>
               </tr>

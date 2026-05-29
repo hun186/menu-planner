@@ -186,7 +186,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       ingredients: state.ingredients !== false,
       dishes: state.dishes !== false,
     };
-    const $grid = $(".grid");
+    const $grid = $(".manage-grid");
     const collapsedIngredients = !normalized.ingredients;
     const collapsedDishes = !normalized.dishes;
 
@@ -390,7 +390,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         $("#ing_protein").val(x.protein_group || "");
         $("#ing_unit").val(x.default_unit);
         clearStatusMsg(DOM.msgIng);
-        scrollToEditor(".grid .manage-card:first-child .editor-pane", "#ing_name");
+        scrollToEditor(".manage-grid .manage-card:first-child .editor-pane", "#ing_name");
       });
 	  
       $tr.find(".btn_meta").on("click", async () => {
@@ -478,7 +478,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         $("#dish_tags").val(Array.isArray(tags) ? JSON.stringify(tags) : "[]");
         setDishAllowedWeekdays(x.allowed_weekdays);
         clearStatusMsg(DOM.msgDish);
-        scrollToEditor(".grid .manage-card:nth-child(2) .editor-pane", "#dish_name");
+        scrollToEditor(".manage-grid .manage-card:nth-child(2) .editor-pane", "#dish_name");
       });
 
       $tr.find(".btn_del").on("click", async () => {

@@ -23,13 +23,14 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
 .card.full{ grid-column: 1 / -1; }
 
 .grid.manage-grid-one-collapsed{
-  grid-template-columns: minmax(160px, 240px) minmax(0, 1fr);
+  grid-template-columns: minmax(118px, 154px) minmax(0, 1fr);
 }
 .grid.manage-grid-one-collapsed.manage-grid-dishes-collapsed{
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 240px);
+  grid-template-columns: minmax(0, 1fr) minmax(118px, 154px);
 }
 .grid.manage-grid-all-collapsed{
-  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  grid-template-columns: repeat(2, minmax(118px, 154px));
+  justify-content:start;
 }
 .admin-top-grid{
   display:grid;
@@ -79,24 +80,52 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
 }
 .manage-toggle{
   flex:0 0 auto;
+  border:0;
+  border-radius:999px;
+  padding:8px 14px;
+  color:#fff;
   font-size:13px;
+  font-weight:700;
+  letter-spacing:.02em;
   white-space:nowrap;
+  background:linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  box-shadow:0 8px 18px rgba(37,99,235,.22);
+}
+.manage-toggle:hover{
+  background:linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
+  box-shadow:0 10px 22px rgba(37,99,235,.3);
+}
+.manage-toggle[aria-expanded="false"]{
+  background:linear-gradient(135deg, #059669 0%, #0d9488 100%);
+  box-shadow:0 8px 18px rgba(5,150,105,.24);
+}
+.manage-toggle[aria-expanded="false"]:hover{
+  background:linear-gradient(135deg, #047857 0%, #0f766e 100%);
+  box-shadow:0 10px 22px rgba(5,150,105,.32);
 }
 .manage-card.is-collapsed{
   align-self:start;
+  width:100%;
   height:auto;
+  padding:10px;
   background:#f8fafc;
 }
 .manage-card.is-collapsed .manage-card-header{
   margin-bottom:0;
-  align-items:flex-start;
+  align-items:stretch;
   flex-direction:column;
+  gap:8px;
+}
+.manage-card.is-collapsed .manage-card-header h2{
+  font-size:14px;
+  text-align:center;
 }
 .manage-card.is-collapsed .manage-card-body{
   display:none;
 }
 .manage-card.is-collapsed .manage-toggle{
   width:100%;
+  padding:7px 10px;
 }
 
 .section-pane{
@@ -280,14 +309,30 @@ textarea{
 .ing-tbl th:nth-child(5), .ing-tbl td:nth-child(5){ width:10%; }
 .ing-tbl th:nth-child(6), .ing-tbl td:nth-child(6){ width:24%; }
 
-.dish-tbl th:nth-child(1), .dish-tbl td:nth-child(1){ width:13%; }
-.dish-tbl th:nth-child(2), .dish-tbl td:nth-child(2){ width:17%; }
+.dish-tbl th:nth-child(1), .dish-tbl td:nth-child(1){ width:15%; }
+.dish-tbl th:nth-child(2), .dish-tbl td:nth-child(2){ width:21%; }
 .dish-tbl th:nth-child(3), .dish-tbl td:nth-child(3){ width:8%; }
 .dish-tbl th:nth-child(4), .dish-tbl td:nth-child(4){ width:9%; }
 .dish-tbl th:nth-child(5), .dish-tbl td:nth-child(5){ width:10%; }
-.dish-tbl th:nth-child(6), .dish-tbl td:nth-child(6){ width:12%; }
-.dish-tbl th:nth-child(7), .dish-tbl td:nth-child(7){ width:15%; }
-.dish-tbl th:nth-child(8), .dish-tbl td:nth-child(8){ width:16%; }
+.dish-tbl th:nth-child(6), .dish-tbl td:nth-child(6){ width:13%; }
+.dish-tbl th:nth-child(7), .dish-tbl td:nth-child(7){ width:13%; }
+.dish-tbl th:nth-child(8), .dish-tbl td:nth-child(8){ width:11%; }
+.manage-grid-ingredients-collapsed .dish-tbl{
+  table-layout:auto;
+}
+.manage-grid-ingredients-collapsed .dish-tbl th,
+.manage-grid-ingredients-collapsed .dish-tbl td{
+  white-space:nowrap;
+  word-break:keep-all;
+}
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(1), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(1){ width:15%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(2), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(2){ width:24%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(3), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(3){ width:7%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(4), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(4){ width:8%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(5), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(5){ width:9%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(6), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(6){ width:13%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(7), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(7){ width:14%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(8), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(8){ width:10%; }
 
 .ing-tbl td:last-child button,
 .dish-tbl td:last-child button{

@@ -42,21 +42,33 @@ def run_capture() -> None:
         expect(ingredient_body).to_be_visible()
         expect(dish_body).to_be_visible()
         initial_dish_width = dish_card.bounding_box()["width"]
+        page.wait_for_selector("#dish_tbl tbody tr", timeout=20000)
         page.screenshot(path=str(artifacts / "admin-manage-panels-expanded.png"), full_page=True)
 
         page.get_by_role("button", name="隱藏食材管理").click()
         expect(ingredient_body).to_be_hidden()
         expect(page.get_by_role("button", name="展開食材管理")).to_have_attribute("aria-expanded", "false")
         expanded_dish_width = dish_card.bounding_box()["width"]
+        collapsed_ingredient_width = ingredient_card.bounding_box()["width"]
+        dish_name_white_space = page.locator("#dish_tbl tbody tr:first-child td:nth-child(2)").evaluate(
+            "el => getComputedStyle(el).whiteSpace"
+        )
         if expanded_dish_width <= initial_dish_width:
             raise AssertionError(
                 f"Dish panel did not expand after hiding ingredients: {expanded_dish_width} <= {initial_dish_width}"
             )
+        if collapsed_ingredient_width > 180:
+            raise AssertionError(f"Collapsed ingredient panel is still too wide: {collapsed_ingredient_width}")
+        if dish_name_white_space != "nowrap":
+            raise AssertionError(f"Dish table cells should avoid wrapping in expanded layout: {dish_name_white_space}")
         page.screenshot(path=str(artifacts / "admin-manage-panels-ingredient-collapsed.png"), full_page=True)
 
         page.get_by_role("button", name="隱藏菜色管理").click()
         expect(dish_body).to_be_hidden()
         expect(page.get_by_role("button", name="展開菜色管理")).to_have_attribute("aria-expanded", "false")
+        collapsed_dish_width = dish_card.bounding_box()["width"]
+        if collapsed_dish_width > 180:
+            raise AssertionError(f"Collapsed dish panel is still too wide: {collapsed_dish_width}")
         page.screenshot(path=str(artifacts / "admin-manage-panels-both-collapsed.png"), full_page=True)
 
         page.reload(wait_until="domcontentloaded")
@@ -75,6 +87,9 @@ def run_capture() -> None:
                 "url": base_url,
                 "initial_dish_width": initial_dish_width,
                 "expanded_dish_width": expanded_dish_width,
+                "collapsed_ingredient_width": collapsed_ingredient_width,
+                "collapsed_dish_width": collapsed_dish_width,
+                "dish_name_white_space": dish_name_white_space,
                 "screenshots": [
                     str(artifacts / "admin-manage-panels-expanded.png"),
                     str(artifacts / "admin-manage-panels-ingredient-collapsed.png"),

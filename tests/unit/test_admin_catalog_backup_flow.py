@@ -10,6 +10,7 @@ class _FakeRepo:
     delete_ingredient_count = 1
     deleted_prices = []
     deleted_ingredients = []
+    deleted_dishes = []
     merged_ingredients = []
     rename_dishes = []
     rename_ingredients = []
@@ -32,6 +33,10 @@ class _FakeRepo:
     def delete_ingredient(self, ingredient_id: str):
         self.deleted_ingredients.append(ingredient_id)
         return self.delete_ingredient_count
+
+    def delete_dish(self, dish_id: str):
+        self.deleted_dishes.append(dish_id)
+        return 1
 
     def merge_ingredient(self, source_ingredient_id: str, target_ingredient_id: str):
         self.merged_ingredients.append((source_ingredient_id, target_ingredient_id))
@@ -148,6 +153,52 @@ def test_delete_ingredient_success_triggers_backup_once(monkeypatch):
     assert calls["backup"] == 1
     assert _FakeRepo.deleted_ingredients == ["ing-1"]
 
+
+def test_delete_dish_by_body_supports_slash_id_and_triggers_backup(monkeypatch):
+    calls = {"backup": 0, "reason": None, "comment": None}
+    _FakeRepo.deleted_dishes = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str, *args, **kwargs):
+        calls["backup"] += 1
+        calls["reason"] = kwargs.get("reason")
+        calls["comment"] = kwargs.get("comment")
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    resp = admin_catalog.delete_dish_by_body(
+        admin_catalog.EntityDeleteIn(id="高麗菜/木瓜"),
+        db_path="/tmp/menu.db",
+    )
+
+    assert resp == {"ok": True}
+    assert calls["backup"] == 1
+    assert calls["reason"] == "dish_delete"
+    assert calls["comment"] == "自動備份：菜色刪除（dish_id=高麗菜/木瓜）"
+    assert _FakeRepo.deleted_dishes == ["高麗菜/木瓜"]
+
+
+def test_delete_dish_by_body_not_found_does_not_trigger_backup(monkeypatch):
+    calls = {"backup": 0}
+    _FakeRepo.deleted_dishes = []
+
+    monkeypatch.setattr(admin_catalog, "SQLiteAdminRepo", _FakeRepo)
+
+    def _backup(_db_path: str, *args, **kwargs):
+        calls["backup"] += 1
+
+    monkeypatch.setattr(admin_catalog, "backup_before_modify", _backup)
+
+    with pytest.raises(HTTPException) as ex:
+        admin_catalog.delete_dish_by_body(
+            admin_catalog.EntityDeleteIn(id="missing-dish"),
+            db_path="/tmp/menu.db",
+        )
+
+    assert ex.value.status_code == 404
+    assert calls["backup"] == 0
+    assert _FakeRepo.deleted_dishes == []
 
 def test_merge_inventory_ingredient_success_triggers_backup_once(monkeypatch):
     calls = {"backup": 0, "reason": None, "comment": None}

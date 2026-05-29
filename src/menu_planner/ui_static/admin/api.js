@@ -8,7 +8,7 @@ export const ADMIN_API = {
   ingRename: (id) => `/admin/catalog/ingredients/${encodeURIComponent(id)}/rename`,
   dishUpsert: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}`,
   dishRename: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}/rename`,
-  dishDelete: (id) => `/admin/catalog/dishes/${encodeURIComponent(id)}`,
+  dishDelete: "/admin/catalog/dishes/delete",
   dishIngGet: (dishId) => `/admin/catalog/dishes/${encodeURIComponent(dishId)}/ingredients`,
   dishIngPut: (dishId) => `/admin/catalog/dishes/${encodeURIComponent(dishId)}/ingredients`,
   dishCostPreview: "/admin/catalog/dishes/cost-preview",
@@ -130,7 +130,11 @@ export function renameDish(sourceId, targetId, body) {
 }
 
 export function deleteDish(id) {
-  return httpJson(ADMIN_API.dishDelete(id), { method: "DELETE" }, { includeAdminKey: true });
+  return httpJson(
+    ADMIN_API.dishDelete,
+    { method: "POST", body: JSON.stringify({ id }) },
+    { includeAdminKey: true }
+  );
 }
 
 export function getDishIngredients(dishId) {

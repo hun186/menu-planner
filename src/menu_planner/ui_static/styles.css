@@ -346,6 +346,14 @@ textarea{
 .suggest .item:hover{ background:#f6f6f6; }
 .suggest .meta{ color:#777; font-size:12px; }
 
+.suggest .suggest-note{
+  padding:8px 10px;
+  color:#6b7280;
+  font-size:12px;
+  border-top:1px solid #eee;
+  background:#fafafa;
+}
+
 .chips-box{ margin-top:8px; justify-content:flex-start; }
 .chip{
   border:1px solid #e6e6e6;

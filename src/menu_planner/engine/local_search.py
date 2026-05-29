@@ -25,6 +25,45 @@ def _week_key_of(day_idx: int, start_date: Optional[date]) -> int:
         return day_idx // 7
     iso = (start_date + timedelta(days=day_idx)).isocalendar()
     return iso.year * 100 + iso.week
+
+
+def _weekday_for_day(day_idx: int, start_date: Optional[date]) -> int:
+    if start_date is not None:
+        return (start_date + timedelta(days=day_idx)).isoweekday()
+    return (day_idx % 7) + 1
+
+
+def _normalize_weekday_set(value) -> set[int]:
+    if value is None:
+        return {1, 2, 3, 4, 5, 6, 7}
+    if not isinstance(value, list):
+        return {1, 2, 3, 4, 5, 6, 7}
+    out: set[int] = set()
+    for x in value:
+        try:
+            wd = int(x)
+        except Exception:
+            continue
+        if 1 <= wd <= 7:
+            out.add(wd)
+    return out or {1, 2, 3, 4, 5, 6, 7}
+
+
+def _dish_allowed_on_day(dish: Dish, day_idx: int, start_date: Optional[date], hard: Dict) -> bool:
+    rules = (hard.get("dish_allowed_weekdays") or {}) if isinstance(hard, dict) else {}
+    allowed = _normalize_weekday_set(rules.get(dish.id))
+    return _weekday_for_day(day_idx, start_date) in allowed
+
+
+def _dish_id_allowed_on_day(
+    dish_id: str,
+    dish_by_id: Dict[str, Dish],
+    day_idx: int,
+    start_date: Optional[date],
+    hard: Dict,
+) -> bool:
+    dish = dish_by_id.get(dish_id)
+    return True if dish is None else _dish_allowed_on_day(dish, day_idx, start_date, hard)
     
 def compute_total_score(
     plan_days: List[PlanDay],
@@ -109,6 +148,7 @@ def _hard_ok_for_plan(
     hard: Dict,
     dish_ingredient_ids: Optional[Dict[str, set]] = None,
     start_date: Optional[date] = None,   # ✅ 新增
+    dish_by_id: Optional[Dict[str, Dish]] = None,
 ) -> bool:
     # 重新走一次 main hard（週配額/連續肉/重複主菜）
     plan_main_ids: List[str] = []
@@ -123,6 +163,8 @@ def _hard_ok_for_plan(
             continue
 
         if d.main not in feat:
+            return False
+        if dish_by_id is not None and not _dish_id_allowed_on_day(d.main, dish_by_id, day_idx, start_date, hard):
             return False
 
         meat = feat[d.main].meat_type
@@ -168,8 +210,12 @@ def _hard_ok_for_plan(
             continue
 
         # ✅ 不完整直接視為不合法
-        if (not d.sides) or (len(d.sides) != 2) or (not d.soup) or (not d.veg):
+        if (not d.sides) or (len(d.sides) != 2) or (not d.soup) or (not d.veg) or (not d.fruit):
             return False
+        if dish_by_id is not None:
+            for dish_id in [d.soup, d.fruit, d.veg] + list(d.sides or []):
+                if not _dish_id_allowed_on_day(dish_id, dish_by_id, day_idx, start_date, hard):
+                    return False
 
         # 這裡先保持你原本的語意（用 calendar day 的 day_idx & slice）
         # 若 check_* 內部沒有處理空白項目，建議也在 check_* 裡跳過空白 soup/side
@@ -214,11 +260,16 @@ def improve_by_local_search(
 ) -> Tuple[List[PlanDay], float, List[Dict]]:
     rng = random.Random(seed)
 
+    all_dishes = list(mains) + list(sides) + list(vegs) + list(soups) + list(fruits)
+    dish_by_id = {d.id: d for d in all_dishes}
     main_ids_all = [d.id for d in mains if d.id in feat]
     side_ids_all = [d.id for d in sides if d.id in feat]
     veg_ids_all = [d.id for d in vegs if d.id in feat]
     soup_ids_all = [d.id for d in soups if d.id in feat]
     fruit_ids_all = [d.id for d in fruits if d.id in feat]
+
+    def _ids_allowed_today(ids: List[str], day_idx: int) -> List[str]:
+        return [did for did in ids if _dish_id_allowed_on_day(did, dish_by_id, day_idx, start_date, hard)]
 
     def _fixed_allowed_meats_set(day_idx: int) -> Optional[set]:
         fixed = (hard.get("fixed_main_meat_by_weekday") or {})
@@ -281,17 +332,25 @@ def improve_by_local_search(
                 continue
             if (a_rule is not None and b_rule is not None) and (a_rule != b_rule):
                 continue
+            if not _dish_id_allowed_on_day(cand[day_b].main, dish_by_id, day_a, start_date, hard):
+                continue
+            if not _dish_id_allowed_on_day(cand[day_a].main, dish_by_id, day_b, start_date, hard):
+                continue
         
             cand[day_a].main, cand[day_b].main = cand[day_b].main, cand[day_a].main
 
         elif op == "replace_main":
             rule = _fixed_allowed_meats_set(day_a)
             if rule is None:
-                cand[day_a].main = rng.choice(main_ids_all)
+                pool = _ids_allowed_today(main_ids_all, day_a)
+                if not pool:
+                    continue
+                cand[day_a].main = rng.choice(pool)
             else:
                 pool: List[str] = []
                 for mt in rule:
                     pool.extend(main_ids_by_meat.get(mt, []))
+                pool = _ids_allowed_today(pool, day_a)
                 if not pool:
                     continue  # 該肉類根本沒主菜候選，別浪費迭代
                 cand[day_a].main = rng.choice(pool)
@@ -300,24 +359,33 @@ def improve_by_local_search(
             # active 日必須是完整日，不然直接跳過
             if not cand[day_a].main:
                 continue
-            cand[day_a].soup = rng.choice(soup_ids_all)
+            pool = _ids_allowed_today(soup_ids_all, day_a)
+            if not pool:
+                continue
+            cand[day_a].soup = rng.choice(pool)
 
         elif op == "replace_side":
             if not cand[day_a].main:
                 continue
             if len(cand[day_a].sides) < 2:
                 continue
+            pool = _ids_allowed_today(side_ids_all, day_a)
+            if not pool:
+                continue
             i = rng.randrange(0, 2)
-            cand[day_a].sides[i] = rng.choice(side_ids_all)
+            cand[day_a].sides[i] = rng.choice(pool)
             for _t in range(5):
                 if len(set(cand[day_a].sides)) == 2:
                     break
-                cand[day_a].sides[i] = rng.choice(side_ids_all)
+                cand[day_a].sides[i] = rng.choice(pool)
 
         elif op == "replace_veg":
             if not cand[day_a].main or not veg_ids_all:
                 continue
-            cand[day_a].veg = rng.choice(veg_ids_all)
+            pool = _ids_allowed_today(veg_ids_all, day_a)
+            if not pool:
+                continue
+            cand[day_a].veg = rng.choice(pool)
 
         # ✅ 關鍵：硬限制檢查（含 ISO week）+ 不排日跳過（在 _hard_ok_for_plan 內做）
         if not _hard_ok_for_plan(
@@ -327,6 +395,7 @@ def improve_by_local_search(
             hard,
             dish_ingredient_ids=dish_ingredient_ids,
             start_date=start_date,
+            dish_by_id=dish_by_id,
         ):
             continue
 

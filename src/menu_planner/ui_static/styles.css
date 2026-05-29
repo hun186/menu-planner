@@ -559,3 +559,21 @@ body{ padding-top:76px; }
   }
   .nav-links.open{ display:flex; }
 }
+.weekday-picker{
+  margin-top:8px;
+  justify-content:flex-start;
+}
+.rule-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  min-height:28px;
+  padding:8px;
+  margin-top:8px;
+  border:1px dashed var(--bd);
+  border-radius:10px;
+  background:#fff;
+}
+.allowed-dish-rule .t{
+  font-weight:600;
+}

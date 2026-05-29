@@ -15,6 +15,47 @@ import { escapeHtml, formatErrors, pretty, renderResult, setMsg, showErrorDetail
 const state = createAppState();
 const EDITOR_MODAL_ID = "#dish_editor_modal";
 
+const WEEKDAY_LABELS = new Map([
+  [1, "週一"],
+  [2, "週二"],
+  [3, "週三"],
+  [4, "週四"],
+  [5, "週五"],
+  [6, "週六"],
+  [7, "週日"],
+]);
+
+function normalizeWeekdays(value) {
+  const source = Array.isArray(value) && value.length ? value : [1, 2, 3, 4, 5, 6, 7];
+  const out = [];
+  source.forEach((item) => {
+    const wd = Number(item);
+    if (Number.isInteger(wd) && wd >= 1 && wd <= 7 && !out.includes(wd)) out.push(wd);
+  });
+  return out.length ? out.sort((a, b) => a - b) : [1, 2, 3, 4, 5, 6, 7];
+}
+
+function formatWeekdays(value) {
+  const weekdays = normalizeWeekdays(value);
+  if (weekdays.length === 7) return "全週";
+  return weekdays.map((wd) => WEEKDAY_LABELS.get(wd) || `週${wd}`).join("、");
+}
+
+function readWeekdayPicker() {
+  const weekdays = [];
+  $(DOM.allowedDishWeekdayChecks).each(function () {
+    if ($(this).is(":checked")) weekdays.push(Number($(this).val()));
+  });
+  return normalizeWeekdays(weekdays);
+}
+
+function resetWeekdayPicker(weekdays = [1, 2, 3, 4, 5, 6, 7]) {
+  const allowed = new Set(normalizeWeekdays(weekdays));
+  $(DOM.allowedDishWeekdayChecks).each(function () {
+    $(this).prop("checked", allowed.has(Number($(this).val())));
+  });
+}
+
 function addChip($box, id, label, onChanged) {
   if ($box.find(`.chip[data-id="${id}"]`).length) return;
   const $c = $("<span class=\"chip\" data-id=\"\"><span class=\"t\"></span><span class=\"x\">×</span></span>");
@@ -37,6 +78,53 @@ function readChipIds($box) {
 
 function clearChips($box) {
   $box.empty();
+}
+
+function readDishAllowedRules() {
+  const out = {};
+  $(DOM.allowedDishRules).find(".allowed-dish-rule").each(function () {
+    const id = String($(this).data("id") || "").trim();
+    if (!id) return;
+    const weekdays = normalizeWeekdays(String($(this).attr("data-weekdays") || "")
+      .split(",")
+      .map((x) => Number(x)));
+    if (weekdays.length < 7) out[id] = weekdays;
+  });
+  return out;
+}
+
+function addDishAllowedRule(dishId, weekdays, onChanged) {
+  const id = String(dishId || "").trim();
+  if (!id) return;
+  const normalized = normalizeWeekdays(weekdays);
+  const existing = $(DOM.allowedDishRules).find(".allowed-dish-rule").filter(function () {
+    return String($(this).data("id") || "") === id;
+  });
+  if (normalized.length === 7) {
+    existing.remove();
+    onChanged();
+    return;
+  }
+
+  const dish = state.dishById.get(id);
+  const title = dish ? `[${dish.role}] ${dish.name}` : id;
+  const text = `${title}：${formatWeekdays(normalized)}`;
+  const $rule = existing.length
+    ? existing
+    : $("<span class="chip allowed-dish-rule" data-id=""><span class="t"></span><span class="x">×</span></span>");
+  $rule.attr("data-id", id);
+  $rule.attr("data-weekdays", normalized.join(","));
+  $rule.find(".t").text(text);
+  $rule.off("click").on("click", function () {
+    $(this).remove();
+    onChanged();
+  });
+  if (!existing.length) $(DOM.allowedDishRules).append($rule);
+  onChanged();
+}
+
+function clearDishAllowedRules() {
+  $(DOM.allowedDishRules).empty();
 }
 
 function showSuggest($el, items, onPick) {
@@ -96,6 +184,7 @@ function readFormData() {
     preferExpiry: $(DOM.preferExpiry).is(":checked"),
     inventoryPreferIngredientIds: readChipIds($(DOM.ingredientChips)),
     excludeDishIds: readChipIds($(DOM.excludeDishChips)),
+    dishAllowedWeekdays: readDishAllowedRules(),
     forceIncludeDates: readChipIds($(DOM.includeDateChips)),
     forceExcludeDates: readChipIds($(DOM.excludeDateChips)),
     peopleOverrides: (state.lastCfg?.schedule?.people_overrides) || {},
@@ -170,6 +259,12 @@ function applyCfgToForm(cfg) {
     const d = state.dishById.get(id);
     addChip($(DOM.excludeDishChips), id, d ? `[${d.role}] ${d.name}` : id, syncCfgTextareaFromForm);
   });
+
+  clearDishAllowedRules();
+  Object.entries(form.dishAllowedWeekdays || {}).forEach(([id, weekdays]) => {
+    addDishAllowedRule(id, weekdays, syncCfgTextareaFromForm);
+  });
+  resetWeekdayPicker();
 
   clearChips($(DOM.includeDateChips));
   form.forceIncludeDates.forEach((ds) => {
@@ -538,6 +633,43 @@ function bindDishSearch() {
   });
 }
 
+
+function bindDishAllowedWeekdayRules() {
+  const $input = $(DOM.allowedDishSearch);
+  const $role = $(DOM.allowedDishRoleFilter);
+  const $suggest = $(DOM.allowedDishSuggest);
+
+  function run() {
+    const q = ($input.val() || "").trim().toLowerCase();
+    if (!q) {
+      $suggest.hide();
+      return;
+    }
+    const role = $role.val();
+    const hits = state.dishes
+      .filter((d) => (!role || d.role === role))
+      .filter((d) => (d.name || "").toLowerCase().includes(q) || (d.id || "").toLowerCase().includes(q))
+      .slice(0, 12)
+      .map((d) => ({ id: d.id, label: `[${d.role}] ${d.name}`, meta: d.meat_type || d.cuisine || d.id }));
+
+    showSuggest($suggest, hits, (it) => {
+      addDishAllowedRule(it.id, readWeekdayPicker(), syncCfgTextareaFromForm);
+      $input.val("");
+      $suggest.hide();
+    });
+  }
+
+  $input.on("input focus", run);
+  $role.on("change", run);
+  $(DOM.allowedDishWeekdayChecks).on("change", syncCfgTextareaFromForm);
+
+  $(document).on("click", (e) => {
+    if (!$(e.target).closest(`${DOM.allowedDishSearch}, ${DOM.allowedDishSuggest}, ${DOM.allowedDishRoleFilter}`).length) {
+      $suggest.hide();
+    }
+  });
+}
+
 function bindSpecialDateOverrides() {
   $(DOM.includeDateAdd).on("click", () => {
     const ds = String($(DOM.includeDateInput).val() || "").trim();
@@ -604,6 +736,7 @@ $(async function () {
 
     bindIngredientSearch();
     bindDishSearch();
+    bindDishAllowedWeekdayRules();
     bindSpecialDateOverrides();
 
     $(`${DOM.horizonDays},${DOM.defaultPeople},${DOM.costMin},${DOM.costMax},${DOM.noConsecutiveMeat},${DOM.preferInventory},${DOM.preferExpiry},${DOM.dishRoleFilter}`)

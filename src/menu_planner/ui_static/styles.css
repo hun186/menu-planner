@@ -21,6 +21,16 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
   height:100%;
 }
 .card.full{ grid-column: 1 / -1; }
+
+.grid.manage-grid-one-collapsed{
+  grid-template-columns: minmax(160px, 240px) minmax(0, 1fr);
+}
+.grid.manage-grid-one-collapsed.manage-grid-dishes-collapsed{
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 240px);
+}
+.grid.manage-grid-all-collapsed{
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+}
 .admin-top-grid{
   display:grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -34,7 +44,10 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
 
 @media (max-width: 1100px){
   .admin-top-grid,
-  .grid{
+  .grid,
+  .grid.manage-grid-one-collapsed,
+  .grid.manage-grid-one-collapsed.manage-grid-dishes-collapsed,
+  .grid.manage-grid-all-collapsed{
     grid-template-columns: minmax(0, 1fr);
   }
   .conv-factor-inline{
@@ -52,6 +65,38 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
 .manage-card{
   border:2px solid #d6dbe5;
   box-shadow:0 2px 10px rgba(17,24,39,.05);
+}
+
+.manage-card-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.manage-card-header h2{
+  margin:0;
+}
+.manage-toggle{
+  flex:0 0 auto;
+  font-size:13px;
+  white-space:nowrap;
+}
+.manage-card.is-collapsed{
+  align-self:start;
+  height:auto;
+  background:#f8fafc;
+}
+.manage-card.is-collapsed .manage-card-header{
+  margin-bottom:0;
+  align-items:flex-start;
+  flex-direction:column;
+}
+.manage-card.is-collapsed .manage-card-body{
+  display:none;
+}
+.manage-card.is-collapsed .manage-toggle{
+  width:100%;
 }
 
 .section-pane{

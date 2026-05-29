@@ -12,8 +12,8 @@ test('dish management table keeps an explicit operation column after cost column
   const headers = [...dishTableMatch[1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/g)]
     .map((match) => match[1].replace(/<[^>]+>/g, '').trim());
 
-  assert.deepEqual(headers, ['ID', '名稱', '角色', '肉類', '菜系', '允許週幾', '成本', '操作']);
-  assert.match(styles, /\.dish-tbl th:nth-child\(8\), \.dish-tbl td:nth-child\(8\)\{ width:18%; \}/);
+  assert.deepEqual(headers, ['ID', '名稱', '角色', '肉類', '菜系', '允許供應日', '成本', '操作']);
+  assert.match(styles, /\.dish-tbl th:nth-child\(8\), \.dish-tbl td:nth-child\(8\)\{ width:16%; \}/);
 });
 
 test('dish table widths include action buttons without over-allocating columns', () => {
@@ -22,6 +22,7 @@ test('dish table widths include action buttons without over-allocating columns',
 
   assert.equal(widths.length, 8, 'expected explicit widths for all dish table columns');
   assert.equal(widths.reduce((sum, width) => sum + width, 0), 100);
-  assert.ok(widths[7] >= 18, 'operation column should reserve enough width for row action buttons');
+  assert.ok(widths[6] >= 15, 'cost column should be wide enough to keep numbers on one line');
+  assert.ok(widths[7] >= 16, 'operation column should still reserve enough width for compact row action buttons');
   assert.match(styles, /\.tbl-scroll\{ width:100%; overflow-x:auto; \}/);
 });

@@ -85,7 +85,7 @@
           </div>
           <div class="row conv-row conv-row-factor">
             <label>factor</label>
-            <input id="conv_factor" type="number" step="0.000001" min="0.000001" placeholder="1 from_unit = ? to_unit" />
+            <input id="conv_factor" type="number" step="0.01" min="0.000001" placeholder="1 from_unit = ? to_unit" />
             <div class="btns conv-inline-actions">
               <button id="conv_clear">清空</button>
               <button id="conv_save" class="primary">新增 / 更新換算</button>
@@ -207,15 +207,15 @@
           <div class="row"><label>菜系</label><input id="dish_cuisine" type="text" placeholder="台式/日式/..." /></div>
           <div class="row"><label>標籤</label><input id="dish_tags" type="text" placeholder='可輸入 JSON: ["清淡","快手"] 或 逗號分隔: 清淡,快手' /></div>
           <div class="row">
-            <label>允許週幾</label>
+            <label>允許供應日</label>
             <div class="chips inline left" id="dish_allowed_weekdays">
-              <label><input type="checkbox" value="1" checked>週一</label>
-              <label><input type="checkbox" value="2" checked>週二</label>
-              <label><input type="checkbox" value="3" checked>週三</label>
-              <label><input type="checkbox" value="4" checked>週四</label>
-              <label><input type="checkbox" value="5" checked>週五</label>
-              <label><input type="checkbox" value="6" checked>週六</label>
-              <label><input type="checkbox" value="7" checked>週日</label>
+              <label><input type="checkbox" value="1" checked>星期一</label>
+              <label><input type="checkbox" value="2" checked>星期二</label>
+              <label><input type="checkbox" value="3" checked>星期三</label>
+              <label><input type="checkbox" value="4" checked>星期四</label>
+              <label><input type="checkbox" value="5" checked>星期五</label>
+              <label><input type="checkbox" value="6" checked>星期六</label>
+              <label><input type="checkbox" value="7" checked>星期日</label>
             </div>
           </div>
           <div class="hint">此欄會存入資料庫；排菜頁載入預設設定時會自動套用非「全週」的菜色限制。</div>
@@ -267,7 +267,7 @@
                 <th class="sortable-th" data-dish-sort-key="role">角色</th>
                 <th class="sortable-th" data-dish-sort-key="meat_type">肉類</th>
                 <th class="sortable-th" data-dish-sort-key="cuisine">菜系</th>
-                <th>允許週幾</th>
+                <th>允許供應日</th>
                 <th class="sortable-th" data-dish-sort-key="cost" title="1 人份估算成本（使用食材最新價格）">成本</th>
                 <th>操作</th>
               </tr>

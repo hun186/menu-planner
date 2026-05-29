@@ -8,6 +8,8 @@ test('index page exposes dish allowed weekdays planning controls', () => {
   const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
 
   assert.match(html, /菜色允許供應週幾（排菜設定）/);
+  assert.match(html, /<details class="compact-help">/);
+  assert.match(html, /aria-label="查看允許週幾說明"/);
   assert.match(html, /id="allowed_dish_search"/);
   assert.match(html, /id="allowed_dish_weekday_picker"/);
   assert.match(html, /id="allowed_dish_rules"/);
@@ -52,7 +54,11 @@ test('dish suggestion controls disclose that keyword results are limited', () =>
   const appJs = readFileSync(new URL('../../src/menu_planner/ui_static/app.js', import.meta.url), 'utf8');
 
   assert.match(html, /禁用菜色（搜尋加入）/);
+  assert.match(html, /aria-label="查看禁用菜色說明"/);
   assert.match(html, /建議清單最多顯示前 12 筆/);
+  assert.match(html, /下方已選限制清單就是本次排菜實際送出的限制/);
+  assert.match(html, /刪除清單項目代表移除此菜色在本次排菜的限制/);
+  assert.doesNotMatch(html, /晶片|點 chip/);
   assert.match(html, /菜色允許供應週幾（排菜設定）/);
   assert.match(appJs, /SUGGEST_RESULT_LIMIT = 12/);
   assert.match(appJs, /僅顯示前 \${items\.length} 筆，共 \${totalCount} 筆符合/);

@@ -36,6 +36,7 @@ export function buildCfgFromFormData(baseCfg, formData) {
   cfg.soft.inventory_prefer_ingredient_ids = formData.inventoryPreferIngredientIds;
 
   cfg.hard.exclude_dish_ids = formData.excludeDishIds;
+  cfg.hard.dish_allowed_weekdays = formData.dishAllowedWeekdays || {};
   return cfg;
 }
 
@@ -59,6 +60,7 @@ export function deriveFormDataFromCfg(cfg) {
     preferExpiry: !!soft.prefer_near_expiry,
     inventoryPreferIngredientIds: soft.inventory_prefer_ingredient_ids || [],
     excludeDishIds: hard.exclude_dish_ids || [],
+    dishAllowedWeekdays: hard.dish_allowed_weekdays || {},
     forceIncludeDates: schedule.force_include_dates || [],
     forceExcludeDates: schedule.force_exclude_dates || [],
     peopleOverrides: schedule.people_overrides || {},

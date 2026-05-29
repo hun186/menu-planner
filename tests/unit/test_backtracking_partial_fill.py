@@ -102,3 +102,51 @@ def test_fill_days_after_mains_keeps_sides_and_fruit_when_soup_fails():
     assert errors and errors[0]["code"] == "SOUP_NO_SOLUTION"
     assert explanations[1]["failed"] is True
     assert explanations[1]["reason_code"] == "SOUP_NO_SOLUTION"
+
+
+def test_fill_days_after_mains_cost_retry_has_soup_repeat_checker_imported():
+    """Regression: cost retry path calls check_soup_window_repeat directly."""
+    mains = ["main_day0"]
+    sides = [_mk_dish("side_a", "side"), _mk_dish("side_b", "side")]
+    vegs = [_mk_dish("veg_a", "veg")]
+    soups = [_mk_dish("soup_a", "soup"), _mk_dish("soup_b", "soup")]
+    fruits = [_mk_dish("fruit_a", "fruit")]
+
+    feat = {
+        "main_day0": _mk_feat("main_day0", "main", meat_type="pork"),
+        "side_a": _mk_feat("side_a", "side"),
+        "side_b": _mk_feat("side_b", "side"),
+        "veg_a": _mk_feat("veg_a", "veg"),
+        "soup_a": _mk_feat("soup_a", "soup"),
+        "soup_b": _mk_feat("soup_b", "soup"),
+        "fruit_a": _mk_feat("fruit_a", "fruit"),
+    }
+    hard = {
+        "seed": 7,
+        "repeat_limits": {
+            "max_same_soup_in_7_days": 2,
+            "max_same_side_in_7_days": 2,
+            "max_same_veg_in_7_days": 2,
+            "max_same_fruit_in_7_days": 2,
+        },
+        # Force the cost-retry branch after a complete day is selected.
+        "cost_range_per_person_per_day": {"min": 0, "max": 1},
+    }
+
+    plan_days, _score, explanations, errors = fill_days_after_mains(
+        horizon_days=1,
+        main_ids=mains,
+        sides=sides,
+        vegs=vegs,
+        soups=soups,
+        fruits=fruits,
+        feat=feat,
+        hard=hard,
+        weights={},
+        soft={},
+        start_date=date(2026, 5, 1),
+    )
+
+    assert len(plan_days) == 1
+    assert errors and errors[0]["code"] == "COST_OUT_OF_RANGE"
+    assert explanations[0]["reason_code"] == "COST_OUT_OF_RANGE"

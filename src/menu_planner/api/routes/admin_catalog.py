@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ...db.admin_repo import SQLiteAdminRepo
 from ...db.backup import (
@@ -79,7 +79,11 @@ def repo_with_backup(
     comment: str = "",
 ) -> SQLiteAdminRepo:
     backup_before_modify(db_path, reason=reason, comment=comment)
-    return SQLiteAdminRepo(db_path)
+    repo = SQLiteAdminRepo(db_path)
+    ensure_schema = getattr(repo, "ensure_compatible_schema", None)
+    if callable(ensure_schema):
+        ensure_schema()
+    return repo
 
 
 def _auto_backup_comment(action: str, **details: object) -> str:
@@ -119,6 +123,19 @@ class DishUpsert(BaseModel):
     cuisine: Optional[str] = None
     meat_type: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    allowed_weekdays: List[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5, 6, 7])
+
+    @field_validator("allowed_weekdays")
+    @classmethod
+    def validate_allowed_weekdays(cls, value: List[int]) -> List[int]:
+        out: List[int] = []
+        for item in value or []:
+            weekday = int(item)
+            if weekday < 1 or weekday > 7:
+                raise ValueError("allowed_weekdays 僅支援 1~7")
+            if weekday not in out:
+                out.append(weekday)
+        return sorted(out) if out else [1, 2, 3, 4, 5, 6, 7]
 
 
 class DishIngredientIn(BaseModel):
@@ -725,13 +742,14 @@ def export_dishes_excel(
             r.get("meat_type"),
             r.get("cuisine"),
             ",".join(r.get("tags") or []),
+            ",".join(str(x) for x in (r.get("allowed_weekdays") or [])),
         ]
         for r in items
     ]
     return _build_excel_response(
         filename_prefix="dishes",
         sheet_name="菜名管理",
-        headers=["菜色ID", "名稱", "角色", "肉類", "菜系", "標籤"],
+        headers=["菜色ID", "名稱", "角色", "肉類", "菜系", "標籤", "允許週幾"],
         rows=rows,
     )
 
@@ -811,6 +829,7 @@ def rename_dish(
                 cuisine=body.cuisine,
                 meat_type=body.meat_type,
                 tags=body.tags,
+                allowed_weekdays=body.allowed_weekdays,
             ).model_dump(),
         )
     except ValueError as e:

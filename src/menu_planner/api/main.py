@@ -86,6 +86,13 @@ def _recompute_scores_for_result(cfg: Dict[str, Any], result: Dict[str, Any], re
     start_date = _resolve_start_date(cfg, result)
 
     all_dishes = repo.fetch_dishes()
+    catalog_rules = {}
+    for dish in all_dishes:
+        weekdays = list(getattr(dish, "allowed_weekdays", []) or [])
+        if 0 < len(weekdays) < 7 and dish.id not in (hard.get("dish_allowed_weekdays") or {}):
+            catalog_rules[dish.id] = weekdays
+    if catalog_rules:
+        hard["dish_allowed_weekdays"] = {**catalog_rules, **(hard.get("dish_allowed_weekdays") or {})}
     ingredients = repo.fetch_ingredients()
     dish_ingredients = repo.fetch_dish_ingredients()
     inventory = repo.fetch_inventory()

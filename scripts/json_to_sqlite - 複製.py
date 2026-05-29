@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS dishes (
   role TEXT NOT NULL CHECK(role IN ('main','side','soup','fruit')),
   cuisine TEXT,
   meat_type TEXT,
-  tags_json TEXT NOT NULL DEFAULT '[]'
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]'
 );
 
 CREATE TABLE IF NOT EXISTS dish_ingredients (

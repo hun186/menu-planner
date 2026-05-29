@@ -17,13 +17,13 @@ const EDITOR_MODAL_ID = "#dish_editor_modal";
 const SUGGEST_RESULT_LIMIT = 12;
 
 const WEEKDAY_LABELS = new Map([
-  [1, "週一"],
-  [2, "週二"],
-  [3, "週三"],
-  [4, "週四"],
-  [5, "週五"],
-  [6, "週六"],
-  [7, "週日"],
+  [1, "星期一"],
+  [2, "星期二"],
+  [3, "星期三"],
+  [4, "星期四"],
+  [5, "星期五"],
+  [6, "星期六"],
+  [7, "星期日"],
 ]);
 
 const ROLE_LABELS = new Map([
@@ -47,7 +47,7 @@ function normalizeWeekdays(value) {
 function formatWeekdays(value) {
   const weekdays = normalizeWeekdays(value);
   if (weekdays.length === 7) return "全週";
-  return weekdays.map((wd) => WEEKDAY_LABELS.get(wd) || `週${wd}`).join("、");
+  return weekdays.map((wd) => WEEKDAY_LABELS.get(wd) || `星期${wd}`).join("、");
 }
 
 function readWeekdayPicker() {
@@ -175,7 +175,7 @@ function ensureDbAllowedWeekdaysModal() {
     <div id="db_allowed_weekdays_modal" class="mp-modal hide">
       <div class="mp-modal-card">
         <div class="mp-modal-hd">
-          <div class="mp-modal-title">資料庫已設定允許週幾的菜色</div>
+          <div class="mp-modal-title">資料庫已設定允許供應日的菜色</div>
           <button type="button" data-action="close">關閉</button>
         </div>
         <div class="hint">
@@ -197,7 +197,7 @@ function renderDbAllowedWeekdaysModal() {
   const items = getCatalogDishAllowedWeekdayItems();
   const $body = $("#db_allowed_weekdays_modal_body").empty();
   if (!items.length) {
-    $body.append(`<div class="hint">目前資料庫沒有特別限制允許週幾的菜色；所有菜色皆視為全週可用。</div>`);
+    $body.append(`<div class="hint">目前資料庫沒有特別限制允許供應日的菜色；所有菜色皆視為全週可用。</div>`);
     return;
   }
   const rows = items.map((dish) => `
@@ -209,7 +209,7 @@ function renderDbAllowedWeekdaysModal() {
     </tr>`).join("");
   $body.append(`
     <table class="mini-table">
-      <thead><tr><th>角色</th><th>菜名</th><th>ID</th><th>允許週幾</th></tr></thead>
+      <thead><tr><th>角色</th><th>菜名</th><th>ID</th><th>允許供應日</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`);
 }
@@ -300,13 +300,13 @@ function readFormData() {
 
 function updateWeekdayHint(weekdays) {
   const labels = {
-    1: "週一",
-    2: "週二",
-    3: "週三",
-    4: "週四",
-    5: "週五",
-    6: "週六",
-    7: "週日",
+    1: "星期一",
+    2: "星期二",
+    3: "星期三",
+    4: "星期四",
+    5: "星期五",
+    6: "星期六",
+    7: "星期日",
   };
   const normalized = [...new Set((weekdays || []).map((x) => parseInt(x, 10)).filter((x) => x >= 1 && x <= 7))]
     .sort((a, b) => a - b);

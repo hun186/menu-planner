@@ -81,13 +81,13 @@
           <label>排程星期</label>
           <div class="grow">
             <div class="chips inline left" id="schedule_weekdays">
-              <label><input type="checkbox" value="1" checked>週一</label>
-              <label><input type="checkbox" value="2" checked>週二</label>
-              <label><input type="checkbox" value="3" checked>週三</label>
-              <label><input type="checkbox" value="4" checked>週四</label>
-              <label><input type="checkbox" value="5" checked>週五</label>
-              <label><input type="checkbox" value="6">週六</label>
-              <label><input type="checkbox" value="7">週日</label>
+              <label><input type="checkbox" value="1" checked>星期一</label>
+              <label><input type="checkbox" value="2" checked>星期二</label>
+              <label><input type="checkbox" value="3" checked>星期三</label>
+              <label><input type="checkbox" value="4" checked>星期四</label>
+              <label><input type="checkbox" value="5" checked>星期五</label>
+              <label><input type="checkbox" value="6">星期六</label>
+              <label><input type="checkbox" value="7">星期日</label>
             </div>
             <div id="schedule_weekday_hint" class="hint">目前由設定檔 schedule.weekdays 決定排程星期。</div>
           </div>
@@ -198,12 +198,12 @@
         <hr class="hr" />
 
         <div class="section-title-row">
-          <h3 class="h3">菜色允許供應週幾（排菜設定）</h3>
+          <h3 class="h3">菜色供應日設定（排菜設定）</h3>
           <details class="compact-help">
-            <summary aria-label="查看允許週幾說明">說明</summary>
+            <summary aria-label="查看供應日說明">說明</summary>
             <div class="compact-help-panel compact-help-panel-wide">
-              <p>管理者在資料庫管理設定的「允許週幾」會在載入預設設定時自動帶入這裡；若使用者在本區塊對同一菜色新增規則，會覆寫資料庫預設，只影響本次排菜 JSON，不會回寫資料庫。全週（週一～週日都勾）視為沒有特別限制。</p>
-              <p>例：先只勾「週三」，再搜尋並點選「雞翅」，即可讓雞翅只在週三有機會被排入。下方已選限制清單就是本次排菜實際送出的限制；刪除清單項目代表移除此菜色在本次排菜的限制。建議清單最多顯示前 12 筆；若沒看到想選的菜，請輸入更完整菜名或切換角色篩選。</p>
+              <p>管理者在資料庫管理設定的「允許供應日」會在載入預設設定時自動帶入這裡；若使用者在本區塊對同一菜色新增規則，會覆寫資料庫預設，只影響本次排菜 JSON，不會回寫資料庫。全週（星期一～星期日都勾）視為沒有特別限制。</p>
+              <p>例：先只勾「星期三」，再搜尋並點選「雞翅」，即可讓雞翅只在星期三有機會被排入。下方已選限制清單就是本次排菜實際送出的限制；刪除清單項目代表移除此菜色在本次排菜的限制。建議清單最多顯示前 12 筆；若沒看到想選的菜，請輸入更完整菜名或切換角色篩選。</p>
             </div>
           </details>
         </div>
@@ -225,14 +225,14 @@
               <input id="allowed_dish_search" type="text" placeholder="搜尋菜名後加入限制（例如：雞翅）" />
             </div>
             <div id="allowed_dish_suggest" class="suggest"></div>
-            <div class="chips inline left weekday-picker" id="allowed_dish_weekday_picker" aria-label="此菜色允許供應週幾">
-              <label><input type="checkbox" value="1" checked>週一</label>
-              <label><input type="checkbox" value="2" checked>週二</label>
-              <label><input type="checkbox" value="3" checked>週三</label>
-              <label><input type="checkbox" value="4" checked>週四</label>
-              <label><input type="checkbox" value="5" checked>週五</label>
-              <label><input type="checkbox" value="6" checked>週六</label>
-              <label><input type="checkbox" value="7" checked>週日</label>
+            <div class="chips inline left weekday-picker" id="allowed_dish_weekday_picker" aria-label="此菜色允許供應日">
+              <label><input type="checkbox" value="1" checked>星期一</label>
+              <label><input type="checkbox" value="2" checked>星期二</label>
+              <label><input type="checkbox" value="3" checked>星期三</label>
+              <label><input type="checkbox" value="4" checked>星期四</label>
+              <label><input type="checkbox" value="5" checked>星期五</label>
+              <label><input type="checkbox" value="6" checked>星期六</label>
+              <label><input type="checkbox" value="7" checked>星期日</label>
             </div>
             <div id="allowed_dish_rules" class="rule-list"></div>
           </div>

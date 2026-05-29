@@ -280,13 +280,13 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   }
   
   const WEEKDAY_LABELS = new Map([
-    [1, "週一"],
-    [2, "週二"],
-    [3, "週三"],
-    [4, "週四"],
-    [5, "週五"],
-    [6, "週六"],
-    [7, "週日"],
+    [1, "星期一"],
+    [2, "星期二"],
+    [3, "星期三"],
+    [4, "星期四"],
+    [5, "星期五"],
+    [6, "星期六"],
+    [7, "星期日"],
   ]);
 
   function normalizeWeekdays(value) {
@@ -319,7 +319,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   function formatWeekdays(value) {
     const weekdays = normalizeWeekdays(value);
     if (weekdays.length === 7) return "全週";
-    return weekdays.map((weekday) => WEEKDAY_LABELS.get(weekday) || `週${weekday}`).join("、");
+    return weekdays.map((weekday) => WEEKDAY_LABELS.get(weekday) || `星期${weekday}`).join("、");
   }
 
   function normalizeTags(s) {
@@ -515,7 +515,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         <tr>
           <td>${escapeHtml(row.from_unit)}</td>
           <td>${escapeHtml(row.to_unit)}</td>
-          <td>${Number(row.factor || 0).toFixed(6)}</td>
+          <td>${Number(row.factor || 0).toFixed(2)}</td>
           <td><button class="btn_conv_del">刪除</button></td>
         </tr>
       `);

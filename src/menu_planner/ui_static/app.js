@@ -14,6 +14,7 @@ import { escapeHtml, formatErrors, pretty, renderResult, setMsg, showErrorDetail
 
 const state = createAppState();
 const EDITOR_MODAL_ID = "#dish_editor_modal";
+const SUGGEST_RESULT_LIMIT = 12;
 
 const WEEKDAY_LABELS = new Map([
   [1, "週一"],
@@ -133,12 +134,15 @@ function clearDishAllowedRules() {
   $(DOM.allowedDishRules).empty();
 }
 
-function showSuggest($el, items, onPick) {
+function showSuggest($el, items, onPick, options = {}) {
   if (!items.length) {
     $el.hide();
     $el.empty();
     return;
   }
+  const totalCount = Number(options.totalCount ?? items.length);
+  const limit = Number(options.limit ?? items.length);
+  const isLimited = totalCount > items.length && items.length <= limit;
   $el.empty();
   items.forEach((it) => {
     const $row = $("<div class=\"item\"></div>");
@@ -150,6 +154,11 @@ function showSuggest($el, items, onPick) {
     });
     $el.append($row);
   });
+  if (isLimited) {
+    const $notice = $("<div class=\"suggest-note\"></div>");
+    $notice.text(`僅顯示前 ${items.length} 筆，共 ${totalCount} 筆符合；請輸入更完整關鍵字或調整角色篩選。`);
+    $el.append($notice);
+  }
   $el.show();
 }
 
@@ -616,17 +625,18 @@ function bindDishSearch() {
       return;
     }
     const role = $role.val();
-    const hits = state.dishes
+    const matches = state.dishes
       .filter((d) => (!role || d.role === role))
-      .filter((d) => (d.name || "").toLowerCase().includes(q))
-      .slice(0, 12)
+      .filter((d) => (d.name || "").toLowerCase().includes(q));
+    const hits = matches
+      .slice(0, SUGGEST_RESULT_LIMIT)
       .map((d) => ({ id: d.id, label: `[${d.role}] ${d.name}`, meta: d.meat_type || d.cuisine || "" }));
 
     showSuggest($suggest, hits, (it) => {
       addChip($chips, it.id, it.label, syncCfgTextareaFromForm);
       $input.val("");
       syncCfgTextareaFromForm();
-    });
+    }, { totalCount: matches.length, limit: SUGGEST_RESULT_LIMIT });
   }
 
   $input.on("input focus", run);
@@ -652,17 +662,18 @@ function bindDishAllowedWeekdayRules() {
       return;
     }
     const role = $role.val();
-    const hits = state.dishes
+    const matches = state.dishes
       .filter((d) => (!role || d.role === role))
-      .filter((d) => (d.name || "").toLowerCase().includes(q) || (d.id || "").toLowerCase().includes(q))
-      .slice(0, 12)
+      .filter((d) => (d.name || "").toLowerCase().includes(q) || (d.id || "").toLowerCase().includes(q));
+    const hits = matches
+      .slice(0, SUGGEST_RESULT_LIMIT)
       .map((d) => ({ id: d.id, label: `[${d.role}] ${d.name}`, meta: d.meat_type || d.cuisine || d.id }));
 
     showSuggest($suggest, hits, (it) => {
       addDishAllowedRule(it.id, readWeekdayPicker(), syncCfgTextareaFromForm);
       $input.val("");
       $suggest.hide();
-    });
+    }, { totalCount: matches.length, limit: SUGGEST_RESULT_LIMIT });
   }
 
   $input.on("input focus", run);

@@ -42,3 +42,15 @@ test('cfg transform round-trips dish allowed weekdays as hard planning config', 
   assert.deepEqual(cfg.hard.dish_allowed_weekdays, { wing: [3] });
   assert.deepEqual(deriveFormDataFromCfg(cfg).dishAllowedWeekdays, { wing: [3] });
 });
+
+
+test('dish suggestion controls disclose that keyword results are limited', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+  const appJs = readFileSync(new URL('../../src/menu_planner/ui_static/app.js', import.meta.url), 'utf8');
+
+  assert.match(html, /禁用菜色（搜尋加入）/);
+  assert.match(html, /建議清單最多顯示前 12 筆/);
+  assert.match(html, /菜色允許供應週幾（排菜設定）/);
+  assert.match(appJs, /SUGGEST_RESULT_LIMIT = 12/);
+  assert.match(appJs, /僅顯示前 \${items\.length} 筆，共 \${totalCount} 筆符合/);
+});

@@ -27,6 +27,7 @@ export const DOM = {
   allowedDishSuggest: "#allowed_dish_suggest",
   allowedDishWeekdayChecks: "#allowed_dish_weekday_picker input[type=checkbox]",
   allowedDishRules: "#allowed_dish_rules",
+  allowedDishDbRulesBtn: "#allowed_dish_db_rules_btn",
   includeDateInput: "#include_date_input",
   includeDateAdd: "#include_date_add",
   includeDateChips: "#include_date_chips",

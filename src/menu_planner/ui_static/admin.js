@@ -99,6 +99,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     msgBackupModal: "#msg_backup_modal",
     ingredientEditorFields: "#ing_id,#ing_name,#ing_category,#ing_protein,#ing_unit",
     dishEditorFields: "#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_tags",
+    dishAllowedWeekdayChecks: "#dish_allowed_weekdays input[type=checkbox]",
   };
 
   const catalog = createCatalogCache();
@@ -217,6 +218,49 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     };
   }
   
+  const WEEKDAY_LABELS = new Map([
+    [1, "週一"],
+    [2, "週二"],
+    [3, "週三"],
+    [4, "週四"],
+    [5, "週五"],
+    [6, "週六"],
+    [7, "週日"],
+  ]);
+
+  function normalizeWeekdays(value) {
+    const source = Array.isArray(value) && value.length ? value : [1, 2, 3, 4, 5, 6, 7];
+    const out = [];
+    source.forEach((item) => {
+      const weekday = Number(item);
+      if (Number.isInteger(weekday) && weekday >= 1 && weekday <= 7 && !out.includes(weekday)) {
+        out.push(weekday);
+      }
+    });
+    return out.length ? out.sort((a, b) => a - b) : [1, 2, 3, 4, 5, 6, 7];
+  }
+
+  function readDishAllowedWeekdays() {
+    const weekdays = [];
+    $(DOM.dishAllowedWeekdayChecks).each(function () {
+      if ($(this).is(":checked")) weekdays.push(Number($(this).val()));
+    });
+    return normalizeWeekdays(weekdays);
+  }
+
+  function setDishAllowedWeekdays(value) {
+    const allowed = new Set(normalizeWeekdays(value));
+    $(DOM.dishAllowedWeekdayChecks).each(function () {
+      $(this).prop("checked", allowed.has(Number($(this).val())));
+    });
+  }
+
+  function formatWeekdays(value) {
+    const weekdays = normalizeWeekdays(value);
+    if (weekdays.length === 7) return "全週";
+    return weekdays.map((weekday) => WEEKDAY_LABELS.get(weekday) || `週${weekday}`).join("、");
+  }
+
   function normalizeTags(s) {
     const t = (s || "").trim();
     if (!t) return [];
@@ -343,6 +387,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
           <td>${escapeHtml(x.role)}</td>
           <td>${escapeHtml(x.meat_type || "")}</td>
           <td>${escapeHtml(x.cuisine || "")}</td>
+          <td>${escapeHtml(formatWeekdays(x.allowed_weekdays))}</td>
           <td class="dish-cost-cell">
             <span class="dish-cost-value">${escapeHtml(costCell.text)}</span>${warningBadge}
           </td>
@@ -370,6 +415,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
           try { return JSON.parse(x.tags_json || "[]"); } catch { return []; }
         })();
         $("#dish_tags").val(Array.isArray(tags) ? JSON.stringify(tags) : "[]");
+        setDishAllowedWeekdays(x.allowed_weekdays);
         clearStatusMsg(DOM.msgDish);
         scrollToEditor(".grid .manage-card:nth-child(2) .editor-pane", "#dish_name");
       });
@@ -491,7 +537,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       role: ($("#dish_role").val() || "main").trim(),
       cuisine: ($("#dish_cuisine").val() || "").trim() || null,
       meat_type: ($("#dish_meat").val() || "").trim() || null,
-      tags: normalizeTags($("#dish_tags").val())
+      tags: normalizeTags($("#dish_tags").val()),
+      allowed_weekdays: readDishAllowedWeekdays()
     };
 
     if (!body.name || !body.role) {
@@ -869,6 +916,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       $("#dish_source_id").val("");
       clearFields(DOM.dishEditorFields);
       $("#dish_role").val("main");
+      setDishAllowedWeekdays();
       clearStatusMsg(DOM.msgDish);
     });
 

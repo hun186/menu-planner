@@ -615,6 +615,7 @@ def test_rename_dish_success_triggers_backup_once(monkeypatch):
                 "cuisine": "tw",
                 "meat_type": None,
                 "tags": ["new"],
+                "allowed_weekdays": [1, 2, 3, 4, 5, 6, 7],
             },
         )
     ]

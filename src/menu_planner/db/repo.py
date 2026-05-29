@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -13,10 +13,10 @@ SELECT id, name, category, protein_group, default_unit
 FROM ingredients
 """
 
-SQL_FETCH_DISHES_BASE = """
-SELECT id, name, role, cuisine, meat_type, tags_json
-FROM dishes
-"""
+SQL_FETCH_DISHES_COLUMNS = "id, name, role, cuisine, meat_type, tags_json"
+SQL_FETCH_DISHES_COLUMNS_WITH_ALLOWED_WEEKDAYS = (
+    "id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json"
+)
 
 SQL_FETCH_DISH_INGREDIENTS_BASE = """
 SELECT dish_id, ingredient_id, qty, unit
@@ -83,6 +83,7 @@ class Dish:
     cuisine: Optional[str]
     meat_type: Optional[str]
     tags: List[str]
+    allowed_weekdays: List[int] = field(default_factory=lambda: [1, 2, 3, 4, 5, 6, 7])
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,24 @@ def _parse_json_list(raw_json: Optional[str]) -> List[str]:
         return []
 
 
+def _parse_allowed_weekdays(raw_json: Optional[str]) -> List[int]:
+    try:
+        data = json.loads(raw_json or "[]")
+    except Exception:
+        data = []
+    if not isinstance(data, list):
+        return [1, 2, 3, 4, 5, 6, 7]
+    out: List[int] = []
+    for item in data:
+        try:
+            weekday = int(item)
+        except Exception:
+            continue
+        if 1 <= weekday <= 7 and weekday not in out:
+            out.append(weekday)
+    return sorted(out) if out else [1, 2, 3, 4, 5, 6, 7]
+
+
 def _map_ingredient(r: sqlite3.Row) -> Ingredient:
     return Ingredient(
         id=r["id"],
@@ -128,6 +147,7 @@ def _map_ingredient(r: sqlite3.Row) -> Ingredient:
 
 
 def _map_dish(r: sqlite3.Row) -> Dish:
+    keys = set(r.keys())
     return Dish(
         id=r["id"],
         name=r["name"],
@@ -135,6 +155,7 @@ def _map_dish(r: sqlite3.Row) -> Dish:
         cuisine=r["cuisine"],
         meat_type=r["meat_type"],
         tags=_parse_json_list(r["tags_json"]),
+        allowed_weekdays=_parse_allowed_weekdays(r["allowed_weekdays_json"] if "allowed_weekdays_json" in keys else None),
     )
 
 
@@ -176,6 +197,10 @@ class SQLiteRepo:
         conn.execute("PRAGMA foreign_keys = ON;")
         return conn
 
+    def _has_column(self, conn: sqlite3.Connection, table: str, column: str) -> bool:
+        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        return any(str(r[1]) == column for r in rows)
+
     # ---------- basic fetch ----------
     def fetch_ingredients(self) -> Dict[str, Ingredient]:
         with self.connect() as conn:
@@ -183,14 +208,18 @@ class SQLiteRepo:
         return {r["id"]: _map_ingredient(r) for r in rows}
 
     def fetch_dishes(self, role: Optional[str] = None) -> List[Dish]:
-        sql = SQL_FETCH_DISHES_BASE
         params: List[Any] = []
-        if role:
-            sql += " WHERE role = ?"
-            params.append(role)
-        sql += " ORDER BY role, name"
-
         with self.connect() as conn:
+            columns = (
+                SQL_FETCH_DISHES_COLUMNS_WITH_ALLOWED_WEEKDAYS
+                if self._has_column(conn, "dishes", "allowed_weekdays_json")
+                else SQL_FETCH_DISHES_COLUMNS
+            )
+            sql = f"SELECT {columns} FROM dishes"
+            if role:
+                sql += " WHERE role = ?"
+                params.append(role)
+            sql += " ORDER BY role, name"
             rows = conn.execute(sql, params).fetchall()
 
         return [_map_dish(r) for r in rows]

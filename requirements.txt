@@ -1,4 +1,8 @@
-fastapi>=0.110,<1.0
+# Keep FastAPI and Starlette in a mutually compatible range.
+# Older FastAPI builds can fail at APIRouter creation with newer Starlette
+# (Router.__init__ unexpected keyword argument 'on_startup').
+fastapi>=0.136,<1.0
+starlette>=0.46,<2.0
 uvicorn>=0.29,<1.0
 openpyxl>=3.1,<4.0
 pytest>=8.0,<9.0

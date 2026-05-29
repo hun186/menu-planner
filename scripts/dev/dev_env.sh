@@ -17,14 +17,14 @@ pick_python() {
 
   for py in "${candidates[@]}"; do
     if command -v "$py" >/dev/null 2>&1; then
-      if "$py" -c "import uvicorn, pytest" >/dev/null 2>&1; then
+      if "$py" -c "import uvicorn, pytest; import src.menu_planner.api.main" >/dev/null 2>&1; then
         echo "$py"
         return 0
       fi
     fi
   done
 
-  echo "找不到可用 Python（需同時安裝 uvicorn 與 pytest）。" >&2
+  echo "找不到可用 Python（需同時安裝 uvicorn、pytest，且可成功 import API app）。" >&2
   echo "可先設定 MENU_PLANNER_PYTHON=/path/to/python" >&2
   return 1
 }

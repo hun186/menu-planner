@@ -134,8 +134,10 @@ python -m venv .venv
 # macOS/Linux
 # source .venv/bin/activate
 
-pip install -r requirements.txt
+python -m pip install --upgrade -r requirements.txt
 ```
+
+> 若使用 Anaconda/global Python，曾手動安裝過 FastAPI 或 Starlette，請務必用同一個 Python 執行上面的 `python -m pip install --upgrade -r requirements.txt`，避免 FastAPI/Starlette 版本不相容。若啟動時看到 `Router.__init__() got an unexpected keyword argument 'on_startup'`，通常代表目前環境的 FastAPI 與 Starlette 版本混用，請重新安裝本專案 requirements。
 
 > 若遇到 `pytest: command not found`，請優先用 `python -m pytest`（可避免 PATH 問題）：
 >

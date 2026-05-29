@@ -34,12 +34,14 @@ export async function runWithMsg(setMsgFn, msgSelector, fn, successText) {
 }
 
 export function syncEditorPaneHeights() {
-  const panes = Array.from(document.querySelectorAll(".manage-card .editor-pane"));
-  if (!panes.length) return;
+  const allPanes = Array.from(document.querySelectorAll(".manage-card .editor-pane"));
+  const panes = allPanes.filter((pane) => pane.offsetParent !== null);
+  if (!allPanes.length) return;
 
-  panes.forEach((pane) => {
+  allPanes.forEach((pane) => {
     pane.style.minHeight = "0px";
   });
+  if (!panes.length) return;
 
   const maxBottom = panes.reduce((mx, pane) => Math.max(mx, pane.offsetTop + pane.offsetHeight), 0);
   panes.forEach((pane) => {

@@ -131,6 +131,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   const dishSort = { key: "id", direction: "asc" };
   const ingredientPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "" };
   const dishPager = { page: 1, pageSize: 50, total: 0, totalPages: 1, q: "", ingredientId: "", ingredientLabel: "" };
+  const managePanelStorageKey = "menuPlanner.admin.managePanels";
   let catalogLoadSeq = 0;
   const setStatusMsg = (el, text, isError) => {
     const $el = el && typeof el.css === "function" ? el : $(el);
@@ -158,6 +159,66 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   function readInitialIngredientQuery() {
     const params = new URLSearchParams(window.location.search || "");
     return (params.get("q") || "").trim();
+  }
+
+  function readManagePanelState() {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(managePanelStorageKey) || "{}");
+      return {
+        ingredients: parsed.ingredients !== false,
+        dishes: parsed.dishes !== false,
+      };
+    } catch (e) {
+      return { ingredients: true, dishes: true };
+    }
+  }
+
+  function saveManagePanelState(state) {
+    try {
+      window.localStorage.setItem(managePanelStorageKey, JSON.stringify(state));
+    } catch (e) {
+      // localStorage may be unavailable in private or restricted contexts; the layout still works for this session.
+    }
+  }
+
+  function applyManagePanelState(state, { persist = false } = {}) {
+    const normalized = {
+      ingredients: state.ingredients !== false,
+      dishes: state.dishes !== false,
+    };
+    const $grid = $(".grid");
+    const collapsedIngredients = !normalized.ingredients;
+    const collapsedDishes = !normalized.dishes;
+
+    $grid
+      .toggleClass("manage-grid-one-collapsed", collapsedIngredients !== collapsedDishes)
+      .toggleClass("manage-grid-ingredients-collapsed", collapsedIngredients)
+      .toggleClass("manage-grid-dishes-collapsed", collapsedDishes)
+      .toggleClass("manage-grid-all-collapsed", collapsedIngredients && collapsedDishes);
+
+    const updatePanel = (panelName, expanded, expandedLabel, collapsedLabel) => {
+      const $card = $(`[data-manage-panel="${panelName}"]`);
+      const $toggle = $(`[data-target-panel="${panelName}"]`);
+      $card.toggleClass("is-collapsed", !expanded);
+      $toggle.attr("aria-expanded", expanded ? "true" : "false").text(expanded ? expandedLabel : collapsedLabel);
+    };
+
+    updatePanel("ingredients", normalized.ingredients, "隱藏食材管理", "展開食材管理");
+    updatePanel("dishes", normalized.dishes, "隱藏菜色管理", "展開菜色管理");
+
+    if (persist) saveManagePanelState(normalized);
+    requestAnimationFrame(syncEditorPaneHeights);
+  }
+
+  function bindManagePanelToggles() {
+    applyManagePanelState(readManagePanelState());
+    $(".manage-toggle").on("click", function () {
+      const target = $(this).data("target-panel");
+      const state = readManagePanelState();
+      if (target === "ingredients") state.ingredients = !state.ingredients;
+      if (target === "dishes") state.dishes = !state.dishes;
+      applyManagePanelState(state, { persist: true });
+    });
   }
   
   async function reloadCatalog() {
@@ -772,6 +833,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   }
   
   function bindUI() {
+    bindManagePanelToggles();
+
     const onResize = debounce(syncEditorPaneHeights, 120);
     window.addEventListener("resize", onResize);
 

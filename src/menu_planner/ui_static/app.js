@@ -56,9 +56,17 @@ function resetWeekdayPicker(weekdays = [1, 2, 3, 4, 5, 6, 7]) {
   });
 }
 
+function createChipElement(className) {
+  return $("<span></span>")
+    .addClass(className)
+    .attr("data-id", "")
+    .append($("<span></span>").addClass("t"))
+    .append($("<span></span>").addClass("x").text("×"));
+}
+
 function addChip($box, id, label, onChanged) {
   if ($box.find(`.chip[data-id="${id}"]`).length) return;
-  const $c = $("<span class=\"chip\" data-id=\"\"><span class=\"t\"></span><span class=\"x\">×</span></span>");
+  const $c = createChipElement("chip");
   $c.attr("data-id", id);
   $c.find(".t").text(label);
   $c.on("click", function () {
@@ -109,9 +117,7 @@ function addDishAllowedRule(dishId, weekdays, onChanged) {
   const dish = state.dishById.get(id);
   const title = dish ? `[${dish.role}] ${dish.name}` : id;
   const text = `${title}：${formatWeekdays(normalized)}`;
-  const $rule = existing.length
-    ? existing
-    : $('<span class="chip allowed-dish-rule" data-id=""><span class="t"></span><span class="x">×</span></span>');
+  const $rule = existing.length ? existing : createChipElement("chip allowed-dish-rule");
   $rule.attr("data-id", id);
   $rule.attr("data-weekdays", normalized.join(","));
   $rule.find(".t").text(text);

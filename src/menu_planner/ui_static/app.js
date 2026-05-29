@@ -111,7 +111,7 @@ function addDishAllowedRule(dishId, weekdays, onChanged) {
   const text = `${title}：${formatWeekdays(normalized)}`;
   const $rule = existing.length
     ? existing
-    : $("<span class="chip allowed-dish-rule" data-id=""><span class="t"></span><span class="x">×</span></span>");
+    : $('<span class="chip allowed-dish-rule" data-id=""><span class="t"></span><span class="x">×</span></span>');
   $rule.attr("data-id", id);
   $rule.attr("data-weekdays", normalized.join(","));
   $rule.find(".t").text(text);

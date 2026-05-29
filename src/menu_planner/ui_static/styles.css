@@ -172,6 +172,21 @@ button.primary{ background:#111; color:#fff; border-color:#111; }
 }
 .btn-link:hover{ background:#f8f8f8; }
 
+
+.js-error-banner{
+  margin:0 0 14px 0;
+  padding:12px 14px;
+  border:1px solid #f2b8b5;
+  border-left:4px solid #b42318;
+  background:#fff4f2;
+  color:#7a1c14;
+  border-radius:10px;
+  font-size:13px;
+  line-height:1.5;
+  white-space:pre-wrap;
+}
+.js-error-banner[hidden]{ display:none; }
+
 .msg{ margin-top:10px; font-size:13px; color:#1a7f37; white-space:pre-line; }
 .msg:empty{ display:none; }
 .msg.err{ color:#b42318; }

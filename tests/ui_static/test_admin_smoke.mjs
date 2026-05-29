@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createCatalogCache, setCatalogCache } from '../../src/menu_planner/ui_static/shared/catalog_cache.js';
 import { httpJson } from '../../src/menu_planner/ui_static/shared/http.js';
-import { deleteDbBackup, deleteDbBackupsByDateRange, getDbBackupStats, listUnitConversions, loadCatalog, updateDbBackupComment, upsertIngredient, upsertUnitConversion } from '../../src/menu_planner/ui_static/admin/api.js';
+import { deleteDbBackup, deleteDbBackupsByDateRange, deleteDish, getDbBackupStats, listUnitConversions, loadCatalog, updateDbBackupComment, upsertIngredient, upsertUnitConversion } from '../../src/menu_planner/ui_static/admin/api.js';
 
 test('catalog cache + admin api smoke flow with mocked fetch', async () => {
   const calls = [];
@@ -132,4 +132,31 @@ test('unit conversion api helpers call expected endpoints', async () => {
 
   assert.ok(calls.some((x) => x.url === '/admin/catalog/unit-conversions' && x.options.method === 'GET'));
   assert.ok(calls.some((x) => x.url === '/admin/catalog/unit-conversions/kg/g' && x.options.method === 'PUT'));
+});
+
+test('deleteDish posts JSON body so slash IDs are not split by path routing', async () => {
+  const calls = [];
+
+  global.localStorage = {
+    getItem(key) {
+      if (key === 'menu_admin_key') return 'secret';
+      return null;
+    },
+  };
+
+  global.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      json: async () => ({ ok: true }),
+    };
+  };
+
+  await deleteDish('高麗菜/木瓜');
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/admin/catalog/dishes/delete');
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.headers['X-Admin-Key'], 'secret');
+  assert.deepEqual(JSON.parse(calls[0].options.body), { id: '高麗菜/木瓜' });
 });

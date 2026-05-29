@@ -159,6 +159,10 @@ class UnitConversionUpsertIn(BaseModel):
     factor: float = Field(gt=0)
 
 
+class EntityDeleteIn(BaseModel):
+    id: str = Field(min_length=1)
+
+
 @router.get("/ingredients")
 def list_ingredients(
     q: Optional[str] = Query(default=None),
@@ -747,11 +751,7 @@ def upsert_dish(
     return {"ok": True, "id": dish_id}
 
 
-@router.delete("/dishes/{dish_id}", dependencies=[Depends(require_admin_key)])
-def delete_dish(
-    dish_id: str,
-    db_path: str = Query(default=DEFAULT_DB_PATH),
-):
+def _delete_dish_by_id(dish_id: str, db_path: str) -> dict:
     repo = SQLiteAdminRepo(db_path)
     ensure_dish_exists(repo, dish_id)
 
@@ -764,6 +764,22 @@ def delete_dish(
     if n == 0:
         raise HTTPException(status_code=404, detail="找不到此菜色")
     return {"ok": True}
+
+
+@router.post("/dishes/delete", dependencies=[Depends(require_admin_key)])
+def delete_dish_by_body(
+    body: EntityDeleteIn,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    return _delete_dish_by_id(body.id, db_path)
+
+
+@router.delete("/dishes/{dish_id}", dependencies=[Depends(require_admin_key)])
+def delete_dish(
+    dish_id: str,
+    db_path: str = Query(default=DEFAULT_DB_PATH),
+):
+    return _delete_dish_by_id(dish_id, db_path)
 
 
 @router.post("/dishes/{dish_id}/rename", dependencies=[Depends(require_admin_key)])

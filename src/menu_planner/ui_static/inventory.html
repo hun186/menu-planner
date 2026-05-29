@@ -27,6 +27,8 @@
       <div class="sub">列出所有食材庫存，並可快速回到食材管理或排菜頁。</div>
     </header>
 
+    <div id="js_error_banner" class="js-error-banner" role="alert" aria-live="assertive" hidden></div>
+
     <section class="card">
       <div class="inventory-topbar">
         <a class="btn-link" href="/">回到排菜</a>
@@ -86,6 +88,7 @@
     </section>
   </div>
 
+  <script src="error_reporter.js"></script>
   <script type="module" src="inventory.js"></script>
   <script src="nav.js"></script>
 </body>

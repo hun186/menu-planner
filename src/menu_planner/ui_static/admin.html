@@ -112,8 +112,12 @@
 
     <div class="grid">
       <!-- 食材管理 -->
-      <section class="card manage-card">
-        <h2>食材管理</h2>
+      <section class="card manage-card" id="ingredient_manage_card" data-manage-panel="ingredients">
+        <div class="manage-card-header">
+          <h2>食材管理</h2>
+          <button type="button" class="manage-toggle" data-target-panel="ingredients" aria-expanded="true" aria-controls="ingredient_manage_body">隱藏食材管理</button>
+        </div>
+        <div class="manage-card-body" id="ingredient_manage_body">
         <div class="inventory-topbar">
           <a class="btn-link" href="/inventory.html">前往庫存統整</a>
         </div>
@@ -173,11 +177,16 @@
         </div>
 
         <div class="hint">刪除失敗通常是「被菜色引用」；請先到右側菜色編輯食材清單移除引用。</div>
+        </div>
       </section>
 
       <!-- 菜色管理 -->
-      <section class="card manage-card">
-        <h2>菜色管理</h2>
+      <section class="card manage-card" id="dish_manage_card" data-manage-panel="dishes">
+        <div class="manage-card-header">
+          <h2>菜色管理</h2>
+          <button type="button" class="manage-toggle" data-target-panel="dishes" aria-expanded="true" aria-controls="dish_manage_body">隱藏菜色管理</button>
+        </div>
+        <div class="manage-card-body" id="dish_manage_body">
 
         <div class="section-pane editor-pane">
           <h3 class="h3">新增 / 編輯</h3>
@@ -268,6 +277,7 @@
         </div>
 
         <div class="hint">「成本」= 1 人份估算成本（使用食材最新價格）；「編輯食材」會開啟視窗維護 qty/unit。</div>
+        </div>
       </section>
     </div>
   </div>

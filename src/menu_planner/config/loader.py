@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Tuple
 
 
 ALLOWED_MEAT_TYPES = {"chicken", "pork", "beef", "fish", "seafood", "noodles", "vegetarian"}
-ALLOWED_ROLES = {"main", "side", "veg", "soup", "fruit"}
+ALLOWED_ROLES = {"main", "noodle", "side", "veg", "soup", "fruit"}
 
 
 def load_defaults() -> Dict[str, Any]:
@@ -62,6 +62,40 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                 bad_dates.append(x)
         if bad_dates:
             errs.append(f"schedule.{key} 日期格式需為 YYYY-MM-DD：{bad_dates}")
+
+
+    def _validate_role_counts(path: str, value):
+        if value is None:
+            return
+        if not isinstance(value, dict):
+            errs.append(f"{path} 必須是物件（role -> 非負整數）")
+            return
+        for role, count in value.items():
+            if role not in ALLOWED_ROLES:
+                errs.append(f"{path} 含不支援角色：{role}")
+                continue
+            try:
+                if int(count) < 0:
+                    errs.append(f"{path}.{role} 必須 >= 0")
+            except Exception:
+                errs.append(f"{path}.{role} 必須是整數")
+
+    _validate_role_counts("per_day_roles", cfg.get("per_day_roles"))
+    per_weekday_roles = cfg.get("per_weekday_roles")
+    if per_weekday_roles is not None:
+        if not isinstance(per_weekday_roles, dict):
+            errs.append("per_weekday_roles 必須是物件（weekday -> role counts）")
+        else:
+            for weekday, counts in per_weekday_roles.items():
+                try:
+                    wd = int(weekday)
+                except Exception:
+                    errs.append(f"per_weekday_roles 僅支援 1~7：{weekday}")
+                    continue
+                if wd < 1 or wd > 7:
+                    errs.append(f"per_weekday_roles 僅支援 1~7：{weekday}")
+                    continue
+                _validate_role_counts(f"per_weekday_roles.{weekday}", counts)
 
     hard = cfg.get("hard", {}) or {}
     allowed = hard.get("allowed_main_meat_types", [])

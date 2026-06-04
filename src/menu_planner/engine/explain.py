@@ -16,6 +16,7 @@ def build_explanations(
     feat: Dict[str, DishFeatures],
     day_scores: List[Dict],
     active_mask: Optional[List[bool]] = None,
+    role_counts_by_day: Optional[List[Dict[str, int]]] = None,
 ) -> Dict:
     out_days: List[Dict] = []
 
@@ -72,6 +73,8 @@ def build_explanations(
             day_cost = 0.0
             if d.main and d.main in feat:
                 day_cost += feat[d.main].cost_per_serving
+            if getattr(d, "noodle", "") and d.noodle in feat:
+                day_cost += feat[d.noodle].cost_per_serving
             if d.soup and d.soup in feat:
                 day_cost += feat[d.soup].cost_per_serving
             if d.fruit and d.fruit in feat:
@@ -102,6 +105,7 @@ def build_explanations(
 
             "items": {
                 "main": dish_info(d.main),
+                "noodle": dish_info(getattr(d, "noodle", "")),
                 "sides": [dish_info(x) for x in sides_list],
                 "veg": dish_info(d.veg),
                 "soup": dish_info(d.soup),
@@ -118,6 +122,7 @@ def build_explanations(
             "score_penalty_total": sd.get("score_penalty_total"),
             "score_fitness": fitness,
             "score_summary": sd.get("score_summary"),
+            "role_counts": (role_counts_by_day[i] if role_counts_by_day and i < len(role_counts_by_day) else None),
         })
 
         total_cost += day_cost

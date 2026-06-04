@@ -112,3 +112,61 @@ def test_planner_merges_catalog_weekday_rules_without_overriding_user_config():
     assert hard["dish_allowed_weekdays"]["db_rule"] == [2]
     assert hard["dish_allowed_weekdays"]["new_rule"] == [4]
     assert "full_week" not in hard["dish_allowed_weekdays"]
+
+
+def test_noodle_role_schema_migration_preserves_dish_rows_and_foreign_keys(tmp_path):
+    db_path = tmp_path / "legacy_fk.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.executescript(
+            """
+            CREATE TABLE ingredients (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              category TEXT NOT NULL,
+              protein_group TEXT,
+              default_unit TEXT NOT NULL
+            );
+            CREATE TABLE dishes (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              role TEXT NOT NULL CHECK(role IN ('main','side','veg','soup','fruit')),
+              cuisine TEXT,
+              meat_type TEXT,
+              tags_json TEXT NOT NULL DEFAULT '[]'
+            );
+            CREATE TABLE dish_ingredients (
+              dish_id TEXT NOT NULL,
+              ingredient_id TEXT NOT NULL,
+              qty REAL NOT NULL,
+              unit TEXT NOT NULL,
+              PRIMARY KEY (dish_id, ingredient_id),
+              FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
+              FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE RESTRICT
+            );
+            INSERT INTO ingredients(id, name, category, protein_group, default_unit)
+            VALUES ('ing1', '雞肉', 'protein', NULL, 'g');
+            INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json)
+            VALUES ('dish1', '雞肉主菜', 'main', 'tw', 'chicken', '[]');
+            INSERT INTO dish_ingredients(dish_id, ingredient_id, qty, unit)
+            VALUES ('dish1', 'ing1', 100, 'g');
+            """
+        )
+
+    SQLiteAdminRepo(str(db_path)).ensure_compatible_schema()
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+        assert conn.execute("SELECT id, name, role FROM dishes").fetchall() == [
+            ("dish1", "雞肉主菜", "main")
+        ]
+        assert conn.execute("SELECT dish_id, ingredient_id, qty, unit FROM dish_ingredients").fetchall() == [
+            ("dish1", "ing1", 100.0, "g")
+        ]
+        fk_targets = [row[2] for row in conn.execute("PRAGMA foreign_key_list(dish_ingredients)").fetchall()]
+        assert "dishes" in fk_targets
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+        conn.execute(
+            "INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("noodle1", "水餃", "noodle", "tw", None, "[]", "[1,2,3,4,5,6,7]"),
+        )

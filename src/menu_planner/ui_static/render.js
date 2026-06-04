@@ -126,7 +126,7 @@ export function renderResult(result, cfg, options = {}) {
   html += `<table class="tbl">
     <thead>
       <tr>
-        <th>日期</th><th>人數</th><th>主菜</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>目標匹配度</th>
+        <th>日期</th><th>人數</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>目標匹配度</th>
       </tr>
     </thead>
     <tbody>`;
@@ -141,7 +141,7 @@ export function renderResult(result, cfg, options = {}) {
       html += `<tr class="row-offday">
         <td>${d.date || ""}</td>
         <td></td>
-        <td colspan="5"><span class="muted">免排日（依排程設定）</span></td>
+        <td colspan="6"><span class="muted">免排日（依排程設定）</span></td>
         <td></td>
         <td></td>
       </tr>`;
@@ -155,14 +155,14 @@ export function renderResult(result, cfg, options = {}) {
         <td>${d.date || ""}</td>
         <td>${defaultPeople}</td>
         <td>${escapeHtml(mainName)}</td>
-        <td colspan="4"><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
+        <td colspan="5"><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
         <td>${d.day_cost ?? ""}</td>
         <td></td>
       </tr>`;
 
       const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason });
       html += `<tr class="explain">
-        <td colspan="9">
+        <td colspan="10">
           <details open>
             <summary>原因與建議</summary>
             <pre class="pre">${escapeHtml(detailJson)}</pre>
@@ -173,12 +173,14 @@ export function renderResult(result, cfg, options = {}) {
     }
 
     const mainObj = d.items?.main || {};
+    const noodleObj = d.items?.noodle || {};
     const sideObjs = d.items?.sides || [];
     const vegObj = d.items?.veg || {};
     const soupObj = d.items?.soup || {};
     const fruitObj = d.items?.fruit || {};
 
     const main = mainObj?.name || "";
+    const noodle = noodleObj?.name || "";
     const sides = sideObjs.map((x) => x?.name).filter(Boolean).join("、");
     const veg = vegObj?.name || "";
     const soup = soupObj?.name || "";
@@ -190,6 +192,10 @@ export function renderResult(result, cfg, options = {}) {
     const mainCell = editable && isScheduled
       ? renderEditableDish({ name: main, dayIndex, role: "main", slot: "main", dishId: mainObj?.id })
       : escapeHtml(main);
+
+    const noodleCell = editable && isScheduled
+      ? renderEditableDish({ name: noodle, dayIndex, role: "noodle", slot: "noodle", dishId: noodleObj?.id })
+      : escapeHtml(noodle);
 
     const sideCell = editable && isScheduled
       ? Array.from({ length: Math.max(sideObjs.length, 2) }, (_, i) => {
@@ -225,6 +231,7 @@ export function renderResult(result, cfg, options = {}) {
       <td>${d.date}</td>
       <td>${peopleCell}</td>
       <td>${mainCell}</td>
+      <td>${noodleCell}</td>
       <td>${sideCell}</td>
       <td>${vegCell}</td>
       <td>${soupCell}</td>
@@ -237,7 +244,7 @@ export function renderResult(result, cfg, options = {}) {
       const reason = dayErrs.map((e) => (e.message || e.code)).filter(Boolean).join(" / ") || d.message || "部分欄位未滿足限制";
       const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason, reason_code: d.reason_code, details: d.details });
       html += `<tr class="explain">
-        <td colspan="9">
+        <td colspan="10">
           <details open>
             <summary>⚠️ 部分限制未滿足：${escapeHtml(reason)}</summary>
             <pre class="pre">${escapeHtml(detailJson)}</pre>
@@ -275,7 +282,7 @@ export function renderResult(result, cfg, options = {}) {
     const daySummary = `今日小結：加分 ${sum.bonus.toFixed(1)} ／ 扣分 ${sum.penalty.toFixed(1)} ／ 原始 ${sum.raw.toFixed(1)}（目標匹配度 ${sum.fitness.toFixed(1)}）`;
 
     html += `<tr class="explain">
-      <td colspan="9">
+      <td colspan="10">
         <details>
           <summary>可解釋明細</summary>
           <div class="explain-box">

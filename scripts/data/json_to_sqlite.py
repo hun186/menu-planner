@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS ingredients (
 CREATE TABLE IF NOT EXISTS dishes (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('main','side','veg','soup','fruit')),
+  role TEXT NOT NULL CHECK(role IN ('main','noodle','side','veg','soup','fruit')),
   cuisine TEXT,
   meat_type TEXT,
   tags_json TEXT NOT NULL DEFAULT '[]',

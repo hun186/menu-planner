@@ -79,7 +79,7 @@ class Ingredient:
 class Dish:
     id: str
     name: str
-    role: str           # main/side/veg/soup/fruit
+    role: str           # main/noodle/side/veg/soup/fruit
     cuisine: Optional[str]
     meat_type: Optional[str]
     tags: List[str]

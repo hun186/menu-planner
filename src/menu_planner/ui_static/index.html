@@ -64,7 +64,6 @@
             <label><input type="checkbox" value="pork" checked>豬</label>
             <label><input type="checkbox" value="beef" checked>牛</label>
             <label><input type="checkbox" value="seafood" checked>海鮮</label>
-			<label><input type="checkbox" value="noodles" checked>麵食</label>
             <label><input type="checkbox" value="vegetarian" checked>素</label>
           </div>
         </div>
@@ -110,8 +109,35 @@
           </div>
         </div>
 
-        <hr class="hr" />
 
+        <h3 class="h3">每日各角色數量</h3>
+        <div class="hint">數量為 0 代表該日不排該角色；週幾覆寫會取代全域每日預設。系統預設週三會同時排主菜 1 道與麵食 1 道。</div>
+        <table class="mini-table" id="daily_role_counts_table">
+          <thead><tr><th>角色</th><th>全域每日預設</th></tr></thead>
+          <tbody>
+            <tr><td>主菜／主食</td><td><input class="daily-role-count" data-role="main" type="number" min="0" value="1"></td></tr>
+            <tr><td>麵食</td><td><input class="daily-role-count" data-role="noodle" type="number" min="0" value="0"></td></tr>
+            <tr><td>配菜</td><td><input class="daily-role-count" data-role="side" type="number" min="0" value="2"></td></tr>
+            <tr><td>純蔬配菜</td><td><input class="daily-role-count" data-role="veg" type="number" min="0" value="1"></td></tr>
+            <tr><td>湯品</td><td><input class="daily-role-count" data-role="soup" type="number" min="0" value="1"></td></tr>
+            <tr><td>水果</td><td><input class="daily-role-count" data-role="fruit" type="number" min="0" value="1"></td></tr>
+          </tbody>
+        </table>
+        <table class="mini-table" id="weekday_role_counts_table">
+          <thead><tr><th>週幾覆寫</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬</th><th>湯</th><th>水果</th></tr></thead>
+          <tbody>
+            <tr data-weekday="3"><td>星期三</td>
+              <td><input class="weekday-role-count" data-weekday="3" data-role="main" type="number" min="0" value="1"></td>
+              <td><input class="weekday-role-count" data-weekday="3" data-role="noodle" type="number" min="0" value="1"></td>
+              <td><input class="weekday-role-count" data-weekday="3" data-role="side" type="number" min="0" value="1"></td>
+              <td><input class="weekday-role-count" data-weekday="3" data-role="veg" type="number" min="0" value="1"></td>
+              <td><input class="weekday-role-count" data-weekday="3" data-role="soup" type="number" min="0" value="1"></td>
+              <td><input class="weekday-role-count" data-weekday="3" data-role="fruit" type="number" min="0" value="1"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <hr class="hr" />
         <h3 class="h3">每週肉類配額（主菜）</h3>
         <table class="mini-table" id="weekly_quota_table">
           <thead>
@@ -122,7 +148,6 @@
             <tr><td>豬</td><td><input class="quota" data-meat="pork" type="number" min="0" value="2"></td></tr>
             <tr><td>牛</td><td><input class="quota" data-meat="beef" type="number" min="0" value="1"></td></tr>
             <tr><td>海鮮</td><td><input class="quota" data-meat="seafood" type="number" min="0" value="1"></td></tr>
-			<tr><td>麵食</td><td><input class="quota" data-meat="noodles" type="number" min="0" value="2"></td></tr>
             <tr><td>素</td><td><input class="quota" data-meat="vegetarian" type="number" min="0" value="2"></td></tr>
           </tbody>
         </table>
@@ -182,6 +207,7 @@
               <select id="dish_role_filter">
                 <option value="">全部</option>
                 <option value="main">主菜</option>
+                <option value="noodle">麵食</option>
                 <option value="side">配菜</option>
                 <option value="veg">純蔬配菜</option>
                 <option value="soup">湯</option>
@@ -217,6 +243,7 @@
               <select id="allowed_dish_role_filter">
                 <option value="">全部</option>
                 <option value="main">主菜</option>
+                <option value="noodle">麵食</option>
                 <option value="side">配菜</option>
                 <option value="veg">純蔬配菜</option>
                 <option value="soup">湯</option>

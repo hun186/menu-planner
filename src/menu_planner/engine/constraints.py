@@ -13,6 +13,7 @@ class PlanDay:
     veg: str
     soup: str
     fruit: str
+    noodle: str = ""
 
 
 def _week_index(day_idx: int) -> int:

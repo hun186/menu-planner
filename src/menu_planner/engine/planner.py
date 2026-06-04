@@ -16,6 +16,7 @@ from .constraints import PlanDay
 from .explain import build_explanations
 from .features import build_dish_features
 from .local_search import improve_by_local_search
+from .roles import counts_for_day, has_any_role, legacy_main_noodle_as_noodle
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class PlanContext:
     start_date: date
     horizon_days: int
     active_mask: List[bool]
+    role_counts_by_day: List[Dict[str, int]]
     hard: Dict[str, Any]
     soft: Dict[str, Any]
     weights: Dict[str, Any]
@@ -39,6 +41,7 @@ class PlanContext:
     vegs: List[Dish]
     soups: List[Dish]
     fruits: List[Dish]
+    noodles: List[Dish]
 
 
 @dataclass(frozen=True)
@@ -79,11 +82,12 @@ def _get_active_mask(start_date: date, horizon_days: int, cfg: Dict[str, Any]) -
         cur = start_date + timedelta(days=i)
         ds = cur.isoformat()
         wd = cur.isoweekday()
-        is_active = wd in allowed
+        role_counts = counts_for_day(cfg, start_date, i)
+        is_active = (wd in allowed) and has_any_role(role_counts)
         if ds in force_exclude_dates:
             is_active = False
         if ds in force_include_dates:
-            is_active = True
+            is_active = has_any_role(role_counts)
         mask.append(is_active)
     return mask
 
@@ -115,13 +119,28 @@ def _resolve_seed(cfg: Dict[str, Any], start_date: date) -> int:
     return 7
 
 
-def _split_dishes_by_role(all_dishes: List[Dish]) -> Tuple[List[Dish], List[Dish], List[Dish], List[Dish], List[Dish]]:
-    mains = [d for d in all_dishes if d.role == "main"]
-    sides = [d for d in all_dishes if d.role == "side"]
-    vegs = [d for d in all_dishes if d.role == "veg"]
-    soups = [d for d in all_dishes if d.role == "soup"]
-    fruits = [d for d in all_dishes if d.role == "fruit"]
-    return mains, sides, vegs, soups, fruits
+def _split_dishes_by_role(all_dishes: List[Dish]) -> Tuple[List[Dish], List[Dish], List[Dish], List[Dish], List[Dish], List[Dish]]:
+    mains: List[Dish] = []
+    noodles: List[Dish] = []
+    sides: List[Dish] = []
+    vegs: List[Dish] = []
+    soups: List[Dish] = []
+    fruits: List[Dish] = []
+    for d in all_dishes:
+        role = legacy_main_noodle_as_noodle(d.role, d.meat_type)
+        if role == "main":
+            mains.append(d)
+        elif role == "noodle":
+            noodles.append(d)
+        elif role == "side":
+            sides.append(d)
+        elif role == "veg":
+            vegs.append(d)
+        elif role == "soup":
+            soups.append(d)
+        elif role == "fruit":
+            fruits.append(d)
+    return mains, sides, vegs, soups, fruits, noodles
 
 
 def _filter_dishes_by_excluded_ingredients(
@@ -366,6 +385,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
     start_date = _parse_start_date(cfg)
     horizon_days = int(cfg.get("horizon_days", 30))
     active_mask = _get_active_mask(start_date, horizon_days, cfg)
+    role_counts_by_day = [counts_for_day(cfg, start_date, i) for i in range(horizon_days)]
 
     hard = dict(cfg.get("hard", {}) or {})
     soft = cfg.get("soft", {}) or {}
@@ -397,7 +417,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         today=start_date,
     )
 
-    mains, sides, vegs, soups, fruits = _split_dishes_by_role(all_dishes)
+    mains, sides, vegs, soups, fruits, noodles = _split_dishes_by_role(all_dishes)
     auto_relaxed = _auto_relax_main_repeat_limit(
         hard=hard,
         active_mask=active_mask,
@@ -409,9 +429,10 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         logger.info("Auto-relaxed repeat limits: %s", auto_relaxed)
 
     logger.info(
-        "Catalog counts: all=%d mains=%d sides=%d vegs=%d soups=%d fruits=%d",
+        "Catalog counts: all=%d mains=%d noodles=%d sides=%d vegs=%d soups=%d fruits=%d",
         len(all_dishes),
         len(mains),
+        len(noodles),
         len(sides),
         len(vegs),
         len(soups),
@@ -422,6 +443,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         start_date=start_date,
         horizon_days=horizon_days,
         active_mask=active_mask,
+        role_counts_by_day=role_counts_by_day,
         hard=hard,
         soft=soft,
         weights=weights,
@@ -436,11 +458,12 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         vegs=vegs,
         soups=soups,
         fruits=fruits,
+        noodles=noodles,
     )
 
 
 def _build_offday_result(ctx: PlanContext) -> Dict[str, Any]:
-    final_plan_full = [PlanDay(main="", sides=[], veg="", soup="", fruit="") for _ in range(ctx.horizon_days)]
+    final_plan_full = [PlanDay(main="", sides=[], veg="", soup="", fruit="", noodle="") for _ in range(ctx.horizon_days)]
     day_details_full = [
         {"day_index": i, "failed": False, "is_offday": True, "message": "非排程日（休息/不排）"}
         for i in range(ctx.horizon_days)
@@ -476,6 +499,7 @@ def _run_backtracking(ctx: PlanContext) -> Tuple[List[PlanDay], float, List[Dict
         seed=ctx.seed,
         start_date=ctx.start_date,
         active_mask=ctx.active_mask,
+        role_counts_by_day=ctx.role_counts_by_day,
     )
 
     return fill_days_after_mains(
@@ -485,6 +509,7 @@ def _run_backtracking(ctx: PlanContext) -> Tuple[List[PlanDay], float, List[Dict
         vegs=ctx.vegs,
         soups=ctx.soups,
         fruits=ctx.fruits,
+        noodles=ctx.noodles,
         feat=ctx.feat,
         hard=ctx.hard,
         weights=ctx.weights,
@@ -492,6 +517,7 @@ def _run_backtracking(ctx: PlanContext) -> Tuple[List[PlanDay], float, List[Dict
         dish_ingredient_ids=ctx.dish_ingredient_ids,
         start_date=ctx.start_date,
         active_mask=ctx.active_mask,
+        role_counts_by_day=ctx.role_counts_by_day,
     )
 
 
@@ -556,6 +582,7 @@ def _build_debug_info(ctx: PlanContext, comp: PlanComputation) -> Dict[str, Any]
         "seed": ctx.seed,
         "active_mask": ctx.active_mask,
         "active_days": sum(1 for x in ctx.active_mask if x),
+        "role_counts_by_day": ctx.role_counts_by_day,
         "failed_days": [e.get("day_index") for e in comp.errors if e.get("day_index") is not None],
         "incomplete_days": comp.incomplete_days,
         "auto_relaxed": ctx.hard.get("_auto_relaxed", {}),
@@ -574,6 +601,7 @@ def _build_result(ctx: PlanContext, comp: PlanComputation) -> Dict[str, Any]:
         feat=ctx.feat,
         day_scores=comp.day_details,
         active_mask=ctx.active_mask,
+        role_counts_by_day=ctx.role_counts_by_day,
     )
     result["errors"] = comp.errors
     result["ok"] = (len(comp.errors) == 0)

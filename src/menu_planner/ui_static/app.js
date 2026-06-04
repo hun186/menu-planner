@@ -28,6 +28,7 @@ const WEEKDAY_LABELS = new Map([
 
 const ROLE_LABELS = new Map([
   ["main", "主菜"],
+  ["noodle", "麵食"],
   ["side", "配菜"],
   ["veg", "純蔬配菜"],
   ["soup", "湯"],
@@ -266,6 +267,19 @@ function readFormData() {
     }
   });
 
+
+  const perDayRoles = {};
+  $(DOM.dailyRoleInputs).each(function () {
+    perDayRoles[$(this).data("role")] = parseInt($(this).val() || "0", 10);
+  });
+  const perWeekdayRoles = {};
+  $(DOM.weekdayRoleInputs).each(function () {
+    const weekday = String($(this).data("weekday"));
+    const role = $(this).data("role");
+    perWeekdayRoles[weekday] = perWeekdayRoles[weekday] || {};
+    perWeekdayRoles[weekday][role] = parseInt($(this).val() || "0", 10);
+  });
+
   const weeklyQuota = {};
   $(DOM.weeklyQuotaInputs).each(function () {
     const meat = $(this).data("meat");
@@ -285,6 +299,8 @@ function readFormData() {
     costMax: parseFloat($(DOM.costMax).val() || "0"),
     meatTypes,
     noConsecutiveMeat: $(DOM.noConsecutiveMeat).is(":checked"),
+    perDayRoles,
+    perWeekdayRoles,
     weeklyQuota,
     repeatLimits,
     preferInventory: $(DOM.preferInventory).is(":checked"),
@@ -338,6 +354,17 @@ function applyCfgToForm(cfg) {
   updateWeekdayHint(form.scheduleWeekdays || []);
 
   $(DOM.noConsecutiveMeat).prop("checked", form.noConsecutiveMeat);
+
+  $(DOM.dailyRoleInputs).each(function () {
+    const role = $(this).data("role");
+    if ((form.perDayRoles || {})[role] !== undefined) $(this).val(form.perDayRoles[role]);
+  });
+  $(DOM.weekdayRoleInputs).each(function () {
+    const weekday = String($(this).data("weekday"));
+    const role = $(this).data("role");
+    const value = (((form.perWeekdayRoles || {})[weekday] || {})[role]);
+    if (value !== undefined) $(this).val(value);
+  });
 
   $(DOM.weeklyQuotaInputs).each(function () {
     const meat = $(this).data("meat");
@@ -859,6 +886,8 @@ $(async function () {
       updateWeekdayHint(readFormData().scheduleWeekdays);
       syncCfgTextareaFromForm();
     });
+    $(DOM.dailyRoleInputs).on("change input", syncCfgTextareaFromForm);
+    $(DOM.weekdayRoleInputs).on("change input", syncCfgTextareaFromForm);
     $(DOM.weeklyQuotaInputs).on("change input", syncCfgTextareaFromForm);
     $(DOM.repeatLimitInputs).on("change input", syncCfgTextareaFromForm);
 

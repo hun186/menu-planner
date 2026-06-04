@@ -119,6 +119,7 @@ def _recompute_scores_for_result(cfg: Dict[str, Any], result: Dict[str, Any], re
                 veg=(items.get("veg") or {}).get("id"),
                 soup=(items.get("soup") or {}).get("id"),
                 fruit=(items.get("fruit") or {}).get("id"),
+                noodle=(items.get("noodle") or {}).get("id") or "",
             )
         )
 

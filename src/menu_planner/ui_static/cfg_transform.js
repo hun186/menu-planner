@@ -13,6 +13,9 @@ export function buildCfgFromFormData(baseCfg, formData) {
   cfg.schedule.force_exclude_dates = formData.forceExcludeDates;
   cfg.schedule.people_overrides = formData.peopleOverrides;
 
+  cfg.per_day_roles = formData.perDayRoles;
+  cfg.per_weekday_roles = formData.perWeekdayRoles;
+
   cfg.hard = cfg.hard || {};
   cfg.soft = cfg.soft || {};
   cfg.weights = cfg.weights || {};
@@ -54,6 +57,8 @@ export function deriveFormDataFromCfg(cfg) {
     costMax: costRange.max ?? 0,
     meatTypes: hard.allowed_main_meat_types || [],
     noConsecutiveMeat: !!hard.no_consecutive_same_main_meat,
+    perDayRoles: cfg?.per_day_roles || { main: 1, noodle: 0, side: 2, veg: 1, soup: 1, fruit: 1 },
+    perWeekdayRoles: cfg?.per_weekday_roles || {},
     weeklyQuota: hard.weekly_max_main_meat || {},
     repeatLimits: hard.repeat_limits || {},
     preferInventory: !!soft.prefer_use_inventory,

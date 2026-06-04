@@ -11,6 +11,8 @@ export const DOM = {
   scheduleWeekdayChecks: "#schedule_weekdays input[type=checkbox]",
   scheduleWeekdayHint: "#schedule_weekday_hint",
   noConsecutiveMeat: "#no_consecutive_meat",
+  dailyRoleInputs: "#daily_role_counts_table .daily-role-count",
+  weekdayRoleInputs: "#weekday_role_counts_table .weekday-role-count",
   weeklyQuotaInputs: "#weekly_quota_table .quota",
   repeatLimitInputs: "#repeat_limits_table .repeat-limit",
   preferInventory: "#prefer_inventory",

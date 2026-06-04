@@ -55,8 +55,65 @@ class SQLiteAdminRepo:
             return
         conn.execute("ALTER TABLE dishes ADD COLUMN allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]'")
 
+    @staticmethod
+    def _ensure_dish_role_allows_noodle(conn: sqlite3.Connection) -> None:
+        row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='dishes'"
+        ).fetchone()
+        create_sql = str(row[0] if row else "")
+        if "'noodle'" in create_sql:
+            return
+
+        columns = [r[1] for r in conn.execute("PRAGMA table_info(dishes)").fetchall()]
+        has_allowed = "allowed_weekdays_json" in columns
+        allowed_expr = "allowed_weekdays_json" if has_allowed else "'[1,2,3,4,5,6,7]'"
+        migration_table = "dishes_new_role_migration"
+        foreign_keys_were_enabled = bool(conn.execute("PRAGMA foreign_keys").fetchone()[0])
+
+        # Rebuild in-place via a temporary new table rather than renaming the
+        # original table first. SQLite rewrites child foreign-key references on
+        # ALTER TABLE RENAME, so renaming `dishes` can make `dish_ingredients`
+        # point at the temporary table and ON DELETE CASCADE can delete links
+        # when that table is dropped. Dropping the original with FK checks
+        # temporarily disabled keeps child rows and their FK target name
+        # (`dishes`) intact, then the new table takes that name.
+        conn.execute("PRAGMA foreign_keys = OFF")
+        try:
+            conn.execute(f"DROP TABLE IF EXISTS {migration_table}")
+            conn.execute(
+                f"""
+                CREATE TABLE {migration_table} (
+                  id TEXT PRIMARY KEY,
+                  name TEXT NOT NULL,
+                  role TEXT NOT NULL CHECK(role IN ('main','noodle','side','veg','soup','fruit')),
+                  cuisine TEXT,
+                  meat_type TEXT,
+                  tags_json TEXT NOT NULL DEFAULT '[]',
+                  allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]'
+                )
+                """
+            )
+            conn.execute(
+                f"""
+                INSERT INTO {migration_table}(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json)
+                SELECT id, name, role, cuisine, meat_type, tags_json, {allowed_expr}
+                FROM dishes
+                """
+            )
+            conn.execute("DROP TABLE dishes")
+            conn.execute(f"ALTER TABLE {migration_table} RENAME TO dishes")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_dishes_role ON dishes(role)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_dishes_meat_type ON dishes(meat_type)")
+            fk_errors = conn.execute("PRAGMA foreign_key_check").fetchall()
+            if fk_errors:
+                raise RuntimeError(f"dishes role migration caused foreign-key errors: {fk_errors}")
+        finally:
+            if foreign_keys_were_enabled:
+                conn.execute("PRAGMA foreign_keys = ON")
+
     def ensure_compatible_schema(self) -> None:
         with self._conn() as conn:
+            self._ensure_dish_role_allows_noodle(conn)
             self._ensure_dish_allowed_weekdays_column(conn)
 
     @staticmethod

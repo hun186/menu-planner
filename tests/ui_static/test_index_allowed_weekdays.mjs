@@ -75,3 +75,23 @@ test('index page can show database configured dish weekday rules modal', () => {
   assert.match(appJs, /載入預設設定時會先帶入這些資料庫預設/);
   assert.match(appJs, /所有菜色皆視為全週可用/);
 });
+
+
+test('index page supports adding and deleting weekday role overrides', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+  const appJs = readFileSync(new URL('../../src/menu_planner/ui_static/app.js', import.meta.url), 'utf8');
+  const domJs = readFileSync(new URL('../../src/menu_planner/ui_static/dom.js', import.meta.url), 'utf8');
+
+  assert.match(html, /id="weekday_role_add_select"/);
+  assert.match(html, /id="weekday_role_add">新增週幾覆寫/);
+  assert.match(html, /直接修改數量會同步到右側 JSON/);
+  assert.match(html, /按「刪除」則恢復使用全域每日預設/);
+  assert.match(html, /<th>操作<\/th>/);
+  assert.match(html, /class="weekday-role-delete"/);
+  assert.match(appJs, /function addWeekdayRoleOverride/);
+  assert.match(appJs, /function renderWeekdayRoleOverrides/);
+  assert.match(appJs, /DOM\.weekdayRoleAdd/);
+  assert.match(appJs, /weekday-role-delete/);
+  assert.match(domJs, /weekdayRoleAddSelect/);
+  assert.match(domJs, /weekdayRoleTableBody/);
+});

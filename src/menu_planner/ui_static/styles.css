@@ -478,6 +478,7 @@ textarea{
 .mini-table th,.mini-table td{ border:1px solid #e6e6e6; padding:8px; }
 .mini-table th{ background:#f6f6f6; text-align:left; }
 .mini-table input{ width:100%; padding:6px 8px; border:1px solid #e6e6e6; border-radius:8px; }
+.weekday-role-actions select{ padding:6px 8px; border:1px solid var(--bd); border-radius:8px; background:#fff; }
 
 .suggest{
   display:none;

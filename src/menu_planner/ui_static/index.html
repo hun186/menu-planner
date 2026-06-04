@@ -123,8 +123,21 @@
             <tr><td>水果</td><td><input class="daily-role-count" data-role="fruit" type="number" min="0" value="1"></td></tr>
           </tbody>
         </table>
+        <div class="inline left weekday-role-actions" aria-label="新增週幾覆寫" style="margin-top:8px; margin-bottom:8px;">
+          <select id="weekday_role_add_select" aria-label="選擇要新增的週幾覆寫">
+            <option value="1">星期一</option>
+            <option value="2">星期二</option>
+            <option value="3">星期三</option>
+            <option value="4">星期四</option>
+            <option value="5">星期五</option>
+            <option value="6">星期六</option>
+            <option value="7">星期日</option>
+          </select>
+          <button type="button" id="weekday_role_add">新增週幾覆寫</button>
+        </div>
+        <div class="hint">可新增任一星期的覆寫列；直接修改數量會同步到右側 JSON，按「刪除」則恢復使用全域每日預設。</div>
         <table class="mini-table" id="weekday_role_counts_table">
-          <thead><tr><th>週幾覆寫</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬</th><th>湯</th><th>水果</th></tr></thead>
+          <thead><tr><th>週幾覆寫</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬</th><th>湯</th><th>水果</th><th>操作</th></tr></thead>
           <tbody>
             <tr data-weekday="3"><td>星期三</td>
               <td><input class="weekday-role-count" data-weekday="3" data-role="main" type="number" min="0" value="1"></td>
@@ -133,6 +146,7 @@
               <td><input class="weekday-role-count" data-weekday="3" data-role="veg" type="number" min="0" value="1"></td>
               <td><input class="weekday-role-count" data-weekday="3" data-role="soup" type="number" min="0" value="1"></td>
               <td><input class="weekday-role-count" data-weekday="3" data-role="fruit" type="number" min="0" value="1"></td>
+              <td><button type="button" class="weekday-role-delete" data-weekday="3" aria-label="刪除星期三覆寫">刪除</button></td>
             </tr>
           </tbody>
         </table>

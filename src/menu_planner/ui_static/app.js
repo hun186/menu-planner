@@ -35,6 +35,10 @@ const ROLE_LABELS = new Map([
   ["fruit", "水果"],
 ]);
 
+const ROLE_KEYS = ["main", "noodle", "side", "veg", "soup", "fruit"];
+const DEFAULT_WEEKDAY_ROLE_COUNTS = { main: 1, noodle: 0, side: 2, veg: 1, soup: 1, fruit: 1 };
+
+
 function normalizeWeekdays(value) {
   const source = Array.isArray(value) && value.length ? value : [1, 2, 3, 4, 5, 6, 7];
   const out = [];
@@ -97,6 +101,89 @@ function readSelectedItemIds($box) {
 
 function clearSelectedItems($box) {
   $box.empty();
+}
+
+function getWeekdayLabel(weekday) {
+  const wd = Number(weekday);
+  return WEEKDAY_LABELS.get(wd) || `星期${wd}`;
+}
+
+function normalizeWeekdayRoleCounts(counts = {}) {
+  const normalized = {};
+  ROLE_KEYS.forEach((role) => {
+    const value = parseInt(counts[role] ?? DEFAULT_WEEKDAY_ROLE_COUNTS[role] ?? 0, 10);
+    normalized[role] = Number.isFinite(value) && value >= 0 ? value : 0;
+  });
+  return normalized;
+}
+
+function updateWeekdayRoleAddOptions() {
+  const used = new Set();
+  $(DOM.weekdayRoleTableBody).find("tr[data-weekday]").each(function () {
+    used.add(String($(this).data("weekday")));
+  });
+  const $options = $(DOM.weekdayRoleAddSelect).find("option");
+  $options.each(function () {
+    $(this).prop("disabled", used.has(String($(this).val())));
+  });
+  const $current = $(DOM.weekdayRoleAddSelect).find("option:selected");
+  if (!$current.length || $current.prop("disabled")) {
+    const $firstAvailable = $options.filter(function () { return !$(this).prop("disabled"); }).first();
+    if ($firstAvailable.length) $(DOM.weekdayRoleAddSelect).val($firstAvailable.val());
+  }
+  $(DOM.weekdayRoleAdd).prop("disabled", !$options.filter(function () { return !$(this).prop("disabled"); }).length);
+}
+
+function createWeekdayRoleOverrideRow(weekday, counts = {}) {
+  const wd = Number(weekday);
+  const normalized = normalizeWeekdayRoleCounts(counts);
+  const $row = $("<tr></tr>").attr("data-weekday", wd);
+  $row.append($("<td></td>").text(getWeekdayLabel(wd)));
+  ROLE_KEYS.forEach((role) => {
+    const $input = $("<input>", {
+      class: "weekday-role-count",
+      "data-weekday": wd,
+      "data-role": role,
+      type: "number",
+      min: 0,
+      value: normalized[role],
+      "aria-label": `${getWeekdayLabel(wd)}${ROLE_LABELS.get(role) || role}數量`,
+    });
+    $row.append($("<td></td>").append($input));
+  });
+  const $delete = $("<button>", {
+    type: "button",
+    class: "weekday-role-delete",
+    "data-weekday": wd,
+    "aria-label": `刪除${getWeekdayLabel(wd)}覆寫`,
+  }).text("刪除");
+  $row.append($("<td></td>").append($delete));
+  return $row;
+}
+
+function addWeekdayRoleOverride(weekday, counts = {}, onChanged = syncCfgTextareaFromForm) {
+  const wd = Number(weekday);
+  if (!Number.isInteger(wd) || wd < 1 || wd > 7) return;
+  const $body = $(DOM.weekdayRoleTableBody);
+  const selector = `tr[data-weekday="${wd}"]`;
+  const $existing = $body.find(selector);
+  const $row = createWeekdayRoleOverrideRow(wd, counts);
+  if ($existing.length) $existing.replaceWith($row);
+  else $body.append($row);
+  const rows = $body.find("tr[data-weekday]").get().sort((a, b) => Number($(a).data("weekday")) - Number($(b).data("weekday")));
+  $body.append(rows);
+  updateWeekdayRoleAddOptions();
+  if (onChanged) onChanged();
+}
+
+function renderWeekdayRoleOverrides(perWeekdayRoles = {}) {
+  $(DOM.weekdayRoleTableBody).empty();
+  Object.entries(perWeekdayRoles || {})
+    .map(([weekday, counts]) => [Number(weekday), counts])
+    .filter(([weekday]) => Number.isInteger(weekday) && weekday >= 1 && weekday <= 7)
+    .sort(([a], [b]) => a - b)
+    .forEach(([weekday, counts]) => addWeekdayRoleOverride(weekday, counts, null));
+  updateWeekdayRoleAddOptions();
 }
 
 function readDishAllowedRules() {
@@ -359,12 +446,7 @@ function applyCfgToForm(cfg) {
     const role = $(this).data("role");
     if ((form.perDayRoles || {})[role] !== undefined) $(this).val(form.perDayRoles[role]);
   });
-  $(DOM.weekdayRoleInputs).each(function () {
-    const weekday = String($(this).data("weekday"));
-    const role = $(this).data("role");
-    const value = (((form.perWeekdayRoles || {})[weekday] || {})[role]);
-    if (value !== undefined) $(this).val(value);
-  });
+  renderWeekdayRoleOverrides(form.perWeekdayRoles || {});
 
   $(DOM.weeklyQuotaInputs).each(function () {
     const meat = $(this).data("meat");
@@ -887,7 +969,15 @@ $(async function () {
       syncCfgTextareaFromForm();
     });
     $(DOM.dailyRoleInputs).on("change input", syncCfgTextareaFromForm);
-    $(DOM.weekdayRoleInputs).on("change input", syncCfgTextareaFromForm);
+    $(DOM.weekdayRoleAdd).on("click", () => {
+      addWeekdayRoleOverride($(DOM.weekdayRoleAddSelect).val(), DEFAULT_WEEKDAY_ROLE_COUNTS, syncCfgTextareaFromForm);
+    });
+    $(DOM.weekdayRoleTable).on("change input", ".weekday-role-count", syncCfgTextareaFromForm);
+    $(DOM.weekdayRoleTable).on("click", ".weekday-role-delete", function () {
+      $(this).closest("tr[data-weekday]").remove();
+      updateWeekdayRoleAddOptions();
+      syncCfgTextareaFromForm();
+    });
     $(DOM.weeklyQuotaInputs).on("change input", syncCfgTextareaFromForm);
     $(DOM.repeatLimitInputs).on("change input", syncCfgTextareaFromForm);
 

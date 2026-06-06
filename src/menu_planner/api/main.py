@@ -111,15 +111,35 @@ def _recompute_scores_for_result(cfg: Dict[str, Any], result: Dict[str, Any], re
     plan_days = []
     for day in days:
         items = day.get("items") or {}
+        def role_ids(role: str) -> list[str]:
+            plural = f"{role}s"
+            values = items.get(plural)
+            if isinstance(values, list):
+                ids = [x.get("id") for x in values if isinstance(x, dict) and x.get("id")]
+                if ids:
+                    return ids
+            one = (items.get(role) or {}).get("id")
+            return [one] if one else []
+
         sides = [s.get("id") for s in (items.get("sides") or []) if isinstance(s, dict) and s.get("id")]
+        mains = role_ids("main")
+        noodles = role_ids("noodle")
+        vegs = role_ids("veg")
+        soups = role_ids("soup")
+        fruits = role_ids("fruit")
         plan_days.append(
             PlanDay(
-                main=(items.get("main") or {}).get("id"),
+                main=mains[0] if mains else "",
                 sides=sides,
-                veg=(items.get("veg") or {}).get("id"),
-                soup=(items.get("soup") or {}).get("id"),
-                fruit=(items.get("fruit") or {}).get("id"),
-                noodle=(items.get("noodle") or {}).get("id") or "",
+                veg=vegs[0] if vegs else "",
+                soup=soups[0] if soups else "",
+                fruit=fruits[0] if fruits else "",
+                noodle=noodles[0] if noodles else "",
+                mains=mains,
+                noodles=noodles,
+                vegs=vegs,
+                soups=soups,
+                fruits=fruits,
             )
         )
 

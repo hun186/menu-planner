@@ -71,23 +71,25 @@ def build_explanations(
             day_cost = float(sd["cost"])
         else:
             day_cost = 0.0
-            if d.main and d.main in feat:
-                day_cost += feat[d.main].cost_per_serving
-            if getattr(d, "noodle", "") and d.noodle in feat:
-                day_cost += feat[d.noodle].cost_per_serving
-            if d.soup and d.soup in feat:
-                day_cost += feat[d.soup].cost_per_serving
-            if d.fruit and d.fruit in feat:
-                day_cost += feat[d.fruit].cost_per_serving
-            if d.veg and d.veg in feat:
-                day_cost += feat[d.veg].cost_per_serving
-            if d.sides:
-                day_cost += sum(feat[s].cost_per_serving for s in d.sides if s and s in feat)
+            all_ids = (
+                list(getattr(d, "mains", None) or ([d.main] if d.main else []))
+                + list(getattr(d, "noodles", None) or ([d.noodle] if getattr(d, "noodle", "") else []))
+                + list(d.sides or [])
+                + list(getattr(d, "vegs", None) or ([d.veg] if d.veg else []))
+                + list(getattr(d, "soups", None) or ([d.soup] if d.soup else []))
+                + list(getattr(d, "fruits", None) or ([d.fruit] if d.fruit else []))
+            )
+            day_cost += sum(feat[x].cost_per_serving for x in all_ids if x and x in feat)
 
         day_cost = round(day_cost, 2)
 
         # ✅ sides 可能 None
+        mains_list = [x for x in (getattr(d, "mains", None) or ([d.main] if d.main else [])) if x]
+        noodles_list = [x for x in (getattr(d, "noodles", None) or ([d.noodle] if getattr(d, "noodle", "") else [])) if x]
         sides_list = [x for x in (d.sides or []) if x]
+        vegs_list = [x for x in (getattr(d, "vegs", None) or ([d.veg] if d.veg else [])) if x]
+        soups_list = [x for x in (getattr(d, "soups", None) or ([d.soup] if d.soup else [])) if x]
+        fruits_list = [x for x in (getattr(d, "fruits", None) or ([d.fruit] if d.fruit else [])) if x]
 
         raw = sd.get("score")
         fitness = sd.get("score_fitness")
@@ -105,11 +107,16 @@ def build_explanations(
 
             "items": {
                 "main": dish_info(d.main),
+                "mains": [dish_info(x) for x in mains_list],
                 "noodle": dish_info(getattr(d, "noodle", "")),
+                "noodles": [dish_info(x) for x in noodles_list],
                 "sides": [dish_info(x) for x in sides_list],
                 "veg": dish_info(d.veg),
+                "vegs": [dish_info(x) for x in vegs_list],
                 "soup": dish_info(d.soup),
+                "soups": [dish_info(x) for x in soups_list],
                 "fruit": dish_info(d.fruit),
+                "fruits": [dish_info(x) for x in fruits_list],
             },
             "day_cost": day_cost,
 

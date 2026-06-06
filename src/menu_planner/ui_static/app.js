@@ -692,8 +692,19 @@ function applyDishEdit({ dayIndex, slot, dishId }) {
   if (!day || !dish) return false;
 
   day.items = day.items || {};
-  if (slot === "main" || slot === "veg" || slot === "soup" || slot === "fruit") {
+  if (slot === "main" || slot === "veg" || slot === "soup" || slot === "fruit" || slot === "noodle") {
     day.items[slot] = normalizeDishForResult(day.items[slot], dish);
+    const plural = `${slot}s`;
+    if (Array.isArray(day.items[plural])) day.items[plural][0] = day.items[slot];
+  } else if (slot.startsWith("main_") || slot.startsWith("noodle_") || slot.startsWith("veg_") || slot.startsWith("soup_") || slot.startsWith("fruit_")) {
+    const [role, idxRaw] = slot.split("_");
+    const idx = parseInt(idxRaw, 10);
+    if (Number.isNaN(idx)) return false;
+    const plural = `${role}s`;
+    const arr = Array.isArray(day.items[plural]) ? day.items[plural] : [];
+    arr[idx] = normalizeDishForResult(arr[idx], dish);
+    day.items[plural] = arr;
+    if (idx === 0) day.items[role] = arr[0];
   } else if (slot.startsWith("side_")) {
     const idx = parseInt(slot.slice(5), 10);
     if (Number.isNaN(idx)) return false;

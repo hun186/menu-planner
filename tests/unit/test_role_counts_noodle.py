@@ -97,3 +97,74 @@ def test_wednesday_can_plan_main_and_noodle_independently():
     assert plan[1].main and not plan[1].noodle
     assert plan[2].main and plan[2].noodle == "noodle_a"
     assert len(plan[2].sides) == 1
+
+
+def test_fill_days_honors_multi_count_for_all_roles():
+    cfg = {
+        "per_day_roles": {"main": 2, "noodle": 2, "side": 3, "veg": 2, "soup": 2, "fruit": 2},
+    }
+    start = date(2026, 3, 2)
+    counts = [counts_for_day(cfg, start, 0)]
+    dishes = [
+        *[_dish(f"main_{i}", "main", "chicken") for i in range(3)],
+        *[_dish(f"noodle_{i}", "noodle") for i in range(2)],
+        *[_dish(f"side_{i}", "side") for i in range(3)],
+        *[_dish(f"veg_{i}", "veg") for i in range(2)],
+        *[_dish(f"soup_{i}", "soup") for i in range(2)],
+        *[_dish(f"fruit_{i}", "fruit") for i in range(2)],
+    ]
+    feat = {d.id: _feat(d) for d in dishes}
+    mains, sides, vegs, soups, fruits, noodles = _split_dishes_by_role(dishes)
+    hard = {
+        "allowed_main_meat_types": ["chicken"],
+        "no_consecutive_same_main_meat": False,
+        "weekly_max_main_meat": {},
+        "repeat_limits": {
+            "max_same_main_in_30_days": 99,
+            "max_same_side_in_7_days": 99,
+            "max_same_veg_in_7_days": 99,
+            "max_same_soup_in_7_days": 99,
+            "max_same_fruit_in_7_days": 99,
+            "max_same_ingredient_in_window_days": 99,
+        },
+        "cost_range_per_person_per_day": {"min": 0, "max": 99},
+    }
+
+    main_ids = plan_mains_beam(
+        1,
+        mains,
+        feat,
+        hard,
+        4,
+        10,
+        seed=1,
+        start_date=start,
+        active_mask=[True],
+        role_counts_by_day=counts,
+    )
+    plan, _, _, errors = fill_days_after_mains(
+        1,
+        main_ids,
+        sides,
+        vegs,
+        soups,
+        fruits,
+        feat,
+        hard,
+        {},
+        {},
+        start_date=start,
+        active_mask=[True],
+        role_counts_by_day=counts,
+        noodles=noodles,
+        mains=mains,
+    )
+
+    assert not errors
+    day = plan[0]
+    assert len(day.mains) == 2
+    assert len(day.noodles) == 2
+    assert len(day.sides) == 3
+    assert len(day.vegs) == 2
+    assert len(day.soups) == 2
+    assert len(day.fruits) == 2

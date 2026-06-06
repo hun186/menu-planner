@@ -173,28 +173,33 @@ export function renderResult(result, cfg, options = {}) {
     }
 
     const mainObj = d.items?.main || {};
+    const mainObjs = Array.isArray(d.items?.mains) && d.items.mains.length ? d.items.mains : (mainObj?.id || mainObj?.name ? [mainObj] : []);
     const noodleObj = d.items?.noodle || {};
+    const noodleObjs = Array.isArray(d.items?.noodles) && d.items.noodles.length ? d.items.noodles : (noodleObj?.id || noodleObj?.name ? [noodleObj] : []);
     const sideObjs = d.items?.sides || [];
     const vegObj = d.items?.veg || {};
+    const vegObjs = Array.isArray(d.items?.vegs) && d.items.vegs.length ? d.items.vegs : (vegObj?.id || vegObj?.name ? [vegObj] : []);
     const soupObj = d.items?.soup || {};
+    const soupObjs = Array.isArray(d.items?.soups) && d.items.soups.length ? d.items.soups : (soupObj?.id || soupObj?.name ? [soupObj] : []);
     const fruitObj = d.items?.fruit || {};
+    const fruitObjs = Array.isArray(d.items?.fruits) && d.items.fruits.length ? d.items.fruits : (fruitObj?.id || fruitObj?.name ? [fruitObj] : []);
 
-    const main = mainObj?.name || "";
-    const noodle = noodleObj?.name || "";
+    const main = mainObjs.map((x) => x?.name).filter(Boolean).join("、");
+    const noodle = noodleObjs.map((x) => x?.name).filter(Boolean).join("、");
     const sides = sideObjs.map((x) => x?.name).filter(Boolean).join("、");
-    const veg = vegObj?.name || "";
-    const soup = soupObj?.name || "";
-    const fruit = fruitObj?.name || "";
+    const veg = vegObjs.map((x) => x?.name).filter(Boolean).join("、");
+    const soup = soupObjs.map((x) => x?.name).filter(Boolean).join("、");
+    const fruit = fruitObjs.map((x) => x?.name).filter(Boolean).join("、");
     const cost = d.day_cost ?? "";
     const rawScore = Number(d.score ?? 0);
     const fitness = (d.score_fitness !== undefined && d.score_fitness !== null) ? Number(d.score_fitness) : -rawScore;
 
     const mainCell = editable && isScheduled
-      ? renderEditableDish({ name: main, dayIndex, role: "main", slot: "main", dishId: mainObj?.id })
+      ? mainObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇主菜${i + 1}）`, dayIndex, role: "main", slot: i === 0 ? "main" : `main_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
       : escapeHtml(main);
 
     const noodleCell = editable && isScheduled
-      ? renderEditableDish({ name: noodle, dayIndex, role: "noodle", slot: "noodle", dishId: noodleObj?.id })
+      ? noodleObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇麵食${i + 1}）`, dayIndex, role: "noodle", slot: i === 0 ? "noodle" : `noodle_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
       : escapeHtml(noodle);
 
     const sideCell = editable && isScheduled
@@ -211,15 +216,15 @@ export function renderResult(result, cfg, options = {}) {
       : escapeHtml(sides);
 
     const vegCell = editable && isScheduled
-      ? renderEditableDish({ name: veg, dayIndex, role: "veg", slot: "veg", dishId: vegObj?.id })
+      ? vegObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇純蔬${i + 1}）`, dayIndex, role: "veg", slot: i === 0 ? "veg" : `veg_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
       : escapeHtml(veg);
 
     const soupCell = editable && isScheduled
-      ? renderEditableDish({ name: soup, dayIndex, role: "soup", slot: "soup", dishId: soupObj?.id })
+      ? soupObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇湯品${i + 1}）`, dayIndex, role: "soup", slot: i === 0 ? "soup" : `soup_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
       : escapeHtml(soup);
 
     const fruitCell = editable && isScheduled
-      ? renderEditableDish({ name: fruit, dayIndex, role: "fruit", slot: "fruit", dishId: fruitObj?.id })
+      ? fruitObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇水果${i + 1}）`, dayIndex, role: "fruit", slot: i === 0 ? "fruit" : `fruit_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
       : escapeHtml(fruit);
 
     const dayPeople = Number(peopleOverrides[d.date] ?? d.procurement?.people ?? defaultPeople);

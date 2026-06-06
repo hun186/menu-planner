@@ -91,6 +91,26 @@ function renderEditableDish({ name, dayIndex, role, slot, dishId }) {
   return `<button type="button" class="dish-edit-trigger" data-day-index="${dayIndex}" data-role="${role}" data-slot="${slot}" data-dish-id="${did}">${escapeHtml(label)}</button>`;
 }
 
+function isoWeekdayFromDateString(dateText) {
+  if (typeof dateText !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateText)) return null;
+  const date = new Date(`${dateText}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  const utcDay = date.getUTCDay();
+  return utcDay === 0 ? 7 : utcDay;
+}
+
+function editableRoleSlotCount(cfg, dateText, role, fallbackCount) {
+  const fallback = Number.isFinite(Number(fallbackCount)) && Number(fallbackCount) >= 0 ? Number(fallbackCount) : 0;
+  const weekday = isoWeekdayFromDateString(dateText);
+  const weekdayRoles = cfg?.per_weekday_roles || {};
+  const dayRoles = cfg?.per_day_roles || {};
+  const raw = weekday !== null && Object.prototype.hasOwnProperty.call(weekdayRoles, String(weekday))
+    ? weekdayRoles[String(weekday)]?.[role]
+    : dayRoles?.[role];
+  const count = Number(raw);
+  return Number.isFinite(count) && count >= 0 ? count : fallback;
+}
+
 export function renderResult(result, cfg, options = {}) {
   const editable = !!options.editable;
   const errByDay = new Map();
@@ -202,8 +222,9 @@ export function renderResult(result, cfg, options = {}) {
       ? noodleObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇麵食${i + 1}）`, dayIndex, role: "noodle", slot: i === 0 ? "noodle" : `noodle_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
       : escapeHtml(noodle);
 
+    const sideSlotCount = editableRoleSlotCount(cfg, d.date, "side", 2);
     const sideCell = editable && isScheduled
-      ? Array.from({ length: Math.max(sideObjs.length, 2) }, (_, i) => {
+      ? Array.from({ length: Math.max(sideObjs.length, sideSlotCount) }, (_, i) => {
         const it = sideObjs[i] || {};
         return renderEditableDish({
           name: it?.name || `（選擇配菜${i + 1}）`,

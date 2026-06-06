@@ -95,3 +95,15 @@ test('index page supports adding and deleting weekday role overrides', () => {
   assert.match(domJs, /weekdayRoleAddSelect/);
   assert.match(domJs, /weekdayRoleTableBody/);
 });
+
+
+test('daily role counts use the same compact role-column layout as weekday overrides', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+
+  assert.match(html, /<table class="mini-table role-counts-table" id="daily_role_counts_table">/);
+  assert.match(html, /<th>設定<\/th><th>主菜<\/th><th>麵食<\/th><th>配菜<\/th><th>純蔬<\/th><th>湯<\/th><th>水果<\/th>/);
+  assert.match(html, /<tr><td>全域每日預設<\/td>/);
+  assert.match(html, /aria-label="全域每日預設主菜數量"/);
+  assert.match(html, /aria-label="全域每日預設水果數量"/);
+  assert.doesNotMatch(html, /<thead><tr><th>角色<\/th><th>全域每日預設<\/th><\/tr><\/thead>/);
+});

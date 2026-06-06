@@ -4,7 +4,8 @@ from playwright.sync_api import expect, sync_playwright
 
 ARTIFACT_DIR = Path("artifacts")
 ARTIFACT_DIR.mkdir(exist_ok=True)
-SCREENSHOT_PATH = ARTIFACT_DIR / "weekday_role_overrides.png"
+WEEKDAY_SCREENSHOT_PATH = ARTIFACT_DIR / "weekday_role_overrides.png"
+DAILY_SCREENSHOT_PATH = ARTIFACT_DIR / "daily_role_counts_compact.png"
 
 
 def main() -> None:
@@ -16,6 +17,21 @@ def main() -> None:
             browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1440, "height": 1100})
         page.goto("http://127.0.0.1:18000/", wait_until="networkidle")
+
+        daily_table = page.locator("#daily_role_counts_table")
+        expect(daily_table).to_be_visible()
+        expect(daily_table.locator("thead")).to_contain_text("設定主菜麵食配菜純蔬湯水果")
+        daily_row = daily_table.locator("tbody tr")
+        expect(daily_row).to_have_count(1)
+        expect(daily_row).to_contain_text("全域每日預設")
+        expect(daily_row.locator("input.daily-role-count")).to_have_count(6)
+        daily_row.locator('input[data-role="noodle"]').fill("1")
+
+        cfg_json = page.locator("#cfg_json")
+        expect(cfg_json).to_contain_text('"per_day_roles"')
+        expect(cfg_json).to_contain_text('"noodle": 1')
+
+        daily_table.screenshot(path=str(DAILY_SCREENSHOT_PATH))
 
         add_select = page.locator("#weekday_role_add_select")
         add_button = page.locator("#weekday_role_add")
@@ -29,7 +45,6 @@ def main() -> None:
         monday_row.locator('input[data-role="noodle"]').fill("2")
         monday_row.locator('input[data-role="side"]').fill("3")
 
-        cfg_json = page.locator("#cfg_json")
         expect(cfg_json).to_contain_text('"1": {')
         expect(cfg_json).to_contain_text('"noodle": 2')
         expect(cfg_json).to_contain_text('"side": 3')
@@ -40,10 +55,11 @@ def main() -> None:
         expect(wednesday_row).to_have_count(0)
         expect(add_select.locator('option[value="3"]')).to_be_enabled()
 
-        page.locator("#weekday_role_counts_table").screenshot(path=str(SCREENSHOT_PATH))
+        page.locator("#weekday_role_counts_table").screenshot(path=str(WEEKDAY_SCREENSHOT_PATH))
         browser.close()
 
-    print(f"screenshot={SCREENSHOT_PATH}")
+    print(f"daily_screenshot={DAILY_SCREENSHOT_PATH}")
+    print(f"weekday_screenshot={WEEKDAY_SCREENSHOT_PATH}")
 
 
 if __name__ == "__main__":

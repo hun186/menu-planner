@@ -83,3 +83,21 @@
 1. 先檢查：
    ```bash
    python -c "import playwright"
+   ```
+2. 若 Python 套件不存在，先依 repo 既有依賴管理方式安裝 Playwright。
+3. 確認 Chromium browser binaries 可用；若不可用，執行 Playwright browser 安裝命令。
+4. 啟動前端後再執行 UI 驗證，並在完成後回報實際驗證命令與結果。
+
+---
+
+## Test commands
+
+For frontend UI validation, run:
+
+```bash
+pip install playwright
+python -m playwright install --with-deps chromium
+npm install
+npm run dev &
+python -m playwright codegen
+```

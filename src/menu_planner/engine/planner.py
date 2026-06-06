@@ -510,6 +510,7 @@ def _run_backtracking(ctx: PlanContext) -> Tuple[List[PlanDay], float, List[Dict
         soups=ctx.soups,
         fruits=ctx.fruits,
         noodles=ctx.noodles,
+        mains=ctx.mains,
         feat=ctx.feat,
         hard=ctx.hard,
         weights=ctx.weights,
@@ -531,13 +532,24 @@ def _run_local_search(
     ls = (ctx.search.get("local_search") or {})
     ls_enabled = bool(ls.get("enabled", True))
 
-    incomplete_days = [
-        i
-        for i, d in enumerate(plan_days_full)
-        if ctx.active_mask[i] and ((not d.soup) or (not d.fruit) or (not d.veg) or (not d.sides) or (len(d.sides) != 2))
-    ]
+    def _is_day_incomplete(i: int, d: PlanDay) -> bool:
+        counts = ctx.role_counts_by_day[i] if i < len(ctx.role_counts_by_day) else {}
+        return (
+            len(getattr(d, "mains", None) or ([d.main] if d.main else [])) != int(counts.get("main", 1) or 0)
+            or len(getattr(d, "noodles", None) or ([d.noodle] if d.noodle else [])) != int(counts.get("noodle", 0) or 0)
+            or len(d.sides or []) != int(counts.get("side", 2) or 0)
+            or len(getattr(d, "vegs", None) or ([d.veg] if d.veg else [])) != int(counts.get("veg", 1) or 0)
+            or len(getattr(d, "soups", None) or ([d.soup] if d.soup else [])) != int(counts.get("soup", 1) or 0)
+            or len(getattr(d, "fruits", None) or ([d.fruit] if d.fruit else [])) != int(counts.get("fruit", 1) or 0)
+        )
 
-    if ls_enabled and (not incomplete_days) and (not base_errors):
+    incomplete_days = [i for i, d in enumerate(plan_days_full) if ctx.active_mask[i] and _is_day_incomplete(i, d)]
+    local_search_safe = all(
+        counts == {"main": 1, "noodle": 0, "side": 2, "veg": 1, "soup": 1, "fruit": 1}
+        for counts in ctx.role_counts_by_day
+    )
+
+    if ls_enabled and local_search_safe and (not incomplete_days) and (not base_errors):
         improved_plan, improved_score, improved_day_details = improve_by_local_search(
             plan_days=plan_days_full,
             mains=ctx.mains,

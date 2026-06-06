@@ -27,10 +27,15 @@ def _convert_unit(qty: float, from_unit: str, to_unit: str, conv: Dict[Tuple[str
 
 def _iter_day_dishes(day: Dict[str, Any]) -> Iterable[Tuple[str, Dict[str, Any]]]:
     items = day.get("items") or {}
-    for role in ("main", "veg", "soup", "fruit"):
-        dish = items.get(role) or {}
-        if dish.get("id"):
-            yield role, dish
+    plural_roles = {"main": "mains", "noodle": "noodles", "veg": "vegs", "soup": "soups", "fruit": "fruits"}
+    for role, plural in plural_roles.items():
+        dishes = items.get(plural)
+        if not isinstance(dishes, list) or not dishes:
+            dish = items.get(role) or {}
+            dishes = [dish] if dish.get("id") else []
+        for dish in dishes:
+            if (dish or {}).get("id"):
+                yield role, dish
 
     for side in (items.get("sides") or []):
         if (side or {}).get("id"):

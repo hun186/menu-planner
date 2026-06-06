@@ -239,6 +239,7 @@ def fill_days_after_mains(
     active_mask: Optional[List[bool]] = None,   # ✅ 新增（可選）
     role_counts_by_day: Optional[List[Dict[str, int]]] = None,
     noodles: Optional[List[Dish]] = None,
+    mains: Optional[List[Dish]] = None,
 ) -> Tuple[List[PlanDay], float, List[Dict], List[Dict]]:
     plan_days: List[PlanDay] = []
     total_score = 0.0
@@ -261,12 +262,26 @@ def fill_days_after_mains(
     soup_pool0  = [d for d in soups  if d.id in feat]
     fruit_pool0 = [d for d in fruits if d.id in feat]
     noodle_pool0 = [d for d in (noodles or []) if d.id in feat]
+    main_pool0 = [d for d in (mains or []) if d.id in feat]
     
     print("usable sides (in feat):", len(side_pool0), "/", len(sides))
     print("usable vegs  (in feat):", len(veg_pool0), "/", len(vegs))
     print("usable soups (in feat):", len(soup_pool0), "/", len(soups))
     print("usable fruits(in feat):", len(fruit_pool0), "/", len(fruits))
     print("usable noodles(in feat):", len(noodle_pool0), "/", len(noodles or []))
+    print("usable mains (in feat):", len(main_pool0), "/", len(mains or []))
+
+    def choose_distinct_from_pool(pool: List[Dish], count: int, selected: List[str]) -> List[str]:
+        chosen: List[str] = []
+        blocked = set(x for x in selected if x)
+        for d in pool:
+            if d.id in blocked:
+                continue
+            chosen.append(d.id)
+            blocked.add(d.id)
+            if len(chosen) >= count:
+                break
+        return chosen
 
     for day in range(horizon_days):
         counts = (role_counts_by_day[day] if role_counts_by_day and day < len(role_counts_by_day) else DEFAULT_ROLE_COUNTS)
@@ -301,27 +316,40 @@ def fill_days_after_mains(
         rng = random.Random(seed0 + day * 10007)
         
         # 只拿可用候選（在 feat 裡），並套用單一道菜允許供應週幾。
+        main_pool = [d for d in main_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
         noodle_pool = [d for d in noodle_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
         fruit_pool = [d for d in fruit_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
         soup_pool  = [d for d in soup_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
         side_pool  = [d for d in side_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
         veg_pool   = [d for d in veg_pool0 if _dish_allowed_on_day(d, day, start_date, hard)]
         
+        rng.shuffle(main_pool)
         rng.shuffle(noodle_pool)
         rng.shuffle(fruit_pool)
         rng.shuffle(soup_pool)
         rng.shuffle(side_pool)
         rng.shuffle(veg_pool)
         
+        main_extra_ids = choose_distinct_from_pool(main_pool, max(0, main_count - (1 if main_id else 0)), [main_id])
+        main_ids_today = ([main_id] if main_id else []) + main_extra_ids
+        if main_count > 0 and len(main_ids_today) < main_count:
+            err = PlanError(
+                code="MAIN_NO_SOLUTION",
+                day_index=day,
+                message=f"第 {day+1} 天找不到足夠的主菜。",
+                details={"candidate_count": len(main_pool), "requested_count": main_count, "selected_count": len(main_ids_today)},
+            )
+            errors.append(err.to_dict())
+            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit="", noodle="", mains=main_ids_today))
+            explanations.append(_failed_day_explanation(day_index=day, reason_code=err.code, message=err.message, details=err.details))
+            continue
+
+        noodle_ids = []
         noodle_id = ""
         if noodle_count > 0:
-            selected = [main_id] if main_id else []
-            for d in noodle_pool:
-                if d.id in selected:
-                    continue
-                noodle_id = d.id
-                break
-            if not noodle_id:
+            noodle_ids = choose_distinct_from_pool(noodle_pool, noodle_count, main_ids_today)
+            noodle_id = noodle_ids[0] if noodle_ids else ""
+            if len(noodle_ids) < noodle_count:
                 err = PlanError(
                     code="NOODLE_NO_SOLUTION",
                     day_index=day,
@@ -329,12 +357,13 @@ def fill_days_after_mains(
                     details={"candidate_count": len(noodle_pool), "requested_count": noodle_count},
                 )
                 errors.append(err.to_dict())
-                plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit="", noodle=""))
+                plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit="", noodle="", mains=main_ids_today, noodles=noodle_ids))
                 explanations.append(_failed_day_explanation(day_index=day, reason_code=err.code, message=err.message, details=err.details))
                 continue
 
         # ===== fruit（若整個水果類別空，這屬於「系統性缺資料」，建議仍可 raise）=====
         # 你想「連水果都缺也繼續排」也行，但通常代表資料集不完整
+        fruit_ids = []
         if fruit_count <= 0:
             fruit_id = ""
         else:
@@ -348,12 +377,23 @@ def fill_days_after_mains(
                     feat,
                     hard,
                     dish_ingredient_ids=dish_ingredient_ids,
-                    selected_dish_ids=[x for x in [main_id, noodle_id] if x],
+                    selected_dish_ids=main_ids_today + noodle_ids,
                 )
+                fruit_ids = [fruit_id] if fruit_id else []
+                if fruit_id and fruit_count > 1:
+                    fruit_ids += choose_distinct_from_pool(fruit_pool, fruit_count - 1, main_ids_today + noodle_ids + fruit_ids)
+                fruit_id = fruit_ids[0] if fruit_ids else ""
+                if len(fruit_ids) < fruit_count:
+                    raise PlanError(
+                        code="FRUIT_NO_SOLUTION",
+                        day_index=day,
+                        message=f"第 {day+1} 天找不到足夠的水果。",
+                        details={"candidate_count": len(fruit_pool), "requested_count": fruit_count, "selected_count": len(fruit_ids)},
+                    )
             except PlanError as e:
                 # 系統性缺水果：仍可回傳 errors + placeholder 後繼續
                 errors.append(e.to_dict())
-                plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit="", noodle=noodle_id))
+                plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit="", noodle=noodle_id, mains=main_ids_today, noodles=noodle_ids, fruits=fruit_ids))
                 explanations.append(
                     _failed_day_explanation(
                         day_index=day,
@@ -379,7 +419,13 @@ def fill_days_after_mains(
                 dish_ingredient_ids=dish_ingredient_ids,
                 rng=rng,
             )
-        if soup_count > 0 and not soup_id:
+            soup_ids = [soup_id] if soup_id else []
+            if soup_id and soup_count > 1:
+                soup_ids += choose_distinct_from_pool(soup_pool, soup_count - 1, main_ids_today + noodle_ids + soup_ids + fruit_ids)
+            soup_id = soup_ids[0] if soup_ids else ""
+        else:
+            soup_ids = []
+        if soup_count > 0 and len(soup_ids) < soup_count:
             soup_stats = analyze_soup_rejections(
                 day_idx=day,
                 soups=soup_pool,
@@ -434,7 +480,7 @@ def fill_days_after_mains(
                     rng=rng,
                 ) or ""
 
-            plan_days.append(PlanDay(main=main_id, sides=side_ids, veg=veg_id, soup="", fruit=fruit_id, noodle=noodle_id))
+            plan_days.append(PlanDay(main=main_id, sides=side_ids, veg=veg_id, soup="", fruit=fruit_id, noodle=noodle_id, mains=main_ids_today, noodles=noodle_ids, vegs=[veg_id] if veg_id else [], fruits=fruit_ids))
             explanations.append(
                 _failed_day_explanation(
                     day_index=day,
@@ -476,7 +522,7 @@ def fill_days_after_mains(
                 }
             )
             errors.append(err.to_dict())
-            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup=soup_id, fruit=fruit_id, noodle=noodle_id))
+            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup=soup_id, fruit=fruit_id, noodle=noodle_id, mains=main_ids_today, noodles=noodle_ids, soups=[soup_id] if soup_id else [], fruits=fruit_ids))
             explanations.append(
                 _failed_day_explanation(
                     day_index=day,
@@ -488,6 +534,7 @@ def fill_days_after_mains(
             continue
 
         veg_id = ""
+        veg_ids = []
         if veg_count > 0:
             veg_id = choose_veg(
                 day,
@@ -495,11 +542,15 @@ def fill_days_after_mains(
                 plan_days,
                 feat,
                 hard,
-                selected_dish_ids=[x for x in [main_id, noodle_id, soup_id, fruit_id] if x] + list(side_ids),
+                selected_dish_ids=main_ids_today + noodle_ids + soup_ids + fruit_ids + list(side_ids),
                 dish_ingredient_ids=dish_ingredient_ids,
                 rng=rng,
             )
-        if veg_count > 0 and not veg_id:
+            veg_ids = [veg_id] if veg_id else []
+            if veg_id and veg_count > 1:
+                veg_ids += choose_distinct_from_pool(veg_pool, veg_count - 1, main_ids_today + noodle_ids + soup_ids + fruit_ids + list(side_ids) + veg_ids)
+            veg_id = veg_ids[0] if veg_ids else ""
+        if veg_count > 0 and len(veg_ids) < veg_count:
             err = PlanError(
                 code="VEG_NO_SOLUTION",
                 day_index=day,
@@ -511,7 +562,7 @@ def fill_days_after_mains(
                 }
             )
             errors.append(err.to_dict())
-            plan_days.append(PlanDay(main=main_id, sides=side_ids, veg="", soup=soup_id, fruit=fruit_id, noodle=noodle_id))
+            plan_days.append(PlanDay(main=main_id, sides=side_ids, veg="", soup=soup_id, fruit=fruit_id, noodle=noodle_id, mains=main_ids_today, noodles=noodle_ids, soups=[soup_id] if soup_id else [], fruits=fruit_ids))
             explanations.append(
                 _failed_day_explanation(
                     day_index=day,
@@ -524,11 +575,11 @@ def fill_days_after_mains(
 
         # ===== cost =====
         day_cost = (
-            (feat[main_id].cost_per_serving if main_id else 0)
-            + (feat[noodle_id].cost_per_serving if noodle_id else 0)
-            + ((feat[soup_id].cost_per_serving if soup_id else 0) if soup_id else 0)
-            + ((feat[fruit_id].cost_per_serving if fruit_id else 0) if fruit_id else 0)
-            + ((feat[veg_id].cost_per_serving if veg_id else 0) if veg_id else 0)
+            sum(feat[x].cost_per_serving for x in main_ids_today if x in feat)
+            + sum(feat[x].cost_per_serving for x in noodle_ids if x in feat)
+            + sum(feat[x].cost_per_serving for x in soup_ids if x in feat)
+            + sum(feat[x].cost_per_serving for x in fruit_ids if x in feat)
+            + sum(feat[x].cost_per_serving for x in veg_ids if x in feat)
             + sum(feat[s].cost_per_serving for s in side_ids)
         )
 
@@ -605,7 +656,7 @@ def fill_days_after_mains(
                 )
                 errors.append(err.to_dict())
                 # placeholder：主菜/湯/果保留，配菜清空（代表當天未完成）
-                plan_days.append(PlanDay(main=main_id, sides=[], veg=veg_id, soup=soup_id, fruit=fruit_id, noodle=noodle_id))
+                plan_days.append(PlanDay(main=main_id, sides=[], veg=veg_id, soup=soup_id, fruit=fruit_id, noodle=noodle_id, mains=main_ids_today, noodles=noodle_ids, vegs=[veg_id] if veg_id else [], soups=[soup_id] if soup_id else [], fruits=fruit_ids))
                 explanations.append(
                     _failed_day_explanation(
                         day_index=day,
@@ -618,7 +669,19 @@ def fill_days_after_mains(
                 continue
 
         # ===== success day =====
-        day_obj = PlanDay(main=main_id, sides=side_ids, veg=veg_id, soup=soup_id, fruit=fruit_id, noodle=noodle_id)
+        day_obj = PlanDay(
+            main=main_id,
+            sides=side_ids,
+            veg=veg_id,
+            soup=soup_id,
+            fruit=fruit_id,
+            noodle=noodle_id,
+            mains=main_ids_today,
+            noodles=noodle_ids,
+            vegs=veg_ids,
+            soups=soup_ids,
+            fruits=fruit_ids,
+        )
 
         chosen = {
             "main": feat[main_id] if main_id else feat[noodle_id],
@@ -657,11 +720,11 @@ def fill_days_after_mains(
             "cur_side_ids": side_ids,
             "cur_veg_id": veg_id,
         
-            "recent_main_ids": [plan_days[i].main for i in recent_idx if plan_days[i].main],
-            "recent_soups":    [plan_days[i].soup for i in recent_idx if plan_days[i].soup],
-            "recent_fruits":   [plan_days[i].fruit for i in recent_idx if plan_days[i].fruit],
+            "recent_main_ids": [m for i in recent_idx for m in (getattr(plan_days[i], "mains", None) or ([plan_days[i].main] if plan_days[i].main else []))],
+            "recent_soups":    [s for i in recent_idx for s in (getattr(plan_days[i], "soups", None) or ([plan_days[i].soup] if plan_days[i].soup else []))],
+            "recent_fruits":   [f for i in recent_idx for f in (getattr(plan_days[i], "fruits", None) or ([plan_days[i].fruit] if plan_days[i].fruit else []))],
             "recent_sides":    [s for i in recent_idx for s in (plan_days[i].sides or [])],
-            "recent_vegs":     [plan_days[i].veg for i in recent_idx if plan_days[i].veg],
+            "recent_vegs":     [v for i in recent_idx for v in (getattr(plan_days[i], "vegs", None) or ([plan_days[i].veg] if plan_days[i].veg else []))],
         })
 
         sb = score_day(day_cost=day_cost, hard=hard, weights=weights, chosen=chosen, context=ctx)

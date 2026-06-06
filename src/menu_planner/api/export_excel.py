@@ -30,15 +30,24 @@ def _to_float_or_none(value: Any) -> float | None:
 
 def _extract_menu_row(day: Dict[str, Any]) -> list[Any]:
     items = day.get("items", {}) or {}
-    main = (items.get("main") or {}).get("name", "")
-    soup = (items.get("soup") or {}).get("name", "")
-    fruit = (items.get("fruit") or {}).get("name", "")
+    def role_names(role: str) -> str:
+        plural = f"{role}s"
+        dishes = items.get(plural)
+        if not isinstance(dishes, list) or not dishes:
+            dish = items.get(role) or {}
+            dishes = [dish] if dish.get("name") else []
+        return "、".join((x or {}).get("name", "") for x in dishes if (x or {}).get("name"))
+
+    main = role_names("main")
+    soup = role_names("soup")
+    fruit = role_names("fruit")
 
     sides = items.get("sides") or []
+    vegs = items.get("vegs") if isinstance(items.get("vegs"), list) else []
     veg = items.get("veg") or {}
     side_names = [x.get("name", "") for x in sides]
-    if veg.get("name"):
-        side_names.append(veg.get("name", ""))
+    veg_names = [(x or {}).get("name", "") for x in vegs if (x or {}).get("name")] or ([veg.get("name", "")] if veg.get("name") else [])
+    side_names.extend(veg_names)
     while len(side_names) < 3:
         side_names.append("")
 

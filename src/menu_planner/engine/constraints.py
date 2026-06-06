@@ -1,7 +1,7 @@
 # src/menu_planner/engine/constraints.py
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 from datetime import date, timedelta   # ✅ 改這行
 
@@ -14,6 +14,24 @@ class PlanDay:
     soup: str
     fruit: str
     noodle: str = ""
+    mains: List[str] = field(default_factory=list)
+    noodles: List[str] = field(default_factory=list)
+    vegs: List[str] = field(default_factory=list)
+    soups: List[str] = field(default_factory=list)
+    fruits: List[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.sides = list(self.sides or [])
+        self.mains = list(self.mains or ([self.main] if self.main else []))
+        self.noodles = list(self.noodles or ([self.noodle] if self.noodle else []))
+        self.vegs = list(self.vegs or ([self.veg] if self.veg else []))
+        self.soups = list(self.soups or ([self.soup] if self.soup else []))
+        self.fruits = list(self.fruits or ([self.fruit] if self.fruit else []))
+        self.main = self.main or (self.mains[0] if self.mains else "")
+        self.noodle = self.noodle or (self.noodles[0] if self.noodles else "")
+        self.veg = self.veg or (self.vegs[0] if self.vegs else "")
+        self.soup = self.soup or (self.soups[0] if self.soups else "")
+        self.fruit = self.fruit or (self.fruits[0] if self.fruits else "")
 
 
 def _week_index(day_idx: int) -> int:
@@ -36,7 +54,7 @@ def _iter_prev_active_indices(day_idx: int, plan_days: List[PlanDay], window_act
             continue
         if not d.sides:
             continue
-        if (not d.veg) or (not d.soup) or (not d.fruit):
+        if (not d.vegs) or (not d.soups) or (not d.fruits):
             continue
         yield i
         seen += 1
@@ -223,7 +241,7 @@ def check_soup_window_repeat(
 
     cnt = 0
     for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days):
-        if plan_days[i].soup == soup_id_today:
+        if soup_id_today in (getattr(plan_days[i], "soups", None) or ([plan_days[i].soup] if plan_days[i].soup else [])):
             cnt += 1
             if cnt + 1 > max_repeat_in_7:
                 return False
@@ -239,7 +257,7 @@ def check_fruit_window_repeat(
 
     cnt = 0
     for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days):
-        if plan_days[i].fruit == fruit_id_today:
+        if fruit_id_today in (getattr(plan_days[i], "fruits", None) or ([plan_days[i].fruit] if plan_days[i].fruit else [])):
             cnt += 1
             if cnt + 1 > max_repeat_in_7:
                 return False
@@ -256,7 +274,7 @@ def check_veg_window_repeat(
 
     cnt = 0
     for i in _iter_prev_active_indices(day_idx, plan_days, window_active_days):
-        if plan_days[i].veg == veg_id_today:
+        if veg_id_today in (getattr(plan_days[i], "vegs", None) or ([plan_days[i].veg] if plan_days[i].veg else [])):
             cnt += 1
             if cnt + 1 > max_repeat_in_7:
                 return False
@@ -267,7 +285,12 @@ def _day_ingredient_ids(
     day: PlanDay,
     dish_ingredient_ids: Dict[str, Set[str]],
 ) -> Set[str]:
-    dish_ids = [day.main, day.soup, day.veg, day.fruit] + list(day.sides or [])
+    dish_ids = (list(getattr(day, "mains", None) or ([day.main] if day.main else []))
+        + list(getattr(day, "noodles", None) or ([day.noodle] if getattr(day, "noodle", "") else []))
+        + list(getattr(day, "soups", None) or ([day.soup] if day.soup else []))
+        + list(getattr(day, "vegs", None) or ([day.veg] if day.veg else []))
+        + list(getattr(day, "fruits", None) or ([day.fruit] if day.fruit else []))
+        + list(day.sides or []))
     out: Set[str] = set()
     for did in dish_ids:
         if did:

@@ -112,15 +112,17 @@
 
         <h3 class="h3">每日各角色數量</h3>
         <div class="hint">數量為 0 代表該日不排該角色；週幾覆寫會取代全域每日預設。系統預設週三會同時排主菜 1 道與麵食 1 道。</div>
-        <table class="mini-table" id="daily_role_counts_table">
-          <thead><tr><th>角色</th><th>全域每日預設</th></tr></thead>
+        <table class="mini-table role-counts-table" id="daily_role_counts_table">
+          <thead><tr><th>設定</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬</th><th>湯</th><th>水果</th></tr></thead>
           <tbody>
-            <tr><td>主菜／主食</td><td><input class="daily-role-count" data-role="main" type="number" min="0" value="1"></td></tr>
-            <tr><td>麵食</td><td><input class="daily-role-count" data-role="noodle" type="number" min="0" value="0"></td></tr>
-            <tr><td>配菜</td><td><input class="daily-role-count" data-role="side" type="number" min="0" value="2"></td></tr>
-            <tr><td>純蔬配菜</td><td><input class="daily-role-count" data-role="veg" type="number" min="0" value="1"></td></tr>
-            <tr><td>湯品</td><td><input class="daily-role-count" data-role="soup" type="number" min="0" value="1"></td></tr>
-            <tr><td>水果</td><td><input class="daily-role-count" data-role="fruit" type="number" min="0" value="1"></td></tr>
+            <tr><td>全域每日預設</td>
+              <td><input class="daily-role-count" data-role="main" type="number" min="0" value="1" aria-label="全域每日預設主菜數量"></td>
+              <td><input class="daily-role-count" data-role="noodle" type="number" min="0" value="0" aria-label="全域每日預設麵食數量"></td>
+              <td><input class="daily-role-count" data-role="side" type="number" min="0" value="2" aria-label="全域每日預設配菜數量"></td>
+              <td><input class="daily-role-count" data-role="veg" type="number" min="0" value="1" aria-label="全域每日預設純蔬配菜數量"></td>
+              <td><input class="daily-role-count" data-role="soup" type="number" min="0" value="1" aria-label="全域每日預設湯品數量"></td>
+              <td><input class="daily-role-count" data-role="fruit" type="number" min="0" value="1" aria-label="全域每日預設水果數量"></td>
+            </tr>
           </tbody>
         </table>
         <div class="inline left weekday-role-actions" aria-label="新增週幾覆寫" style="margin-top:8px; margin-bottom:8px;">

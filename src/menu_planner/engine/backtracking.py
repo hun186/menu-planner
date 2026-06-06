@@ -272,6 +272,8 @@ def fill_days_after_mains(
     print("usable mains (in feat):", len(main_pool0), "/", len(mains or []))
 
     def choose_distinct_from_pool(pool: List[Dish], count: int, selected: List[str]) -> List[str]:
+        if count <= 0:
+            return []
         chosen: List[str] = []
         blocked = set(x for x in selected if x)
         for d in pool:

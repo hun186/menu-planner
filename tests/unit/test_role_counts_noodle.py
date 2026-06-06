@@ -94,8 +94,12 @@ def test_wednesday_can_plan_main_and_noodle_independently():
 
     assert not errors
     assert plan[0].main and not plan[0].noodle
+    assert len(plan[0].mains) == 1
     assert plan[1].main and not plan[1].noodle
+    assert len(plan[1].mains) == 1
     assert plan[2].main and plan[2].noodle == "noodle_a"
+    assert len(plan[2].mains) == 1
+    assert len(plan[2].noodles) == 1
     assert len(plan[2].sides) == 1
 
 

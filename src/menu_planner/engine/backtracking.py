@@ -10,7 +10,7 @@ import random
 from ..db.repo import Dish
 from .features import DishFeatures
 from .constraints import PlanDay, check_main_hard 
-from .constraints import check_cost_range, check_soup_window_repeat
+from .constraints import check_cost_range, check_noodle_window_repeat, check_soup_window_repeat
 from .roles import DEFAULT_ROLE_COUNTS
 from .scoring import score_day
 
@@ -252,6 +252,8 @@ def fill_days_after_mains(
     rep = hard.get("repeat_limits", {}) or {}
     max_soup_7 = int(rep.get("max_same_soup_in_7_days", 1))
     max_side_7 = int(rep.get("max_same_side_in_7_days", 1))
+    max_noodle_7 = int(rep.get("max_same_noodle_in_7_days", 1))
+    max_noodle_30 = int(rep.get("max_same_noodle_in_30_days", 2))
 
     cr = (hard.get("cost_range_per_person_per_day") or {})
     cost_min = float(cr.get("min", 0))
@@ -278,6 +280,25 @@ def fill_days_after_mains(
         blocked = set(x for x in selected if x)
         for d in pool:
             if d.id in blocked:
+                continue
+            chosen.append(d.id)
+            blocked.add(d.id)
+            if len(chosen) >= count:
+                break
+        return chosen
+
+    def choose_noodles_from_pool(pool: List[Dish], count: int, selected: List[str], day_idx: int) -> List[str]:
+        if count <= 0:
+            return []
+        chosen: List[str] = []
+        blocked = set(x for x in selected if x)
+        for d in pool:
+            if d.id in blocked:
+                continue
+            candidate = chosen + [d.id]
+            if not check_noodle_window_repeat(day_idx, candidate, plan_days, max_noodle_7, window_days=7):
+                continue
+            if not check_noodle_window_repeat(day_idx, candidate, plan_days, max_noodle_30, window_days=30):
                 continue
             chosen.append(d.id)
             blocked.add(d.id)
@@ -349,14 +370,21 @@ def fill_days_after_mains(
         noodle_ids = []
         noodle_id = ""
         if noodle_count > 0:
-            noodle_ids = choose_distinct_from_pool(noodle_pool, noodle_count, main_ids_today)
+            noodle_ids = choose_noodles_from_pool(noodle_pool, noodle_count, main_ids_today, day)
             noodle_id = noodle_ids[0] if noodle_ids else ""
             if len(noodle_ids) < noodle_count:
                 err = PlanError(
                     code="NOODLE_NO_SOLUTION",
                     day_index=day,
                     message=f"第 {day+1} 天找不到符合限制的麵食。",
-                    details={"candidate_count": len(noodle_pool), "requested_count": noodle_count},
+                    details={
+                        "candidate_count": len(noodle_pool),
+                        "requested_count": noodle_count,
+                        "selected_count": len(noodle_ids),
+                        "max_same_noodle_in_7_days": max_noodle_7,
+                        "max_same_noodle_in_30_days": max_noodle_30,
+                        "hint": "可放寬麵食 7 天或 30 天重複限制，或增加麵食候選。",
+                    },
                 )
                 errors.append(err.to_dict())
                 plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit="", noodle="", mains=main_ids_today, noodles=noodle_ids))

@@ -107,3 +107,15 @@ test('daily role counts use the same compact role-column layout as weekday overr
   assert.match(html, /aria-label="全域每日預設水果數量"/);
   assert.doesNotMatch(html, /<thead><tr><th>角色<\/th><th>全域每日預設<\/th><\/tr><\/thead>/);
 });
+
+
+test('repeat limit controls include all split menu roles', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+
+  assert.match(html, /麵食 7 天重複上限/);
+  assert.match(html, /data-key="max_same_noodle_in_7_days"/);
+  assert.match(html, /麵食 30 天重複上限/);
+  assert.match(html, /data-key="max_same_noodle_in_30_days"/);
+  assert.match(html, /純蔬 7 天重複上限/);
+  assert.match(html, /data-key="max_same_veg_in_7_days"/);
+});

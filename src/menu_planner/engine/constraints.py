@@ -211,6 +211,40 @@ def check_main_hard(
     return True
 
 
+def check_noodle_window_repeat(
+    day_idx: int,
+    noodle_ids_today: List[str],
+    plan_days: List[PlanDay],
+    max_repeat: int,
+    window_days: int,
+) -> bool:
+    # Treat noodle repeat limits as calendar-day windows including today.
+    # For example, a 7-day limit checks the previous 6 days, so a weekly
+    # noodle day exactly 7 days apart is allowed when the 7-day limit is 1.
+    window_days = max(1, int(window_days))
+
+    counts: Dict[str, int] = {}
+    start = max(0, day_idx - (window_days - 1))
+    for i in range(start, day_idx):
+        if i >= len(plan_days):
+            continue
+        previous_noodles = getattr(plan_days[i], "noodles", None) or (
+            [plan_days[i].noodle] if getattr(plan_days[i], "noodle", "") else []
+        )
+        for noodle_id in previous_noodles:
+            if noodle_id:
+                counts[noodle_id] = counts.get(noodle_id, 0) + 1
+
+    today_counts: Dict[str, int] = {}
+    for noodle_id in noodle_ids_today:
+        if not noodle_id:
+            continue
+        today_counts[noodle_id] = today_counts.get(noodle_id, 0) + 1
+        if counts.get(noodle_id, 0) + today_counts[noodle_id] > int(max_repeat):
+            return False
+    return True
+
+
 def check_side_window_repeat(
     day_idx: int,
     side_ids_today: List[str],

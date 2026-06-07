@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from ..engine.roles import ROLE_LABELS, ROLE_ORDER, ROLE_PLURALS
+
 LABEL_MAP = {
     "near_expiry_bonus": "使用近到期食材（加分）",
     "use_inventory_bonus_main": "主菜使用庫存（加分）",
-    "use_inventory_bonus_others": "湯/配菜使用庫存（加分）",
+    "use_inventory_bonus_others": "非主菜角色使用庫存（加分）",
     "cost_over_max": "成本超過上限（扣分）",
     "cost_under_min": "成本低於下限（扣分）",
     "consecutive_same_meat": "連續同肉（扣分）",
@@ -18,6 +20,32 @@ def num(value: Any, default: float = 0.0) -> float:
         return float(value)
     except Exception:
         return float(default)
+
+
+def _role_dishes(items: Dict[str, Any], role: str) -> list[Dict[str, Any]]:
+    plural = ROLE_PLURALS[role]
+    dishes = items.get(plural)
+    if isinstance(dishes, list):
+        filtered = [x for x in dishes if isinstance(x, dict) and (x.get("name") or x.get("id"))]
+        if filtered:
+            return filtered
+
+    dish = items.get(role) or {}
+    if isinstance(dish, dict) and (dish.get("name") or dish.get("id")):
+        return [dish]
+    return []
+
+
+def _all_role_dishes(items: Dict[str, Any], roles: tuple[str, ...] = ROLE_ORDER) -> list[tuple[str, Dict[str, Any]]]:
+    out: list[tuple[str, Dict[str, Any]]] = []
+    for role in roles:
+        for dish in _role_dishes(items, role):
+            out.append((role, dish))
+    return out
+
+
+def _dish_label(role: str, dish: Dict[str, Any]) -> str:
+    return str(dish.get("name") or dish.get("id") or ROLE_LABELS.get(role, role))
 
 
 def build_human_breakdown(day: Dict[str, Any]) -> str:
@@ -39,41 +67,38 @@ def build_human_breakdown(day: Dict[str, Any]) -> str:
         "打分拆解（影響大 → 小）",
     ]
 
-    breakdown = day.get("score_breakdown") or {}
     items = day.get("items") or {}
+    if not isinstance(items, dict):
+        items = {}
+    breakdown = day.get("score_breakdown") or {}
 
     def near_expiry_list() -> str:
         candidates: list[str] = []
-        for role in ("main", "soup"):
-            dish_item = items.get(role) or {}
+        for role, dish_item in _all_role_dishes(items):
             near_expiry_days = dish_item.get("near_expiry_days_min")
             if near_expiry_days is not None and num(near_expiry_days, 999) <= 7:
-                candidates.append(f"{dish_item.get('name','')}（{int(num(near_expiry_days))}天）")
-        for side in (items.get("sides") or []):
-            near_expiry_days = side.get("near_expiry_days_min")
-            if near_expiry_days is not None and num(near_expiry_days, 999) <= 7:
-                candidates.append(f"{side.get('name','')}（{int(num(near_expiry_days))}天）")
+                candidates.append(f"{_dish_label(role, dish_item)}（{int(num(near_expiry_days))}天）")
+        return "、".join(candidates)
+
+    def inv_role_hint(roles: tuple[str, ...]) -> str:
+        candidates: list[str] = []
+        for role, dish_item in _all_role_dishes(items, roles):
+            ratio = dish_item.get("inventory_hit_ratio")
+            if isinstance(ratio, (int, float)):
+                candidates.append(f"{_dish_label(role, dish_item)} {ratio * 100:.0f}%")
         return "、".join(candidates)
 
     def inv_main_hint() -> str:
-        main = items.get("main") or {}
-        ratio = main.get("inventory_hit_ratio")
-        if isinstance(ratio, (int, float)):
-            return f"主菜庫存命中 {ratio*100:.0f}%"
+        hint = inv_role_hint(("main",))
+        if hint:
+            return f"主菜庫存命中：{hint}"
         return ""
 
     def inv_others_hint() -> str:
-        ratios: list[float] = []
-        soup = items.get("soup") or {}
-        soup_ratio = soup.get("inventory_hit_ratio")
-        if isinstance(soup_ratio, (int, float)):
-            ratios.append(soup_ratio)
-        for side in (items.get("sides") or []):
-            side_ratio = side.get("inventory_hit_ratio")
-            if isinstance(side_ratio, (int, float)):
-                ratios.append(side_ratio)
-        if ratios:
-            return f"湯+配菜庫存命中合計 {sum(ratios) * 100:.0f}%（加權前）"
+        other_roles = tuple(role for role in ROLE_ORDER if role != "main")
+        hint = inv_role_hint(other_roles)
+        if hint:
+            return f"非主菜庫存命中：{hint}"
         return ""
 
     for key, value in sorted(breakdown.items(), key=lambda kv: abs(num(kv[1], 0)), reverse=True):

@@ -66,8 +66,28 @@ def run_check() -> None:
         if repeat_headers != ["限制項目", "數值", "限制項目", "數值"]:
             raise AssertionError(f"Unexpected repeat limit headers: {repeat_headers!r}")
 
+        settings_card = page.locator(".planner-settings-card")
+        for table_id in ("#weekly_quota_table", "#repeat_limits_table"):
+            card_box = settings_card.bounding_box()
+            table_box = page.locator(table_id).bounding_box()
+            if not card_box or not table_box:
+                raise AssertionError(f"missing desktop layout boxes for {table_id}: card={card_box}, table={table_box}")
+            if table_box["x"] + table_box["width"] > card_box["x"] + card_box["width"] + 1:
+                raise AssertionError(f"{table_id} escapes settings card: card={card_box}, table={table_box}")
+
+        page.set_viewport_size({"width": 390, "height": 900})
+        page.locator("#repeat_limits_table").scroll_into_view_if_needed()
+        card_box = settings_card.bounding_box()
+        for table_id in ("#weekly_quota_table", "#repeat_limits_table"):
+            table_box = page.locator(table_id).bounding_box()
+            if not card_box or not table_box:
+                raise AssertionError(f"missing mobile layout boxes for {table_id}: card={card_box}, table={table_box}")
+            if table_box["x"] + table_box["width"] > card_box["x"] + card_box["width"] + 1:
+                raise AssertionError(f"{table_id} escapes settings card on mobile: card={card_box}, table={table_box}")
+
         page.locator("#weekly_quota_table").screenshot(path="artifacts/weekly-quota-table.png")
         page.locator("#repeat_limits_table").screenshot(path="artifacts/repeat-limits-table.png")
+        settings_card.screenshot(path="artifacts/settings-card-constraint-tables-mobile.png")
         browser.close()
         print({"weekly_quota_headers": quota_headers, "repeat_limit_rows": rows})
 

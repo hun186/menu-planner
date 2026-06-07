@@ -98,7 +98,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     msgConv: "#msg_conv",
     msgBackupModal: "#msg_backup_modal",
     ingredientEditorFields: "#ing_id,#ing_name,#ing_category,#ing_protein,#ing_unit",
-    dishEditorFields: "#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_tags",
+    dishEditorFields: "#dish_id,#dish_name,#dish_meat,#dish_cuisine,#dish_prep_minutes,#dish_tags",
     dishAllowedWeekdayChecks: "#dish_allowed_weekdays input[type=checkbox]",
   };
 
@@ -449,6 +449,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
           <td>${escapeHtml(x.meat_type || "")}</td>
           <td>${escapeHtml(x.cuisine || "")}</td>
           <td>${escapeHtml(formatWeekdays(x.allowed_weekdays))}</td>
+          <td>${escapeHtml(Number(x.prep_minutes || 0))} 分鐘</td>
           <td class="dish-cost-cell">
             <span class="dish-cost-value">${escapeHtml(costCell.text)}</span>${warningBadge}
           </td>
@@ -470,6 +471,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         $("#dish_role").val(x.role);
         $("#dish_meat").val(x.meat_type || "");
         $("#dish_cuisine").val(x.cuisine || "");
+        $("#dish_prep_minutes").val(Number(x.prep_minutes || 0));
 
         // 後端若回 tags_json，這裡也能接
         const tags = x.tags || (() => {
@@ -599,8 +601,13 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       cuisine: ($("#dish_cuisine").val() || "").trim() || null,
       meat_type: ($("#dish_meat").val() || "").trim() || null,
       tags: normalizeTags($("#dish_tags").val()),
-      allowed_weekdays: readDishAllowedWeekdays()
+      allowed_weekdays: readDishAllowedWeekdays(),
+      prep_minutes: Number($("#dish_prep_minutes").val() || 0)
     };
+
+    if (!Number.isInteger(body.prep_minutes) || body.prep_minutes < 0) {
+      throw new Error("菜色：備菜時間（分鐘）必須是不可小於 0 的整數。");
+    }
 
     if (!body.name || !body.role) {
       throw new Error("菜色：名稱 / 角色 為必填。");
@@ -979,6 +986,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       $("#dish_source_id").val("");
       clearFields(DOM.dishEditorFields);
       $("#dish_role").val("main");
+      $("#dish_prep_minutes").val(0);
       setDishAllowedWeekdays();
       clearStatusMsg(DOM.msgDish);
     });

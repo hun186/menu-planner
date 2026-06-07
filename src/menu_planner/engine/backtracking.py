@@ -26,6 +26,55 @@ from .backtracking_selection import (
 
 
 
+def _prep_minutes_for_day(day_idx: int, start_date: Optional[date], hard: Dict) -> int:
+    base = hard.get("prep_time_limit_minutes", 90)
+    overrides = hard.get("per_weekday_prep_time_limit_minutes") or {}
+    weekday = _weekday_for_day(day_idx, start_date)
+    if isinstance(overrides, dict):
+        base = overrides.get(weekday, overrides.get(str(weekday), base))
+    try:
+        return max(0, int(base))
+    except Exception:
+        return 90
+
+
+def _dish_prep_minutes(dish: Optional[Dish]) -> int:
+    try:
+        return max(0, int(getattr(dish, "prep_minutes", 0) or 0))
+    except Exception:
+        return 0
+
+
+def _prep_total(dish_ids: List[str], dish_by_id: Dict[str, Dish]) -> int:
+    return sum(_dish_prep_minutes(dish_by_id.get(did)) for did in dish_ids if did)
+
+
+def _filter_pool_by_remaining_prep(pool: List[Dish], current_ids: List[str], dish_by_id: Dict[str, Dish], limit: int) -> List[Dish]:
+    current = _prep_total(current_ids, dish_by_id)
+    remaining = limit - current
+    return [d for d in pool if _dish_prep_minutes(d) <= remaining]
+
+
+def _all_day_ids(main_ids: List[str], noodle_ids: List[str], soup_ids: List[str], fruit_ids: List[str], side_ids: List[str], veg_ids: List[str]) -> List[str]:
+    return [x for x in (list(main_ids) + list(noodle_ids) + list(soup_ids) + list(fruit_ids) + list(side_ids) + list(veg_ids)) if x]
+
+
+def _prep_limit_error(day: int, total: int, limit: int, selected_ids: List[str], dish_by_id: Dict[str, Dish]) -> PlanError:
+    breakdown = {did: _dish_prep_minutes(dish_by_id.get(did)) for did in selected_ids if did}
+    return PlanError(
+        code="PREP_TIME_LIMIT_EXCEEDED",
+        day_index=day,
+        message=f"第 {day+1} 天備菜時間總和 {total} 分鐘超過備菜時間上限 {limit} 分鐘。",
+        details={
+            "prep_minutes_total": total,
+            "prep_minutes_limit": limit,
+            "items": selected_ids,
+            "prep_breakdown": breakdown,
+            "hint": "可調高每日備菜時間上限、依週幾覆寫上限、降低菜色備菜時間，或增加短備菜時間候選。",
+        },
+    )
+
+
 def _weekday_for_day(day_idx: int, start_date: Optional[date]) -> int:
     if start_date is not None:
         return (start_date + timedelta(days=day_idx)).isoweekday()
@@ -265,6 +314,7 @@ def fill_days_after_mains(
     fruit_pool0 = [d for d in fruits if d.id in feat]
     noodle_pool0 = [d for d in (noodles or []) if d.id in feat]
     main_pool0 = [d for d in (mains or []) if d.id in feat]
+    dish_by_id = {d.id: d for d in (list(mains or []) + list(noodles or []) + list(sides or []) + list(vegs or []) + list(soups or []) + list(fruits or []))}
     
     print("usable sides (in feat):", len(side_pool0), "/", len(sides))
     print("usable vegs  (in feat):", len(veg_pool0), "/", len(vegs))
@@ -314,6 +364,7 @@ def fill_days_after_mains(
         veg_count = int(counts.get("veg", 1) or 0)
         soup_count = int(counts.get("soup", 1) or 0)
         fruit_count = int(counts.get("fruit", 1) or 0)
+        prep_limit = _prep_minutes_for_day(day, start_date, hard)
         schedule_active = True if active_mask is None or day >= len(active_mask) else bool(active_mask[day])
         if not schedule_active:
             main_count = noodle_count = side_count = veg_count = soup_count = fruit_count = 0
@@ -367,10 +418,20 @@ def fill_days_after_mains(
             explanations.append(_failed_day_explanation(day_index=day, reason_code=err.code, message=err.message, details=err.details))
             continue
 
+        selected_for_prep = list(main_ids_today)
+        selected_prep = _prep_total(selected_for_prep, dish_by_id)
+        if selected_prep > prep_limit:
+            err = _prep_limit_error(day, selected_prep, prep_limit, selected_for_prep, dish_by_id)
+            errors.append(err.to_dict())
+            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup="", fruit="", noodle="", mains=main_ids_today))
+            explanations.append(_failed_day_explanation(day_index=day, reason_code=err.code, message=err.message, details=err.details))
+            continue
+
         noodle_ids = []
         noodle_id = ""
         if noodle_count > 0:
-            noodle_ids = choose_noodles_from_pool(noodle_pool, noodle_count, main_ids_today, day)
+            noodle_pool_limited = _filter_pool_by_remaining_prep(noodle_pool, main_ids_today, dish_by_id, prep_limit)
+            noodle_ids = choose_noodles_from_pool(noodle_pool_limited, noodle_count, main_ids_today, day)
             noodle_id = noodle_ids[0] if noodle_ids else ""
             if len(noodle_ids) < noodle_count:
                 err = PlanError(
@@ -379,6 +440,8 @@ def fill_days_after_mains(
                     message=f"第 {day+1} 天找不到符合限制的麵食。",
                     details={
                         "candidate_count": len(noodle_pool),
+                        "candidate_count_after_prep_limit": len(noodle_pool_limited),
+                        "prep_minutes_limit": prep_limit,
                         "requested_count": noodle_count,
                         "selected_count": len(noodle_ids),
                         "max_same_noodle_in_7_days": max_noodle_7,
@@ -401,7 +464,7 @@ def fill_days_after_mains(
                 #fruit_id = pick_fruit(fruits, day, feat)
                 #fruit_id = pick_fruit(fruit_pool, day, feat)
                 fruit_id = pick_fruit(
-                    fruit_pool,
+                    _filter_pool_by_remaining_prep(fruit_pool, main_ids_today + noodle_ids, dish_by_id, prep_limit),
                     day,
                     plan_days,
                     feat,
@@ -441,7 +504,7 @@ def fill_days_after_mains(
         if soup_count > 0:
             soup_id = choose_soup(
                 day,
-                soup_pool,
+                _filter_pool_by_remaining_prep(soup_pool, main_ids_today + noodle_ids + fruit_ids, dish_by_id, prep_limit),
                 plan_days,
                 feat,
                 hard,
@@ -525,10 +588,16 @@ def fill_days_after_mains(
         #side_ids = choose_sides_backtrack(day, sides, plan_days, feat, hard)
         #side_ids = choose_sides_backtrack(day, side_pool, plan_days, feat, hard)
         side_ids = []
+        side_pool_prep_limited = _filter_pool_by_remaining_prep(
+            side_pool,
+            main_ids_today + noodle_ids + soup_ids + fruit_ids,
+            dish_by_id,
+            prep_limit,
+        )
         if side_count > 0:
             side_ids = choose_sides_backtrack(
                 day,
-                side_pool,
+                side_pool_prep_limited,
                 plan_days,
                 feat,
                 hard,
@@ -541,16 +610,24 @@ def fill_days_after_mains(
             )
         if side_count > 0 and not side_ids:
             side_candidates = [d.id for d in sides if d.id in feat]
-            err = PlanError(
-                code="SIDE_NO_SOLUTION",
-                day_index=day,
-                message=f"第 {day+1} 天找不到符合重複限制的指定數量配菜。",
-                details={
-                    "max_same_side_in_7_days": max_side_7,
-                    "candidate_count": len(side_candidates),
-                    "hint": "可放寬配菜 7 天重複限制，或增加配菜候選。"
-                }
-            )
+            if len(side_pool_prep_limited) < side_count:
+                current_ids = _all_day_ids(main_ids_today, noodle_ids, soup_ids, fruit_ids, [], [])
+                err = _prep_limit_error(day, _prep_total(current_ids, dish_by_id), prep_limit, current_ids, dish_by_id)
+                err.message = f"第 {day+1} 天找不到符合備菜時間上限的指定數量配菜。"
+                err.details["candidate_count"] = len(side_candidates)
+                err.details["candidate_count_after_prep_limit"] = len(side_pool_prep_limited)
+                err.details["requested_side_count"] = side_count
+            else:
+                err = PlanError(
+                    code="SIDE_NO_SOLUTION",
+                    day_index=day,
+                    message=f"第 {day+1} 天找不到符合重複限制的指定數量配菜。",
+                    details={
+                        "max_same_side_in_7_days": max_side_7,
+                        "candidate_count": len(side_candidates),
+                        "hint": "可放寬配菜 7 天重複限制、調高備菜時間上限，或增加配菜候選。"
+                    }
+                )
             errors.append(err.to_dict())
             plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup=soup_id, fruit=fruit_id, noodle=noodle_id, mains=main_ids_today, noodles=noodle_ids, soups=[soup_id] if soup_id else [], fruits=fruit_ids))
             explanations.append(
@@ -568,7 +645,7 @@ def fill_days_after_mains(
         if veg_count > 0:
             veg_id = choose_veg(
                 day,
-                veg_pool,
+                _filter_pool_by_remaining_prep(veg_pool, main_ids_today + noodle_ids + soup_ids + fruit_ids + list(side_ids), dish_by_id, prep_limit),
                 plan_days,
                 feat,
                 hard,
@@ -612,6 +689,15 @@ def fill_days_after_mains(
             + sum(feat[x].cost_per_serving for x in veg_ids if x in feat)
             + sum(feat[s].cost_per_serving for s in side_ids)
         )
+
+        selected_ids_today = _all_day_ids(main_ids_today, noodle_ids, soup_ids, fruit_ids, side_ids, veg_ids)
+        prep_total = _prep_total(selected_ids_today, dish_by_id)
+        if prep_total > prep_limit:
+            err = _prep_limit_error(day, prep_total, prep_limit, selected_ids_today, dish_by_id)
+            errors.append(err.to_dict())
+            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup=soup_id, fruit=fruit_id, noodle=noodle_id, mains=main_ids_today, noodles=noodle_ids, soups=soup_ids, fruits=fruit_ids))
+            explanations.append(_failed_day_explanation(day_index=day, reason_code=err.code, message=err.message, details=err.details, cost=round(day_cost, 2)))
+            continue
 
         if not check_cost_range(day_cost, hard):
             # 嘗試替換湯/配菜以符合成本（簡單重試）
@@ -774,6 +860,8 @@ def fill_days_after_mains(
             "day_index": day,
             "failed": False,
             "cost": round(day_cost, 2),
+            "prep_minutes_total": prep_total,
+            "prep_minutes_limit": prep_limit,
         
             # 原本就有的（保留）
             "score": raw_score,

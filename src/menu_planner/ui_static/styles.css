@@ -343,14 +343,15 @@ textarea{
 .ing-tbl th:nth-child(5), .ing-tbl td:nth-child(5){ width:10%; }
 .ing-tbl th:nth-child(6), .ing-tbl td:nth-child(6){ width:24%; }
 
-.dish-tbl th:nth-child(1), .dish-tbl td:nth-child(1){ width:13%; }
-.dish-tbl th:nth-child(2), .dish-tbl td:nth-child(2){ width:18%; }
+.dish-tbl th:nth-child(1), .dish-tbl td:nth-child(1){ width:12%; }
+.dish-tbl th:nth-child(2), .dish-tbl td:nth-child(2){ width:17%; }
 .dish-tbl th:nth-child(3), .dish-tbl td:nth-child(3){ width:8%; }
-.dish-tbl th:nth-child(4), .dish-tbl td:nth-child(4){ width:9%; }
-.dish-tbl th:nth-child(5), .dish-tbl td:nth-child(5){ width:9%; }
+.dish-tbl th:nth-child(4), .dish-tbl td:nth-child(4){ width:8%; }
+.dish-tbl th:nth-child(5), .dish-tbl td:nth-child(5){ width:8%; }
 .dish-tbl th:nth-child(6), .dish-tbl td:nth-child(6){ width:12%; }
-.dish-tbl th:nth-child(7), .dish-tbl td:nth-child(7){ width:15%; }
-.dish-tbl th:nth-child(8), .dish-tbl td:nth-child(8){ width:16%; }
+.dish-tbl th:nth-child(7), .dish-tbl td:nth-child(7){ width:11%; }
+.dish-tbl th:nth-child(8), .dish-tbl td:nth-child(8){ width:10%; }
+.dish-tbl th:nth-child(9), .dish-tbl td:nth-child(9){ width:14%; }
 .manage-grid-ingredients-collapsed .dish-tbl{
   table-layout:auto;
 }
@@ -359,14 +360,15 @@ textarea{
   white-space:nowrap;
   word-break:keep-all;
 }
-.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(1), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(1){ width:15%; }
-.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(2), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(2){ width:24%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(1), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(1){ width:13%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(2), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(2){ width:22%; }
 .manage-grid-ingredients-collapsed .dish-tbl th:nth-child(3), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(3){ width:7%; }
 .manage-grid-ingredients-collapsed .dish-tbl th:nth-child(4), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(4){ width:8%; }
-.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(5), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(5){ width:9%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(5), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(5){ width:8%; }
 .manage-grid-ingredients-collapsed .dish-tbl th:nth-child(6), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(6){ width:13%; }
-.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(7), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(7){ width:14%; }
-.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(8), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(8){ width:10%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(7), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(7){ width:10%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(8), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(8){ width:9%; }
+.manage-grid-ingredients-collapsed .dish-tbl th:nth-child(9), .manage-grid-ingredients-collapsed .dish-tbl td:nth-child(9){ width:10%; }
 
 .ing-tbl td:last-child button,
 .dish-tbl td:last-child button{
@@ -515,7 +517,8 @@ textarea{
 .quota-matrix-table,
 .repeat-limits-table,
 #daily_role_counts_table,
-#weekday_role_counts_table{
+#weekday_role_counts_table,
+#weekday_prep_limits_table{
   min-width:var(--planner-settings-table-min-width);
 }
 .quota-matrix-table th,
@@ -539,18 +542,20 @@ textarea{
   width:calc((100% - 164px) / 2);
 }
 .role-counts-table th,
-.role-counts-table td,
-#weekday_role_counts_table th,
-#weekday_role_counts_table td{
+.role-counts-table td{
   min-width:62px;
   white-space:nowrap;
 }
 .role-counts-table th:first-child,
-.role-counts-table td:first-child,
-#weekday_role_counts_table th:first-child,
-#weekday_role_counts_table td:first-child{ min-width:96px; }
+.role-counts-table td:first-child{ min-width:96px; }
 #weekday_role_counts_table th:last-child,
 #weekday_role_counts_table td:last-child{ min-width:70px; }
+.prep-limit-table th,
+.prep-limit-table td{
+  min-width:84px;
+  text-align:center;
+  white-space:nowrap;
+}
 .weekday-role-actions select{ padding:6px 8px; border:1px solid var(--bd); border-radius:8px; background:#fff; }
 
 .suggest{

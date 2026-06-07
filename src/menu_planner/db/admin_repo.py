@@ -56,6 +56,12 @@ class SQLiteAdminRepo:
         conn.execute("ALTER TABLE dishes ADD COLUMN allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]'")
 
     @staticmethod
+    def _ensure_dish_prep_minutes_column(conn: sqlite3.Connection) -> None:
+        if SQLiteAdminRepo._has_column(conn, "dishes", "prep_minutes"):
+            return
+        conn.execute("ALTER TABLE dishes ADD COLUMN prep_minutes INTEGER NOT NULL DEFAULT 0")
+
+    @staticmethod
     def _ensure_dish_role_allows_noodle(conn: sqlite3.Connection) -> None:
         row = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='dishes'"
@@ -66,7 +72,9 @@ class SQLiteAdminRepo:
 
         columns = [r[1] for r in conn.execute("PRAGMA table_info(dishes)").fetchall()]
         has_allowed = "allowed_weekdays_json" in columns
+        has_prep = "prep_minutes" in columns
         allowed_expr = "allowed_weekdays_json" if has_allowed else "'[1,2,3,4,5,6,7]'"
+        prep_expr = "prep_minutes" if has_prep else "0"
         migration_table = "dishes_new_role_migration"
         foreign_keys_were_enabled = bool(conn.execute("PRAGMA foreign_keys").fetchone()[0])
 
@@ -89,14 +97,15 @@ class SQLiteAdminRepo:
                   cuisine TEXT,
                   meat_type TEXT,
                   tags_json TEXT NOT NULL DEFAULT '[]',
-                  allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]'
+                  allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]',
+                  prep_minutes INTEGER NOT NULL DEFAULT 0
                 )
                 """
             )
             conn.execute(
                 f"""
-                INSERT INTO {migration_table}(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json)
-                SELECT id, name, role, cuisine, meat_type, tags_json, {allowed_expr}
+                INSERT INTO {migration_table}(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json, prep_minutes)
+                SELECT id, name, role, cuisine, meat_type, tags_json, {allowed_expr}, {prep_expr}
                 FROM dishes
                 """
             )
@@ -115,6 +124,7 @@ class SQLiteAdminRepo:
         with self._conn() as conn:
             self._ensure_dish_role_allows_noodle(conn)
             self._ensure_dish_allowed_weekdays_column(conn)
+            self._ensure_dish_prep_minutes_column(conn)
 
     @staticmethod
     def _ensure_unit_conversions_table(conn: sqlite3.Connection) -> None:
@@ -693,16 +703,18 @@ class SQLiteAdminRepo:
         )
         with self._conn() as conn:
             self._ensure_dish_allowed_weekdays_column(conn)
+            self._ensure_dish_prep_minutes_column(conn)
             conn.execute("""
-              INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
+              INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json, prep_minutes)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
                 name=excluded.name,
                 role=excluded.role,
                 cuisine=excluded.cuisine,
                 meat_type=excluded.meat_type,
                 tags_json=excluded.tags_json,
-                allowed_weekdays_json=excluded.allowed_weekdays_json
+                allowed_weekdays_json=excluded.allowed_weekdays_json,
+                prep_minutes=excluded.prep_minutes
             """, (
                 dish_id,
                 body["name"],
@@ -711,6 +723,7 @@ class SQLiteAdminRepo:
                 body.get("meat_type"),
                 tags_json,
                 allowed_weekdays_json,
+                int(body.get("prep_minutes") or 0),
             ))
 
     def delete_dish(self, dish_id: str) -> int:
@@ -735,6 +748,7 @@ class SQLiteAdminRepo:
 
         with self._conn() as conn:
             self._ensure_dish_allowed_weekdays_column(conn)
+            self._ensure_dish_prep_minutes_column(conn)
             src_row = conn.execute(
                 "SELECT id FROM dishes WHERE id=? LIMIT 1",
                 (source_id,),
@@ -751,8 +765,8 @@ class SQLiteAdminRepo:
 
             conn.execute(
                 """
-                INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json, prep_minutes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     target_id,
@@ -762,6 +776,7 @@ class SQLiteAdminRepo:
                     body.get("meat_type"),
                     tags_json,
                     allowed_weekdays_json,
+                    int(body.get("prep_minutes") or 0),
                 ),
             )
             moved = conn.execute(
@@ -828,13 +843,18 @@ class SQLiteAdminRepo:
                 if self._has_column(conn, "dishes", "allowed_weekdays_json")
                 else "'[1,2,3,4,5,6,7]' AS allowed_weekdays_json"
             )
+            prep_minutes_expr = (
+                "dishes.prep_minutes"
+                if self._has_column(conn, "dishes", "prep_minutes")
+                else "0 AS prep_minutes"
+            )
             total = conn.execute(
                 f"SELECT COUNT(DISTINCT dishes.id) FROM dishes {join_sql} {where_sql}",
                 params,
             ).fetchone()[0]
             rows = conn.execute(
                 f"""
-                SELECT DISTINCT dishes.id, dishes.name, dishes.role, dishes.cuisine, dishes.meat_type, dishes.tags_json, {allowed_weekdays_expr}
+                SELECT DISTINCT dishes.id, dishes.name, dishes.role, dishes.cuisine, dishes.meat_type, dishes.tags_json, {allowed_weekdays_expr}, {prep_minutes_expr}
                 FROM dishes
                 {join_sql}
                 {where_sql}
@@ -856,6 +876,7 @@ class SQLiteAdminRepo:
                     "meat_type": r[4],
                     "tags": self._safe_json_list(r[5]),
                     "allowed_weekdays": self._safe_json_weekdays(r[6]),
+                    "prep_minutes": max(0, int(r[7] or 0)),
                 }
                 for r in rows
             ],

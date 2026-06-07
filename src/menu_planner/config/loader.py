@@ -81,6 +81,30 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                 errs.append(f"{path}.{role} 必須是整數")
 
     _validate_role_counts("per_day_roles", cfg.get("per_day_roles"))
+
+    def _validate_nonnegative_int(path: str, value):
+        try:
+            if int(value) < 0:
+                errs.append(f"{path} 必須 >= 0")
+        except Exception:
+            errs.append(f"{path} 必須是整數")
+
+    _validate_nonnegative_int("prep_time_limit_minutes", cfg.get("prep_time_limit_minutes", 90))
+    per_weekday_prep = cfg.get("per_weekday_prep_time_limit_minutes")
+    if per_weekday_prep is not None:
+        if not isinstance(per_weekday_prep, dict):
+            errs.append("per_weekday_prep_time_limit_minutes 必須是物件（weekday -> 非負整數分鐘）")
+        else:
+            for weekday, minutes in per_weekday_prep.items():
+                try:
+                    wd = int(weekday)
+                except Exception:
+                    errs.append(f"per_weekday_prep_time_limit_minutes 僅支援 1~7：{weekday}")
+                    continue
+                if wd < 1 or wd > 7:
+                    errs.append(f"per_weekday_prep_time_limit_minutes 僅支援 1~7：{weekday}")
+                    continue
+                _validate_nonnegative_int(f"per_weekday_prep_time_limit_minutes.{weekday}", minutes)
     per_weekday_roles = cfg.get("per_weekday_roles")
     if per_weekday_roles is not None:
         if not isinstance(per_weekday_roles, dict):

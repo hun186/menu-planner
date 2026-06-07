@@ -17,6 +17,8 @@ export const DOM = {
   weekdayRoleInputs: "#weekday_role_counts_table .weekday-role-count",
   weekdayRoleAddSelect: "#weekday_role_add_select",
   weekdayRoleAdd: "#weekday_role_add",
+  prepTimeLimitMinutes: "#prep_time_limit_minutes",
+  weekdayPrepLimitInputs: "#weekday_prep_limits_table .weekday-prep-limit",
   weeklyQuotaInputs: "#weekly_quota_table .quota",
   repeatLimitInputs: "#repeat_limits_table .repeat-limit",
   preferInventory: "#prefer_inventory",

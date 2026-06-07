@@ -34,6 +34,7 @@ def build_explanations(
             "inventory_hit_ratio": 0.0,
             "near_expiry_days_min": None,
             "used_inventory_ingredients": [],
+            "prep_minutes": 0,
         }
 
     def dish_info(did: str) -> Dict:
@@ -55,6 +56,7 @@ def build_explanations(
             "inventory_hit_ratio": f.inventory_hit_ratio,
             "near_expiry_days_min": f.near_expiry_days_min,
             "used_inventory_ingredients": f.used_inventory_ingredients,
+            "prep_minutes": max(0, int(getattr(di, "prep_minutes", 0) or 0)),
         }
 
     total_raw = 0.0
@@ -119,6 +121,8 @@ def build_explanations(
                 "fruits": [dish_info(x) for x in fruits_list],
             },
             "day_cost": day_cost,
+            "prep_minutes_total": sd.get("prep_minutes_total"),
+            "prep_minutes_limit": sd.get("prep_minutes_limit"),
 
             # 原始分數（可能為負）
             "score": raw,

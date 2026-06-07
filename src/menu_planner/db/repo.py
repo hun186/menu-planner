@@ -17,6 +17,12 @@ SQL_FETCH_DISHES_COLUMNS = "id, name, role, cuisine, meat_type, tags_json"
 SQL_FETCH_DISHES_COLUMNS_WITH_ALLOWED_WEEKDAYS = (
     "id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json"
 )
+SQL_FETCH_DISHES_COLUMNS_WITH_PREP = (
+    "id, name, role, cuisine, meat_type, tags_json, prep_minutes"
+)
+SQL_FETCH_DISHES_COLUMNS_WITH_ALLOWED_WEEKDAYS_AND_PREP = (
+    "id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json, prep_minutes"
+)
 
 SQL_FETCH_DISH_INGREDIENTS_BASE = """
 SELECT dish_id, ingredient_id, qty, unit
@@ -84,6 +90,7 @@ class Dish:
     meat_type: Optional[str]
     tags: List[str]
     allowed_weekdays: List[int] = field(default_factory=lambda: [1, 2, 3, 4, 5, 6, 7])
+    prep_minutes: int = 0
 
 
 @dataclass(frozen=True)
@@ -156,6 +163,7 @@ def _map_dish(r: sqlite3.Row) -> Dish:
         meat_type=r["meat_type"],
         tags=_parse_json_list(r["tags_json"]),
         allowed_weekdays=_parse_allowed_weekdays(r["allowed_weekdays_json"] if "allowed_weekdays_json" in keys else None),
+        prep_minutes=max(0, int(r["prep_minutes"] if "prep_minutes" in keys and r["prep_minutes"] is not None else 0)),
     )
 
 
@@ -210,11 +218,16 @@ class SQLiteRepo:
     def fetch_dishes(self, role: Optional[str] = None) -> List[Dish]:
         params: List[Any] = []
         with self.connect() as conn:
-            columns = (
-                SQL_FETCH_DISHES_COLUMNS_WITH_ALLOWED_WEEKDAYS
-                if self._has_column(conn, "dishes", "allowed_weekdays_json")
-                else SQL_FETCH_DISHES_COLUMNS
-            )
+            has_allowed_weekdays = self._has_column(conn, "dishes", "allowed_weekdays_json")
+            has_prep = self._has_column(conn, "dishes", "prep_minutes")
+            if has_allowed_weekdays and has_prep:
+                columns = SQL_FETCH_DISHES_COLUMNS_WITH_ALLOWED_WEEKDAYS_AND_PREP
+            elif has_allowed_weekdays:
+                columns = SQL_FETCH_DISHES_COLUMNS_WITH_ALLOWED_WEEKDAYS
+            elif has_prep:
+                columns = SQL_FETCH_DISHES_COLUMNS_WITH_PREP
+            else:
+                columns = SQL_FETCH_DISHES_COLUMNS
             sql = f"SELECT {columns} FROM dishes"
             if role:
                 sql += " WHERE role = ?"

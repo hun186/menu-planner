@@ -78,6 +78,10 @@ def repo_with_backup(
     reason: str = BACKUP_REASON_DEFAULT,
     comment: str = "",
 ) -> SQLiteAdminRepo:
+    # Admin write routes call this helper before any data/schema mutation.
+    # Keep the backup before ensure_compatible_schema() so legacy DBs that need
+    # automatic columns (for example prep_minutes) have a restorable pre-migration
+    # snapshot as well as a pre-write snapshot.
     backup_before_modify(db_path, reason=reason, comment=comment)
     repo = SQLiteAdminRepo(db_path)
     ensure_schema = getattr(repo, "ensure_compatible_schema", None)
@@ -124,6 +128,7 @@ class DishUpsert(BaseModel):
     meat_type: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     allowed_weekdays: List[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5, 6, 7])
+    prep_minutes: int = Field(default=0, ge=0)
 
     @field_validator("allowed_weekdays")
     @classmethod
@@ -743,13 +748,14 @@ def export_dishes_excel(
             r.get("cuisine"),
             ",".join(r.get("tags") or []),
             ",".join(str(x) for x in (r.get("allowed_weekdays") or [])),
+            r.get("prep_minutes", 0),
         ]
         for r in items
     ]
     return _build_excel_response(
         filename_prefix="dishes",
         sheet_name="菜名管理",
-        headers=["菜色ID", "名稱", "角色", "肉類", "菜系", "標籤", "允許週幾"],
+        headers=["菜色ID", "名稱", "角色", "肉類", "菜系", "標籤", "允許週幾", "備菜時間（分鐘）"],
         rows=rows,
     )
 
@@ -830,6 +836,7 @@ def rename_dish(
                 meat_type=body.meat_type,
                 tags=body.tags,
                 allowed_weekdays=body.allowed_weekdays,
+                prep_minutes=body.prep_minutes,
             ).model_dump(),
         )
     except ValueError as e:

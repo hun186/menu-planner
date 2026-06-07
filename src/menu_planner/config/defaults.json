@@ -1,29 +1,70 @@
 {
   "horizon_days": 30,
   "schedule": {
-    "weekdays": [1, 2, 3, 4, 5],
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
     "force_include_dates": [],
     "force_exclude_dates": [],
     "people_overrides": {}
   },
   "people": 250,
-  "per_day_roles": { "main": 1, "noodle": 0, "side": 2, "veg": 1, "soup": 1, "fruit": 1 },
+  "per_day_roles": {
+    "main": 1,
+    "noodle": 0,
+    "side": 2,
+    "veg": 1,
+    "soup": 1,
+    "fruit": 1
+  },
   "per_weekday_roles": {
-    "3": { "main": 1, "noodle": 1, "side": 1, "veg": 1, "soup": 1, "fruit": 1 }
+    "3": {
+      "main": 1,
+      "noodle": 1,
+      "side": 1,
+      "veg": 1,
+      "soup": 1,
+      "fruit": 1
+    }
   },
   "seed": "time",
-  "seed_choices": ["random", "time", "date", 7],
+  "seed_choices": [
+    "random",
+    "time",
+    "date",
+    7
+  ],
   "hard": {
     "include_dish_ids": [],
     "exclude_dish_ids": [],
     "dish_allowed_weekdays": {},
     "exclude_ingredient_ids": [],
-    "no_same_ingredient_family_within_day": ["family:tofu"],
-    "allowed_main_meat_types_old": ["chicken", "pork", "beef", "fish", "seafood", "noodles", "vegetarian"],
-	"allowed_main_meat_types": ["chicken", "pork", "beef", "fish", "seafood", "vegetarian"],
+    "no_same_ingredient_family_within_day": [
+      "family:tofu"
+    ],
+    "allowed_main_meat_types_old": [
+      "chicken",
+      "pork",
+      "beef",
+      "fish",
+      "seafood",
+      "noodles",
+      "vegetarian"
+    ],
+    "allowed_main_meat_types": [
+      "chicken",
+      "pork",
+      "beef",
+      "fish",
+      "seafood",
+      "vegetarian"
+    ],
     "fixed_main_meat_by_weekday": {},
     "no_consecutive_same_main_meat": true,
-
     "weekly_max_main_meat": {
       "chicken": 2,
       "pork": 2,
@@ -31,7 +72,6 @@
       "seafood": 2,
       "vegetarian": 0
     },
-
     "repeat_limits": {
       "max_same_main_in_30_days": 1,
       "max_same_noodle_in_7_days": 1,
@@ -39,59 +79,64 @@
       "max_same_side_in_7_days": 1,
       "max_same_veg_in_7_days": 1,
       "max_same_soup_in_7_days": 1,
-	  "max_same_fruit_in_7_days": 1,
+      "max_same_fruit_in_7_days": 1,
       "max_same_ingredient_in_window_days": 2,
       "ingredient_repeat_window_days": 4,
       "max_consecutive_ingredient_days": 4
     },
-
-    "cost_range_per_person_per_day": { "min": 1, "max": 200 }
+    "cost_range_per_person_per_day": {
+      "min": 1,
+      "max": 200
+    }
   },
-
   "soft": {
     "prefer_near_expiry": true,
     "prefer_use_inventory": true,
-
     "inventory_prefer_ingredient_ids": [],
-
     "diversity": {
       "avoid_same_cuisine_consecutive_days": true,
       "spread_vegetable_categories": true
     }
   },
-
   "weights": {
     "cost_over_max_penalty": 50,
     "cost_under_min_penalty": 10,
-
     "repeat_penalty_main": 20,
     "repeat_penalty_side": 8,
     "repeat_penalty_soup": 8,
     "repeat_penalty_fruit": 6,
-	
     "consecutive_same_meat_penalty": 25,
     "near_expiry_bonus": -12,
     "use_inventory_bonus": -10,
-
     "cuisine_consecutive_penalty": 6
   },
-
   "search": {
     "backtracking": {
       "time_limit_ms": 2000,
       "beam_width": 12,
-      "candidate_limit_per_role": { "main": 100, "noodle": 100, "side": 100, "veg": 100, "soup": 100, "fruit": 60 }
+      "candidate_limit_per_role": {
+        "main": 100,
+        "noodle": 100,
+        "side": 100,
+        "veg": 100,
+        "soup": 100,
+        "fruit": 60
+      }
     },
     "local_search": {
       "enabled": true,
       "iterations": 800,
-      "neighborhood": { "swap_days": true, "replace_one_item": true },
+      "neighborhood": {
+        "swap_days": true,
+        "replace_one_item": true
+      },
       "accept_worse_probability": 0.03
     }
   },
-
   "output": {
     "return_explanations": true,
     "return_cost_breakdown": true
-  }
+  },
+  "prep_time_limit_minutes": 90,
+  "per_weekday_prep_time_limit_minutes": {}
 }

@@ -388,6 +388,11 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
     role_counts_by_day = [counts_for_day(cfg, start_date, i) for i in range(horizon_days)]
 
     hard = dict(cfg.get("hard", {}) or {})
+    hard["prep_time_limit_minutes"] = cfg.get("prep_time_limit_minutes", hard.get("prep_time_limit_minutes", 90))
+    hard["per_weekday_prep_time_limit_minutes"] = cfg.get(
+        "per_weekday_prep_time_limit_minutes",
+        hard.get("per_weekday_prep_time_limit_minutes", {}),
+    )
     soft = cfg.get("soft", {}) or {}
     weights = cfg.get("weights", {}) or {}
     search = cfg.get("search", {}) or {}
@@ -548,6 +553,10 @@ def _run_local_search(
         counts == {"main": 1, "noodle": 0, "side": 2, "veg": 1, "soup": 1, "fruit": 1}
         for counts in ctx.role_counts_by_day
     )
+    # Local search currently optimizes cost/repeat heuristics only; keep prep-time
+    # hard limits enforced by backtracking from being invalidated by later swaps.
+    if "prep_time_limit_minutes" in ctx.hard or ctx.hard.get("per_weekday_prep_time_limit_minutes"):
+        local_search_safe = False
 
     if ls_enabled and local_search_safe and (not incomplete_days) and (not base_errors):
         improved_plan, improved_score, improved_day_details = improve_by_local_search(

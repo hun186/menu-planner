@@ -297,7 +297,7 @@ textarea{
 }
 .result-menu-table{
   --result-date-col-width: calc(13ch + 16px);
-  --result-people-col-width: calc(5ch + 16px);
+  --result-people-col-width: calc(4ch + 12px);
 }
 .result-menu-table .result-date-col{
   width:var(--result-date-col-width);
@@ -744,8 +744,8 @@ select{
 }
 
 .day-people-input{
-  width:72px;
-  padding:4px 6px;
+  width:58px;
+  padding:4px 5px;
   border:1px solid var(--bd);
   border-radius:6px;
 }

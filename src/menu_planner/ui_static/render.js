@@ -270,7 +270,7 @@ export function renderResult(result, cfg, options = {}) {
 
     const dayPeople = Number(peopleOverrides[d.date] ?? d.procurement?.people ?? defaultPeople);
     const peopleCell = editable && isScheduled
-      ? `<input class="day-people-input" type="number" min="1" data-date="${escapeHtml(d.date || "")}" value="${dayPeople}" title="可覆寫單日用餐人數" />`
+      ? `<input class="day-people-input" type="number" min="1" max="9999" data-date="${escapeHtml(d.date || "")}" value="${dayPeople}" title="可覆寫單日用餐人數" />`
       : String(dayPeople);
 
     html += `<tr>

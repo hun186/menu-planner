@@ -137,3 +137,19 @@ test('weekly meat quotas use meat-type columns and repeat limits use paired rows
   assert.match(html, /主菜 30 天重複上限<\/td><td><input class="repeat-limit"[\s\S]+麵食 7 天重複上限/);
   assert.match(html, /食材窗口天數<\/td><td><input class="repeat-limit"[\s\S]+食材連續天數上限/);
 });
+
+
+test('settings board reserves enough width for dense constraint tables', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../../src/menu_planner/ui_static/styles.css', import.meta.url), 'utf8');
+
+  assert.match(html, /<div class="grid planner-grid">/);
+  assert.match(styles, /--planner-settings-board-min-width\s*:\s*672px\s*;/);
+  assert.match(styles, /--planner-settings-table-min-width\s*:\s*640px\s*;/);
+  assert.match(styles, /\.planner-grid\s*\{[\s\S]*grid-template-columns\s*:\s*minmax\(var\(--planner-settings-board-min-width\), 1fr\) minmax\(0, 1fr\)\s*;/);
+  assert.match(styles, /\.planner-settings-card\s*\{[\s\S]*min-width\s*:\s*max\(100%, var\(--planner-settings-board-min-width\)\)\s*;/);
+  assert.match(
+    styles,
+    new RegExp('\\.quota-matrix-table,\\n\\.repeat-limits-table,\\n#daily_role_counts_table,\\n#weekday_role_counts_table\\s*\\{[\\s\\S]*min-width\\s*:\\s*var\\(--planner-settings-table-min-width\\)\\s*;'),
+  );
+});

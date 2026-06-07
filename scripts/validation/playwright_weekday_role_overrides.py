@@ -60,12 +60,19 @@ def main() -> None:
 
         page.set_viewport_size({"width": 390, "height": 900})
         page.locator("#weekday_role_counts_table").scroll_into_view_if_needed()
+        settings_card = page.locator(".planner-settings-card")
         monday_side = monday_row.locator('input[data-role="side"]')
         expect(monday_side).to_have_value("3")
+        card_box = settings_card.bounding_box()
+        table_box = page.locator("#weekday_role_counts_table").bounding_box()
         box = monday_side.bounding_box()
         if not box or box["width"] < 40:
             raise AssertionError(f"weekday side input too narrow on mobile: {box}")
-        page.locator("#weekday_role_counts_table").screenshot(path=str(WEEKDAY_MOBILE_SCREENSHOT_PATH))
+        if not card_box or not table_box:
+            raise AssertionError(f"missing mobile layout boxes: card={card_box}, table={table_box}")
+        if table_box["x"] + table_box["width"] > card_box["x"] + card_box["width"] + 1:
+            raise AssertionError(f"weekday table escapes settings card on mobile: card={card_box}, table={table_box}")
+        settings_card.screenshot(path=str(WEEKDAY_MOBILE_SCREENSHOT_PATH))
         browser.close()
 
     print(f"daily_screenshot={DAILY_SCREENSHOT_PATH}")

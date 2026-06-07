@@ -1,5 +1,6 @@
 import { deleteIngredient, exportInventorySummaryExcel, listInventorySummary, mergeInventoryIngredient } from "./admin/api.js";
 import { escapeHtml } from "./shared/html.js";
+import { compareNullable, sortThenPaginate } from "./shared/sort_pagination.js";
 
 const inventorySort = { key: "expiry_date", direction: "asc" };
 const inventoryPager = {
@@ -43,18 +44,6 @@ function pushQueryToUrl({ q, onlyInStock }) {
   window.history.replaceState({}, "", next);
 }
 
-function compareNullable(a, b) {
-  const aNull = a === null || a === undefined || a === "";
-  const bNull = b === null || b === undefined || b === "";
-  if (aNull && bNull) return 0;
-  if (aNull) return 1;
-  if (bNull) return -1;
-  if (typeof a === "number" && typeof b === "number") {
-    return a - b;
-  }
-  return String(a).localeCompare(String(b), "zh-Hant", { numeric: true, sensitivity: "base" });
-}
-
 function applySortArrow() {
   document.querySelectorAll("#inv_tbl thead th[data-inv-sort-key]").forEach((th) => {
     const baseLabel = th.dataset.baseLabel || th.textContent.trim().replace(/\s[▲▼]$/, "");
@@ -67,19 +56,6 @@ function applySortArrow() {
   });
 }
 
-function sortRows(list) {
-  return [...list].sort((a, b) => {
-    let aVal = a?.[inventorySort.key];
-    let bVal = b?.[inventorySort.key];
-    if (inventorySort.key === "qty_on_hand" || inventorySort.key === "dish_ref_count") {
-      aVal = Number(aVal ?? -1);
-      bVal = Number(bVal ?? -1);
-    }
-    const result = compareNullable(aVal, bVal);
-    return inventorySort.direction === "asc" ? result : -result;
-  });
-}
-
 function totalPages() {
   return Math.max(1, Math.ceil(inventoryPager.total / inventoryPager.pageSize));
 }
@@ -88,12 +64,6 @@ function clampPage() {
   const maxPage = totalPages();
   if (inventoryPager.page > maxPage) inventoryPager.page = maxPage;
   if (inventoryPager.page < 1) inventoryPager.page = 1;
-}
-
-function getPageRows(list) {
-  clampPage();
-  const start = (inventoryPager.page - 1) * inventoryPager.pageSize;
-  return list.slice(start, start + inventoryPager.pageSize);
 }
 
 function renderPager() {
@@ -114,7 +84,7 @@ function renderRows(list) {
     return;
   }
 
-  sortRows(list).forEach((row) => {
+  list.forEach((row) => {
     const qtyText = row.qty_on_hand === null || row.qty_on_hand === undefined ? "—" : Number(row.qty_on_hand).toFixed(2);
     const expiryText = row.expiry_date || "—";
     const updatedText = row.updated_at || "—";
@@ -184,8 +154,21 @@ function renderRows(list) {
 }
 
 function renderInventory() {
-  const sorted = sortRows(inventoryRows);
-  const pageRows = getPageRows(sorted);
+  const { pageRows } = sortThenPaginate(inventoryRows, {
+    sort: {
+      key: inventorySort.key,
+      direction: inventorySort.direction,
+      compare: compareNullable,
+      valueGetter: (row) => {
+        const value = row?.[inventorySort.key];
+        if (inventorySort.key === "qty_on_hand" || inventorySort.key === "dish_ref_count") {
+          return Number(value ?? -1);
+        }
+        return value;
+      },
+    },
+    pagination: { page: inventoryPager.page, pageSize: inventoryPager.pageSize },
+  });
   renderRows(pageRows);
 }
 

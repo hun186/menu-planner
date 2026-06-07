@@ -42,19 +42,30 @@ def _window_start(day_idx: int, window: int) -> int:
     return max(0, day_idx - window + 1)
 
 def _iter_prev_active_indices(day_idx: int, plan_days: List[PlanDay], window_active_days: int):
-    """往回找最近 window_active_days 個『成功排餐日』的索引（略過 offday/不完整日）。"""
+    """往回找最近 window_active_days 個有排餐嘗試的索引（略過真正 offday）。"""
     seen = 0
     for i in range(day_idx - 1, -1, -1):
         if i >= len(plan_days):
             continue
         d = plan_days[i]
-        # 只把「完整成功日」納入 rolling window：
-        # main + 至少 1 道 side + veg + soup + fruit 都要存在
-        if not d.main:
-            continue
-        if not d.sides:
-            continue
-        if (not d.vegs) or (not d.soups) or (not d.fruits):
+        # 失敗日仍可能保留主菜、湯、水果等部分排程結果；它應該讓 rolling
+        # window 往前推進，否則某天配菜無解後，上一批已用過的配菜永遠不會
+        # 退出「最近 N 個排餐日」，後續配菜會連鎖全部失敗。只有完全沒有任何
+        # 菜色的休息/不排日才不計入排餐日窗口。
+        has_any_dish = any([
+            d.main,
+            getattr(d, "noodle", ""),
+            d.sides,
+            d.veg,
+            d.soup,
+            d.fruit,
+            getattr(d, "mains", []),
+            getattr(d, "noodles", []),
+            getattr(d, "vegs", []),
+            getattr(d, "soups", []),
+            getattr(d, "fruits", []),
+        ])
+        if not has_any_dish:
             continue
         yield i
         seen += 1

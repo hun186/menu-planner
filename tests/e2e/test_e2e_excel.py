@@ -1,10 +1,29 @@
+import io
 import json
 import urllib.request
-import io
-import openpyxl
 from collections import Counter
+from datetime import date, datetime, timedelta
+
+import openpyxl
 
 BASE = "http://127.0.0.1:18000"
+ROLE_PLURALS = {
+    "main": "mains",
+    "noodle": "noodles",
+    "side": "sides",
+    "veg": "vegs",
+    "soup": "soups",
+    "fruit": "fruits",
+}
+ROLE_HEADER_LABELS = {
+    "main": "主菜",
+    "noodle": "麵食",
+    "side": "配菜",
+    "veg": "純蔬",
+    "soup": "湯",
+    "fruit": "水果",
+}
+ROLE_EXPORT_ORDER = ("main", "noodle", "side", "veg", "soup", "fruit")
 
 
 def req(method, path, payload=None):
@@ -21,6 +40,54 @@ def req(method, path, payload=None):
         return f.status, dict(f.headers), f.read()
 
 
+def _parse_start_date(cfg):
+    raw = cfg.get("start_date")
+    if raw:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    return date.today()
+
+
+def _role_counts_for_day(cfg, day_index):
+    base = dict(cfg.get("per_day_roles") or {})
+    current = _parse_start_date(cfg) + timedelta(days=day_index)
+    override = (cfg.get("per_weekday_roles") or {}).get(str(current.isoweekday()))
+    if isinstance(override, dict):
+        base.update(override)
+    return {role: max(0, int(base.get(role, 0) or 0)) for role in ROLE_EXPORT_ORDER}
+
+
+def _role_items(items, role):
+    values = items.get(ROLE_PLURALS[role])
+    if isinstance(values, list):
+        return values
+    one = items.get(role) or {}
+    return [one] if one.get("id") else []
+
+
+def _expected_role_headers(cfg):
+    max_counts = {role: 0 for role in ROLE_EXPORT_ORDER}
+    for role, count in (cfg.get("per_day_roles") or {}).items():
+        if role in max_counts:
+            max_counts[role] = max(max_counts[role], int(count or 0))
+    for override in (cfg.get("per_weekday_roles") or {}).values():
+        if isinstance(override, dict):
+            for role, count in override.items():
+                if role in max_counts:
+                    max_counts[role] = max(max_counts[role], int(count or 0))
+    for role in ("main", "soup", "fruit"):
+        max_counts[role] = max(max_counts[role], 1)
+
+    headers = []
+    for role in ROLE_EXPORT_ORDER:
+        count = max_counts[role]
+        label = ROLE_HEADER_LABELS[role]
+        if count == 1:
+            headers.append(label)
+        else:
+            headers.extend(f"{label}{idx}" for idx in range(1, count + 1))
+    return headers
+
+
 def test_generate_and_export_excel():
     # 取得預設設定
     st, _, body = req("GET", "/config/default")
@@ -31,6 +98,8 @@ def test_generate_and_export_excel():
     # 使用固定 seed + 關閉 local search，避免隨機鄰域替換造成 CI 偶發失敗
     cfg["seed"] = 7
     (cfg.setdefault("search", {}).setdefault("local_search", {}))["enabled"] = False
+    # 本測試聚焦在 Excel 匯出與彈性角色欄位；放寬 veg 重複限制避免測試資料量影響匯出驗證。
+    (cfg.setdefault("hard", {}).setdefault("repeat_limits", {}))["max_same_veg_in_7_days"] = 99
 
     # 生成菜單
     st, _, body = req("POST", "/plan", cfg)
@@ -42,7 +111,7 @@ def test_generate_and_export_excel():
     assert len(obj["result"]["days"]) == 270
     assert obj["result"]["summary"].get("people") == cfg.get("people", 1)
 
-    # 驗證每日組成：1 main + 2 side + 1 veg + 1 soup + 1 fruit
+    # 驗證每日組成會依 per_day_roles / per_weekday_roles 的彈性角色數調整。
     # 只檢查有排程且成功的日子（offday / failed 另有邏輯）
     days = obj["result"]["days"]
     for d in days:
@@ -56,18 +125,16 @@ def test_generate_and_export_excel():
 
 
         procurement = d.get("procurement") or {}
-        expected_people = (cfg.get("schedule", {}).get("people_overrides", {}) or {}).get(d.get("date"), cfg.get("people", 1))
+        expected_people = (cfg.get("schedule", {}).get("people_overrides", {}) or {}).get(
+            d.get("date"),
+            cfg.get("people", 1),
+        )
         assert procurement.get("people") == expected_people
-        sides = items.get("sides") or []
-        veg = items.get("veg") or {}
-        soup = items.get("soup") or {}
-        fruit = items.get("fruit") or {}
-
-        assert len(sides) == 2
-        assert all((s or {}).get("id") for s in sides)
-        assert veg.get("id")
-        assert soup.get("id")
-        assert fruit.get("id")
+        expected_counts = _role_counts_for_day(cfg, d.get("day_index", 0))
+        for role in ROLE_EXPORT_ORDER:
+            role_items = _role_items(items, role)
+            assert len(role_items) == expected_counts[role]
+            assert all((item or {}).get("id") for item in role_items)
 
     # 驗證 veg 重複規則（最近 7 個有排餐日）
     rep = (cfg.get("hard") or {}).get("repeat_limits") or {}
@@ -113,6 +180,17 @@ def test_generate_and_export_excel():
     summary_sheet = wb["採買彙總"]
 
     assert sheet.max_row == 271
+    headers = [sheet.cell(row=1, column=col).value for col in range(1, sheet.max_column + 1)]
+    assert headers == [
+        "日期",
+        *_expected_role_headers(cfg),
+        "成本",
+        "目標匹配度",
+        "分數拆解(JSON)",
+        "分數拆解(易讀)",
+    ]
+    assert "麵食" in headers
+    assert "純蔬" in headers
     assert detail_sheet.max_row > 1
     assert summary_sheet.max_row > 1
     summary_labels = [summary_sheet.cell(row=r, column=3).value for r in range(2, summary_sheet.max_row + 1)]

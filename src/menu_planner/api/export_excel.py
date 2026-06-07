@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 import json
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Iterable
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
@@ -28,28 +28,109 @@ def _to_float_or_none(value: Any) -> float | None:
         return None
 
 
-def _extract_menu_row(day: Dict[str, Any]) -> list[Any]:
+ROLE_LABELS = {
+    "main": "主菜",
+    "noodle": "麵食",
+    "side": "配菜",
+    "veg": "純蔬",
+    "soup": "湯",
+    "fruit": "水果",
+}
+ROLE_PLURALS = {
+    "main": "mains",
+    "noodle": "noodles",
+    "side": "sides",
+    "veg": "vegs",
+    "soup": "soups",
+    "fruit": "fruits",
+}
+ROLE_EXPORT_ORDER = ("main", "noodle", "side", "veg", "soup", "fruit")
+METRIC_HEADERS = ["成本", "目標匹配度", "分數拆解(JSON)", "分數拆解(易讀)"]
+
+
+def _as_nonnegative_int(value: Any) -> int:
+    try:
+        return max(0, int(value))
+    except Exception:
+        return 0
+
+
+def _iter_role_count_maps(cfg: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
+    per_day = cfg.get("per_day_roles")
+    if isinstance(per_day, dict):
+        yield per_day
+
+    per_weekday = cfg.get("per_weekday_roles")
+    if isinstance(per_weekday, dict):
+        for value in per_weekday.values():
+            if isinstance(value, dict):
+                yield value
+
+
+def _role_dishes(items: Dict[str, Any], role: str) -> list[Dict[str, Any]]:
+    plural = ROLE_PLURALS[role]
+    dishes = items.get(plural)
+    if isinstance(dishes, list):
+        filtered = [x for x in dishes if isinstance(x, dict) and (x.get("name") or x.get("id"))]
+        if filtered:
+            return filtered
+
+    dish = items.get(role) or {}
+    if isinstance(dish, dict) and (dish.get("name") or dish.get("id")):
+        return [dish]
+    return []
+
+
+def _compute_role_slots(cfg: Dict[str, Any], days: list[Dict[str, Any]]) -> Dict[str, int]:
+    slots = {role: 0 for role in ROLE_EXPORT_ORDER}
+
+    for counts in _iter_role_count_maps(cfg):
+        for role in ROLE_EXPORT_ORDER:
+            slots[role] = max(slots[role], _as_nonnegative_int(counts.get(role)))
+
+    for day in days:
+        items = day.get("items") or {}
+        if not isinstance(items, dict):
+            continue
+        for role in ROLE_EXPORT_ORDER:
+            slots[role] = max(slots[role], len(_role_dishes(items, role)))
+
+    # Keep familiar single-slot roles visible even when all generated days are
+    # off-days/failed, while allowing optional roles like noodle to disappear
+    # when neither the config nor result asks for them.
+    for role in ("main", "soup", "fruit"):
+        slots[role] = max(slots[role], 1)
+
+    return slots
+
+
+def _role_headers(role_slots: Dict[str, int]) -> list[str]:
+    headers: list[str] = []
+    for role in ROLE_EXPORT_ORDER:
+        count = role_slots.get(role, 0)
+        label = ROLE_LABELS[role]
+        if count == 1:
+            headers.append(label)
+        else:
+            headers.extend(f"{label}{idx}" for idx in range(1, count + 1))
+    return headers
+
+
+def _extract_role_names(items: Dict[str, Any], role: str, count: int) -> list[str]:
+    names = [(x.get("name") or x.get("id") or "") for x in _role_dishes(items, role)]
+    if len(names) < count:
+        names.extend([""] * (count - len(names)))
+    return names[:count]
+
+
+def _extract_menu_row(day: Dict[str, Any], role_slots: Dict[str, int]) -> list[Any]:
     items = day.get("items", {}) or {}
-    def role_names(role: str) -> str:
-        plural = f"{role}s"
-        dishes = items.get(plural)
-        if not isinstance(dishes, list) or not dishes:
-            dish = items.get(role) or {}
-            dishes = [dish] if dish.get("name") else []
-        return "、".join((x or {}).get("name", "") for x in dishes if (x or {}).get("name"))
+    if not isinstance(items, dict):
+        items = {}
 
-    main = role_names("main")
-    soup = role_names("soup")
-    fruit = role_names("fruit")
-
-    sides = items.get("sides") or []
-    vegs = items.get("vegs") if isinstance(items.get("vegs"), list) else []
-    veg = items.get("veg") or {}
-    side_names = [x.get("name", "") for x in sides]
-    veg_names = [(x or {}).get("name", "") for x in vegs if (x or {}).get("name")] or ([veg.get("name", "")] if veg.get("name") else [])
-    side_names.extend(veg_names)
-    while len(side_names) < 3:
-        side_names.append("")
+    role_values: list[Any] = []
+    for role in ROLE_EXPORT_ORDER:
+        role_values.extend(_extract_role_names(items, role, role_slots.get(role, 0)))
 
     breakdown = day.get("score_breakdown") or {}
     breakdown_str = json.dumps(breakdown, ensure_ascii=False)
@@ -61,12 +142,7 @@ def _extract_menu_row(day: Dict[str, Any]) -> list[Any]:
     human = build_human_breakdown(day) if not day.get("failed") else ""
     return [
         day.get("date", ""),
-        main,
-        side_names[0],
-        side_names[1],
-        side_names[2],
-        soup,
-        fruit,
+        *role_values,
         day.get("day_cost", ""),
         fitness if fitness is not None else "",
         breakdown_str,
@@ -108,19 +184,9 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
 
     ws = wb.active
     ws.title = "菜單"
-    header = [
-        "日期",
-        "主菜",
-        "配菜1",
-        "配菜2",
-        "配菜3",
-        "湯",
-        "水果",
-        "成本",
-        "目標匹配度",
-        "分數拆解(JSON)",
-        "分數拆解(易讀)",
-    ]
+    days = result.get("days", []) or []
+    role_slots = _compute_role_slots(cfg, days)
+    header = ["日期", *_role_headers(role_slots), *METRIC_HEADERS]
     ws.append(header)
 
     bold = Font(bold=True)
@@ -129,18 +195,29 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
         cell.font = bold
         cell.alignment = Alignment(vertical="center")
 
-    days = result.get("days", []) or []
     for day in days:
-        ws.append(_extract_menu_row(day))
+        ws.append(_extract_menu_row(day, role_slots))
 
     total_cost, total_fitness, fitness_count = _compute_plan_totals(days)
 
     ws.freeze_panes = "A2"
-    set_col_width(ws, {1: 12, 2: 22, 3: 18, 4: 18, 5: 18, 6: 18, 7: 14, 8: 10, 9: 10, 10: 48, 11: 60})
+    widths = {1: 12}
+    role_header_count = len(header) - 1 - len(METRIC_HEADERS)
+    for col in range(2, 2 + role_header_count):
+        widths[col] = 18
+    metric_start = 2 + role_header_count
+    widths.update({
+        metric_start: 10,
+        metric_start + 1: 10,
+        metric_start + 2: 48,
+        metric_start + 3: 60,
+    })
+    set_col_width(ws, widths)
 
     wrap = Alignment(vertical="top", wrap_text=True)
+    human_col = len(header)
     for row in range(2, ws.max_row + 1):
-        ws.cell(row=row, column=11).alignment = wrap
+        ws.cell(row=row, column=human_col).alignment = wrap
 
     append_summary_sheet(wb, cfg, result, days, total_cost, total_fitness, fitness_count)
     append_config_sheet(wb, cfg)

@@ -153,6 +153,29 @@
           </tbody>
         </table>
 
+        <h3 class="h3">每日配菜＋湯品含蛋白質數量上限</h3>
+        <div class="hint">計算配菜與湯品中，食材「蛋白質」欄位非空的菜色合計數；週幾覆寫會取代全域每日預設。</div>
+        <div class="row">
+          <label>全域每日上限</label>
+          <input id="side_soup_protein_limit" type="number" min="0" value="2" aria-label="全域每日配菜與湯品含蛋白質數量上限" />
+        </div>
+        <div class="inline left weekday-protein-actions" aria-label="新增含蛋白質上限週幾覆寫" style="margin-top:8px; margin-bottom:8px;">
+          <select id="weekday_protein_add_select" aria-label="選擇要新增的含蛋白質上限週幾覆寫">
+            <option value="1">星期一</option>
+            <option value="2">星期二</option>
+            <option value="3">星期三</option>
+            <option value="4">星期四</option>
+            <option value="5">星期五</option>
+            <option value="6">星期六</option>
+            <option value="7">星期日</option>
+          </select>
+          <button type="button" id="weekday_protein_add">新增週幾覆寫</button>
+        </div>
+        <table class="mini-table protein-limit-table" id="weekday_protein_limits_table">
+          <thead><tr><th>週幾覆寫</th><th>含蛋白質上限</th><th>操作</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
         <h3 class="h3">每日備菜時間上限</h3>
         <div class="hint">全日已排菜色的「備菜時間（分鐘）」總和不可超過此上限；可針對週幾填入覆寫值，留空則使用全域預設。</div>
         <div class="row">

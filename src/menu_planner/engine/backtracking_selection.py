@@ -80,6 +80,9 @@ def choose_soup(
     hard: Dict,
     main_id: str,
     dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
+    dish_has_protein: Optional[Dict[str, bool]] = None,
+    selected_soup_ids: Optional[List[str]] = None,
+    side_soup_protein_limit: Optional[int] = None,
     rng: Optional[random.Random] = None,
     topk: int = 25,
 ) -> Optional[str]:
@@ -102,6 +105,10 @@ def choose_soup(
         soup_ids = head + soup_ids[topk:]
 
     for sid in soup_ids:
+        if side_soup_protein_limit is not None and dish_has_protein is not None:
+            protein_count = sum(1 for did in list(selected_soup_ids or []) + [sid] if dish_has_protein.get(did, False))
+            if protein_count > int(side_soup_protein_limit):
+                continue
         if dish_ingredient_ids is not None and not check_ingredient_window_repeat(
             day_idx,
             [main_id, sid],
@@ -181,6 +188,9 @@ def choose_sides_backtrack(
     soup_id: str,
     fruit_id: str,
     dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
+    dish_has_protein: Optional[Dict[str, bool]] = None,
+    soup_ids: Optional[List[str]] = None,
+    side_soup_protein_limit: Optional[int] = None,
     rng: Optional[random.Random] = None,
     topk: int = 120,
     pick_count: int = 2,
@@ -207,6 +217,14 @@ def choose_sides_backtrack(
 
     def dfs(start_idx: int) -> Optional[List[str]]:
         if len(chosen) == pick_count:
+            if side_soup_protein_limit is not None and dish_has_protein is not None:
+                protein_count = sum(
+                    1
+                    for did in list(soup_ids or ([soup_id] if soup_id else [])) + list(chosen)
+                    if dish_has_protein.get(did, False)
+                )
+                if protein_count > int(side_soup_protein_limit):
+                    return None
             if not check_side_window_repeat(day_idx, chosen, plan_days, max_side_7):
                 return None
             if dish_ingredient_ids is not None and not check_ingredient_window_repeat(

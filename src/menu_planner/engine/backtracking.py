@@ -26,6 +26,43 @@ from .backtracking_selection import (
 
 
 
+def _side_soup_protein_limit_for_day(day_idx: int, start_date: Optional[date], hard: Dict) -> int:
+    base = hard.get("side_soup_protein_limit", 2)
+    overrides = hard.get("per_weekday_side_soup_protein_limit") or {}
+    weekday = _weekday_for_day(day_idx, start_date)
+    if isinstance(overrides, dict):
+        base = overrides.get(weekday, overrides.get(str(weekday), base))
+    try:
+        return max(0, int(base))
+    except Exception:
+        return 2
+
+
+def _protein_count(dish_ids: List[str], dish_has_protein: Dict[str, bool]) -> int:
+    return sum(1 for did in dish_ids if did and dish_has_protein.get(did, False))
+
+
+def _within_side_soup_protein_limit(side_ids: List[str], soup_ids: List[str], dish_has_protein: Dict[str, bool], limit: int) -> bool:
+    return _protein_count(list(side_ids) + list(soup_ids), dish_has_protein) <= limit
+
+
+def _protein_limit_error(day: int, total: int, limit: int, side_ids: List[str], soup_ids: List[str], dish_has_protein: Dict[str, bool]) -> PlanError:
+    protein_items = [did for did in list(side_ids) + list(soup_ids) if did and dish_has_protein.get(did, False)]
+    return PlanError(
+        code="SIDE_SOUP_PROTEIN_LIMIT_EXCEEDED",
+        day_index=day,
+        message=f"第 {day+1} 天配菜與湯品含蛋白質菜色共 {total} 道，超過上限 {limit} 道。",
+        details={
+            "side_soup_protein_count": total,
+            "side_soup_protein_limit": limit,
+            "protein_items": protein_items,
+            "sides": side_ids,
+            "soups": soup_ids,
+            "hint": "可調高配菜＋湯品含蛋白質上限、依週幾覆寫上限，或增加不含蛋白質欄位的配菜/湯品候選。",
+        },
+    )
+
+
 def _prep_minutes_for_day(day_idx: int, start_date: Optional[date], hard: Dict) -> int:
     base = hard.get("prep_time_limit_minutes", 90)
     overrides = hard.get("per_weekday_prep_time_limit_minutes") or {}
@@ -284,6 +321,7 @@ def fill_days_after_mains(
     weights: Dict,
     soft: Dict,
     dish_ingredient_ids: Optional[Dict[str, Set[str]]] = None,
+    dish_has_protein: Optional[Dict[str, bool]] = None,
     start_date: Optional[date] = None,          # ✅ 新增（可選）
     active_mask: Optional[List[bool]] = None,   # ✅ 新增（可選）
     role_counts_by_day: Optional[List[Dict[str, int]]] = None,
@@ -315,6 +353,7 @@ def fill_days_after_mains(
     noodle_pool0 = [d for d in (noodles or []) if d.id in feat]
     main_pool0 = [d for d in (mains or []) if d.id in feat]
     dish_by_id = {d.id: d for d in (list(mains or []) + list(noodles or []) + list(sides or []) + list(vegs or []) + list(soups or []) + list(fruits or []))}
+    dish_has_protein = dish_has_protein or {}
     
     print("usable sides (in feat):", len(side_pool0), "/", len(sides))
     print("usable vegs  (in feat):", len(veg_pool0), "/", len(vegs))
@@ -365,6 +404,7 @@ def fill_days_after_mains(
         soup_count = int(counts.get("soup", 1) or 0)
         fruit_count = int(counts.get("fruit", 1) or 0)
         prep_limit = _prep_minutes_for_day(day, start_date, hard)
+        protein_limit = _side_soup_protein_limit_for_day(day, start_date, hard)
         schedule_active = True if active_mask is None or day >= len(active_mask) else bool(active_mask[day])
         if not schedule_active:
             main_count = noodle_count = side_count = veg_count = soup_count = fruit_count = 0
@@ -510,11 +550,16 @@ def fill_days_after_mains(
                 hard,
                 main_id=main_id,
                 dish_ingredient_ids=dish_ingredient_ids,
+                dish_has_protein=dish_has_protein,
+                selected_soup_ids=[],
+                side_soup_protein_limit=protein_limit,
                 rng=rng,
             )
             soup_ids = [soup_id] if soup_id else []
             if soup_id and soup_count > 1:
-                soup_ids += choose_distinct_from_pool(soup_pool, soup_count - 1, main_ids_today + noodle_ids + soup_ids + fruit_ids)
+                for extra_id in choose_distinct_from_pool(soup_pool, soup_count - 1, main_ids_today + noodle_ids + soup_ids + fruit_ids):
+                    if _within_side_soup_protein_limit([], soup_ids + [extra_id], dish_has_protein, protein_limit):
+                        soup_ids.append(extra_id)
             soup_id = soup_ids[0] if soup_ids else ""
         else:
             soup_ids = []
@@ -556,6 +601,9 @@ def fill_days_after_mains(
                 soup_id="",
                 fruit_id=fruit_id,
                 dish_ingredient_ids=dish_ingredient_ids,
+                dish_has_protein=dish_has_protein,
+                soup_ids=soup_ids,
+                side_soup_protein_limit=protein_limit,
                 rng=rng,
                 pick_count=side_count,
             ) or []
@@ -605,6 +653,9 @@ def fill_days_after_mains(
                 soup_id=soup_id,
                 fruit_id=fruit_id,
                 dish_ingredient_ids=dish_ingredient_ids,
+                dish_has_protein=dish_has_protein,
+                soup_ids=soup_ids,
+                side_soup_protein_limit=protein_limit,
                 rng=rng,
                 pick_count=side_count,
             )
@@ -638,6 +689,14 @@ def fill_days_after_mains(
                     details=err.details,
                 )
             )
+            continue
+
+        side_soup_protein_total = _protein_count(list(side_ids) + list(soup_ids), dish_has_protein)
+        if not _within_side_soup_protein_limit(side_ids, soup_ids, dish_has_protein, protein_limit):
+            err = _protein_limit_error(day, side_soup_protein_total, protein_limit, side_ids, soup_ids, dish_has_protein)
+            errors.append(err.to_dict())
+            plan_days.append(PlanDay(main=main_id, sides=[], veg="", soup=soup_id, fruit=fruit_id, noodle=noodle_id, mains=main_ids_today, noodles=noodle_ids, soups=soup_ids, fruits=fruit_ids))
+            explanations.append(_failed_day_explanation(day_index=day, reason_code=err.code, message=err.message, details=err.details))
             continue
 
         veg_id = ""
@@ -710,6 +769,8 @@ def fill_days_after_mains(
                 sid = d.id
                 if not check_soup_window_repeat(day, sid, plan_days, max_soup_7):
                     continue
+                if not _within_side_soup_protein_limit(side_ids, [sid], dish_has_protein, protein_limit):
+                    continue
                 test_cost = (
                     feat[main_id].cost_per_serving
                     + feat[sid].cost_per_serving
@@ -739,6 +800,9 @@ def fill_days_after_mains(
                     soup_id=soup_id,
                     fruit_id=fruit_id,
                     dish_ingredient_ids=dish_ingredient_ids,
+                    dish_has_protein=dish_has_protein,
+                    soup_ids=[soup_id] if soup_id else [],
+                    side_soup_protein_limit=protein_limit,
                     rng=rng,
                 )
                 if alt:
@@ -862,6 +926,8 @@ def fill_days_after_mains(
             "cost": round(day_cost, 2),
             "prep_minutes_total": prep_total,
             "prep_minutes_limit": prep_limit,
+            "side_soup_protein_count": side_soup_protein_total,
+            "side_soup_protein_limit": protein_limit,
         
             # 原本就有的（保留）
             "score": raw_score,

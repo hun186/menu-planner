@@ -292,6 +292,22 @@ textarea{
 .result > .tbl{
   min-width:860px;
 }
+.result-menu-table{
+  --result-date-col-width: calc(13ch + 16px);
+  --result-people-col-width: calc(5ch + 16px);
+}
+.result-menu-table .result-date-col{
+  width:var(--result-date-col-width);
+}
+.result-menu-table .result-people-col{
+  width:var(--result-people-col-width);
+}
+.result-menu-table th:nth-child(1),
+.result-menu-table td:nth-child(1),
+.result-menu-table th:nth-child(2),
+.result-menu-table td:nth-child(2){
+  white-space:nowrap;
+}
 .tbl{ width:100%; border-collapse:collapse; font-size:13px; }
 
 .tbl-scroll{ width:100%; overflow-x:auto; }

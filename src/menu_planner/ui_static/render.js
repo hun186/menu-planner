@@ -158,7 +158,12 @@ export function renderResult(result, cfg, options = {}) {
     <div><b>目標匹配度</b>：${fitTotal.toFixed(2)}</div>
   </div>`;
 
-  html += `<table class="tbl">
+  html += `<table class="tbl result-menu-table">
+    <colgroup>
+      <col class="result-date-col" />
+      <col class="result-people-col" />
+      <col span="8" />
+    </colgroup>
     <thead>
       <tr>
         <th>日期</th><th>人數</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>目標匹配度</th>

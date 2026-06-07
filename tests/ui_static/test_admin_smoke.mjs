@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createCatalogCache, setCatalogCache } from '../../src/menu_planner/ui_static/shared/catalog_cache.js';
 import { httpJson } from '../../src/menu_planner/ui_static/shared/http.js';
-import { deleteDbBackup, deleteDbBackupsByDateRange, deleteDish, getDbBackupStats, listUnitConversions, loadCatalog, updateDbBackupComment, upsertIngredient, upsertUnitConversion } from '../../src/menu_planner/ui_static/admin/api.js';
+import { deleteDbBackup, deleteDbBackupsByDateRange, deleteDish, getDbBackupStats, listUnitConversions, loadCatalog, loadCatalogPage, updateDbBackupComment, upsertIngredient, upsertUnitConversion } from '../../src/menu_planner/ui_static/admin/api.js';
 
 test('catalog cache + admin api smoke flow with mocked fetch', async () => {
   const calls = [];
@@ -159,4 +159,75 @@ test('deleteDish posts JSON body so slash IDs are not split by path routing', as
   assert.equal(calls[0].options.method, 'POST');
   assert.equal(calls[0].options.headers['X-Admin-Key'], 'secret');
   assert.deepEqual(JSON.parse(calls[0].options.body), { id: '高麗菜/木瓜' });
+});
+
+test('loadCatalogPage fetches full management lists for client-side sort-before-pagination', async () => {
+  const calls = [];
+
+  global.localStorage = {
+    getItem() {
+      return 'secret';
+    },
+  };
+
+  global.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      json: async () => ({ items: [], total: 0, total_pages: 1 }),
+    };
+  };
+
+  await loadCatalogPage({ ingredientPage: 3, ingredientPageSize: 20, dishPage: 2, dishPageSize: 20 });
+
+  const ingredientUrl = new URL(calls[0].url, 'http://localhost');
+  const dishUrl = new URL(calls[1].url, 'http://localhost');
+  assert.equal(ingredientUrl.searchParams.get('page'), '1');
+  assert.equal(ingredientUrl.searchParams.get('page_size'), '10000');
+  assert.equal(dishUrl.searchParams.get('page'), '1');
+  assert.equal(dishUrl.searchParams.get('page_size'), '10000');
+});
+
+test('loadCatalogPage fetches every 10000-row chunk before client-side sorting', async () => {
+  const calls = [];
+
+  global.localStorage = {
+    getItem() {
+      return 'secret';
+    },
+  };
+
+  global.fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    const parsed = new URL(url, 'http://localhost');
+    const page = Number(parsed.searchParams.get('page') || 1);
+    const prefix = parsed.pathname.includes('/ingredients') ? 'ing' : 'dish';
+    const count = page === 3 ? 1 : 10000;
+    return {
+      ok: true,
+      json: async () => ({
+        items: Array.from({ length: count }, (_item, index) => ({ id: `${prefix}_${page}_${index}` })),
+        total: 20001,
+        total_pages: 1,
+      }),
+    };
+  };
+
+  const { ingredients, dishes } = await loadCatalogPage();
+
+  assert.equal(ingredients.items.length, 20001);
+  assert.equal(dishes.items.length, 20001);
+  assert.equal(ingredients.items.at(-1).id, 'ing_3_0');
+  assert.equal(dishes.items.at(-1).id, 'dish_3_0');
+
+  const ingredientPages = calls
+    .filter((call) => String(call.url).startsWith('/admin/catalog/ingredients?'))
+    .map((call) => new URL(call.url, 'http://localhost').searchParams.get('page'));
+  const dishPages = calls
+    .filter((call) => String(call.url).startsWith('/admin/catalog/dishes?'))
+    .map((call) => new URL(call.url, 'http://localhost').searchParams.get('page'));
+
+  assert.deepEqual(ingredientPages, ['1', '2', '3']);
+  assert.deepEqual(dishPages, ['1', '2', '3']);
+  assert.ok(calls.every((call) => new URL(call.url, 'http://localhost').searchParams.get('page_size') === '10000'));
 });

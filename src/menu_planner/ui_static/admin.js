@@ -2,6 +2,7 @@ import * as adminApi from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
 import { adminKey } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
+import { sortThenPaginate } from "./shared/sort_pagination.js";
 import { createIngredientLookup } from "./admin/ingredient_lookup.js";
 import { createBackupManager } from "./admin/backup_manager.js";
 import {
@@ -237,13 +238,17 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     const ingItems = Array.isArray(ingredients?.items) ? ingredients.items : [];
     const dishItems = Array.isArray(dishes?.items) ? dishes.items : [];
     setCatalogCache(catalog, ingItems, dishItems);
-    ingredientPager.total = Number(ingredients?.total || 0);
-    ingredientPager.totalPages = Math.max(1, Number(ingredients?.total_pages || 1));
-    dishPager.total = Number(dishes?.total || 0);
-    dishPager.totalPages = Math.max(1, Number(dishes?.total_pages || 1));
+    ingredientPager.total = Number(ingredients?.total || ingItems.length || 0);
+    ingredientPager.totalPages = Math.max(1, Math.ceil(ingredientPager.total / ingredientPager.pageSize));
+    dishPager.total = Number(dishes?.total || dishItems.length || 0);
+    dishPager.totalPages = Math.max(1, Math.ceil(dishPager.total / dishPager.pageSize));
+    if (ingredientPager.page > ingredientPager.totalPages) ingredientPager.page = ingredientPager.totalPages;
+    if (dishPager.page > dishPager.totalPages) dishPager.page = dishPager.totalPages;
 
-    $("#ing_page_info").text(`第 ${ingredientPager.page} / ${ingredientPager.totalPages} 頁，共 ${ingredientPager.total} 筆`);
-    $("#dish_page_info").text(`第 ${dishPager.page} / ${dishPager.totalPages} 頁，共 ${dishPager.total} 筆`);
+    const ingredientPartialWarning = ingredients?.is_partial ? "（警示：尚未載入全部食材，排序只包含已載入資料）" : "";
+    const dishPartialWarning = dishes?.is_partial ? "（警示：尚未載入全部菜色，排序只包含已載入資料）" : "";
+    $("#ing_page_info").text(`第 ${ingredientPager.page} / ${ingredientPager.totalPages} 頁，共 ${ingredientPager.total} 筆${ingredientPartialWarning}`);
+    $("#dish_page_info").text(`第 ${dishPager.page} / ${dishPager.totalPages} 頁，共 ${dishPager.total} 筆${dishPartialWarning}`);
     const dishFilterHint = dishPager.ingredientId
       ? `目前僅顯示有使用「${dishPager.ingredientLabel || dishPager.ingredientId}」的菜色。`
       : "目前顯示全部菜色。";
@@ -354,14 +359,14 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   }
 
   function renderIngredients() {
-    const list = [...catalog.ingredients].sort((a, b) => {
-      const result = compareNullable(a?.[ingredientSort.key], b?.[ingredientSort.key]);
-      return ingredientSort.direction === "asc" ? result : -result;
+    const { pageRows } = sortThenPaginate(catalog.ingredients, {
+      sort: { key: ingredientSort.key, direction: ingredientSort.direction, compare: compareNullable },
+      pagination: { page: ingredientPager.page, pageSize: ingredientPager.pageSize },
     });
     applySortArrow("#ing_tbl thead th[data-ing-sort-key]", ingredientSort.key, ingredientSort.direction);
 
     const $tb = $("#ing_tbl tbody").empty();
-    list.forEach(x => {
+    pageRows.forEach(x => {
       const $tr = $(`
         <tr>
           <td>${escapeHtml(x.id)}</td>
@@ -426,16 +431,21 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
   }
 
   function renderDishes() {
-    const list = [...catalog.dishes].sort((a, b) => {
-      const aVal = dishSort.key === "cost" ? Number(dishCostById.get(a.id)?.per_serving_cost ?? -1) : a?.[dishSort.key];
-      const bVal = dishSort.key === "cost" ? Number(dishCostById.get(b.id)?.per_serving_cost ?? -1) : b?.[dishSort.key];
-      const result = compareNullable(aVal, bVal);
-      return dishSort.direction === "asc" ? result : -result;
+    const { pageRows } = sortThenPaginate(catalog.dishes, {
+      sort: {
+        key: dishSort.key,
+        direction: dishSort.direction,
+        compare: compareNullable,
+        valueGetter: (row) => dishSort.key === "cost"
+          ? Number(dishCostById.get(row.id)?.per_serving_cost ?? -1)
+          : row?.[dishSort.key],
+      },
+      pagination: { page: dishPager.page, pageSize: dishPager.pageSize },
     });
     applySortArrow("#dish_tbl thead th[data-dish-sort-key]", dishSort.key, dishSort.direction);
 
     const $tb = $("#dish_tbl tbody").empty();
-    list.forEach(x => {
+    pageRows.forEach(x => {
       const costCell = formatDishCostCell(x.id);
       const warningAttr = costCell.title ? ` data-tooltip="${escapeHtml(costCell.title)}"` : "";
       const warningBadge = costCell.warningCount > 0

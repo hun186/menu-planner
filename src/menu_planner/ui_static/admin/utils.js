@@ -61,20 +61,7 @@ export function buildDishCostWarningTitle(cost) {
   return `成本計算異常：\n${lines.join("\n")}`;
 }
 
-export function compareNullable(a, b) {
-  const aNull = a === null || a === undefined || a === "";
-  const bNull = b === null || b === undefined || b === "";
-  if (aNull && bNull) return 0;
-  if (aNull) return 1;
-  if (bNull) return -1;
-  const aNum = typeof a === "number" ? a : Number.NaN;
-  const bNum = typeof b === "number" ? b : Number.NaN;
-  if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
-    return aNum - bNum;
-  }
-  return String(a).localeCompare(String(b), "zh-Hant", { numeric: true, sensitivity: "base" });
-}
-
+export { compareNullable } from "../shared/sort_pagination.js";
 export function todayStr() {
   const d = new Date();
   const mm = String(d.getMonth() + 1).padStart(2, "0");

@@ -189,7 +189,7 @@ class EntityDeleteIn(BaseModel):
 def list_ingredients(
     q: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=50, ge=1, le=10000),
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)
@@ -202,7 +202,7 @@ def list_dishes(
     role: Optional[str] = Query(default=None),
     ingredient_id: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=50, ge=1, le=10000),
     db_path: str = Query(default=DEFAULT_DB_PATH),
 ):
     repo = SQLiteAdminRepo(db_path)

@@ -1,5 +1,7 @@
 import { adminKey, httpArray, httpJson } from "../shared/http.js";
 
+const CATALOG_MANAGE_PAGE_SIZE = 10000;
+
 export const ADMIN_API = {
   ingredients: "/admin/catalog/ingredients",
   dishes: "/admin/catalog/dishes",
@@ -61,6 +63,50 @@ async function fetchAdminBlob(url) {
   return res;
 }
 
+async function loadAllCatalogItems(endpoint, params) {
+  const buildUrl = (page) => {
+    const pageParams = new URLSearchParams(params);
+    pageParams.set("page", String(page));
+    pageParams.set("page_size", String(CATALOG_MANAGE_PAGE_SIZE));
+    return `${endpoint}?${pageParams.toString()}`;
+  };
+
+  const firstPage = await httpJson(buildUrl(1), { method: "GET", headers: {} }, { includeAdminKey: true });
+  const total = Number(firstPage?.total || 0);
+  const totalPages = Math.max(
+    1,
+    Number(firstPage?.total_pages || 0),
+    Math.ceil(total / CATALOG_MANAGE_PAGE_SIZE),
+  );
+  const firstItems = Array.isArray(firstPage?.items) ? firstPage.items : [];
+
+  if (totalPages <= 1) {
+    return {
+      ...firstPage,
+      items: firstItems,
+      total: total || firstItems.length,
+      total_pages: 1,
+    };
+  }
+
+  const remainingPages = Array.from({ length: totalPages - 1 }, (_item, index) => index + 2);
+  const remainingPayloads = await Promise.all(
+    remainingPages.map((page) => httpJson(buildUrl(page), { method: "GET", headers: {} }, { includeAdminKey: true })),
+  );
+  const items = remainingPayloads.reduce(
+    (acc, payload) => acc.concat(Array.isArray(payload?.items) ? payload.items : []),
+    [...firstItems],
+  );
+
+  return {
+    ...firstPage,
+    items,
+    total: total || items.length,
+    total_pages: Math.max(1, Math.ceil((total || items.length) / CATALOG_MANAGE_PAGE_SIZE)),
+    is_partial: total > 0 && items.length < total,
+  };
+}
+
 export async function loadCatalogPage({
   ingredientPage = 1,
   ingredientPageSize = 50,
@@ -70,22 +116,16 @@ export async function loadCatalogPage({
   dishQ = "",
   dishIngredientId = "",
 } = {}) {
-  const ingParams = new URLSearchParams({
-    page: String(ingredientPage),
-    page_size: String(ingredientPageSize),
-  });
+  const ingParams = new URLSearchParams();
   if (ingredientQ) ingParams.set("q", ingredientQ);
 
-  const dishParams = new URLSearchParams({
-    page: String(dishPage),
-    page_size: String(dishPageSize),
-  });
+  const dishParams = new URLSearchParams();
   if (dishQ) dishParams.set("q", dishQ);
   if (dishIngredientId) dishParams.set("ingredient_id", dishIngredientId);
 
   const [ingredients, dishes] = await Promise.all([
-    httpJson(`${ADMIN_API.ingredients}?${ingParams.toString()}`, { method: "GET", headers: {} }, { includeAdminKey: true }),
-    httpJson(`${ADMIN_API.dishes}?${dishParams.toString()}`, { method: "GET", headers: {} }, { includeAdminKey: true }),
+    loadAllCatalogItems(ADMIN_API.ingredients, ingParams),
+    loadAllCatalogItems(ADMIN_API.dishes, dishParams),
   ]);
 
   return { ingredients, dishes };

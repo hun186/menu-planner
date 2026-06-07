@@ -186,6 +186,71 @@ function renderWeekdayRoleOverrides(perWeekdayRoles = {}) {
   updateWeekdayRoleAddOptions();
 }
 
+function updateWeekdayProteinAddOptions() {
+  const used = new Set();
+  $(DOM.weekdayProteinTableBody).find("tr[data-weekday]").each(function () {
+    used.add(String($(this).data("weekday")));
+  });
+  const $options = $(DOM.weekdayProteinAddSelect).find("option");
+  $options.each(function () {
+    $(this).prop("disabled", used.has(String($(this).val())));
+  });
+  const $current = $(DOM.weekdayProteinAddSelect).find("option:selected");
+  if (!$current.length || $current.prop("disabled")) {
+    const $firstAvailable = $options.filter(function () { return !$(this).prop("disabled"); }).first();
+    if ($firstAvailable.length) $(DOM.weekdayProteinAddSelect).val($firstAvailable.val());
+  }
+  $(DOM.weekdayProteinAdd).prop("disabled", !$options.filter(function () { return !$(this).prop("disabled"); }).length);
+}
+
+function createWeekdayProteinOverrideRow(weekday, limit = 2) {
+  const wd = Number(weekday);
+  const parsed = parseInt(limit ?? 2, 10);
+  const value = Number.isFinite(parsed) && parsed >= 0 ? parsed : 2;
+  const $row = $("<tr></tr>").attr("data-weekday", wd);
+  $row.append($("<td></td>").text(getWeekdayLabel(wd)));
+  $row.append($("<td></td>").append($("<input>", {
+    class: "weekday-protein-limit",
+    "data-weekday": wd,
+    type: "number",
+    min: 0,
+    value,
+    "aria-label": `${getWeekdayLabel(wd)}配菜與湯品含蛋白質數量上限`,
+  })));
+  $row.append($("<td></td>").append($("<button>", {
+    type: "button",
+    class: "weekday-protein-delete",
+    "data-weekday": wd,
+    "aria-label": `刪除${getWeekdayLabel(wd)}含蛋白質上限覆寫`,
+  }).text("刪除")));
+  return $row;
+}
+
+function addWeekdayProteinOverride(weekday, limit = 2, onChanged = syncCfgTextareaFromForm) {
+  const wd = Number(weekday);
+  if (!Number.isInteger(wd) || wd < 1 || wd > 7) return;
+  const $body = $(DOM.weekdayProteinTableBody);
+  const selector = `tr[data-weekday="${wd}"]`;
+  const $existing = $body.find(selector);
+  const $row = createWeekdayProteinOverrideRow(wd, limit);
+  if ($existing.length) $existing.replaceWith($row);
+  else $body.append($row);
+  const rows = $body.find("tr[data-weekday]").get().sort((a, b) => Number($(a).data("weekday")) - Number($(b).data("weekday")));
+  $body.append(rows);
+  updateWeekdayProteinAddOptions();
+  if (onChanged) onChanged();
+}
+
+function renderWeekdayProteinOverrides(perWeekdayLimits = {}) {
+  $(DOM.weekdayProteinTableBody).empty();
+  Object.entries(perWeekdayLimits || {})
+    .map(([weekday, limit]) => [Number(weekday), limit])
+    .filter(([weekday]) => Number.isInteger(weekday) && weekday >= 1 && weekday <= 7)
+    .sort(([a], [b]) => a - b)
+    .forEach(([weekday, limit]) => addWeekdayProteinOverride(weekday, limit, null));
+  updateWeekdayProteinAddOptions();
+}
+
 function readDishAllowedRules() {
   const out = {};
   $(DOM.allowedDishRules).find(".allowed-dish-rule").each(function () {
@@ -367,6 +432,15 @@ function readFormData() {
     perWeekdayRoles[weekday][role] = parseInt($(this).val() || "0", 10);
   });
 
+  const sideSoupProteinLimit = parseInt($(DOM.sideSoupProteinLimit).val() || "2", 10);
+  const perWeekdaySideSoupProteinLimits = {};
+  $(DOM.weekdayProteinLimitInputs).each(function () {
+    const raw = String($(this).val() || "").trim();
+    if (!raw) return;
+    const weekday = String($(this).data("weekday"));
+    perWeekdaySideSoupProteinLimits[weekday] = parseInt(raw, 10);
+  });
+
   const prepTimeLimitMinutes = parseInt($(DOM.prepTimeLimitMinutes).val() || "90", 10);
   const perWeekdayPrepTimeLimits = {};
   $(DOM.weekdayPrepLimitInputs).each(function () {
@@ -397,6 +471,8 @@ function readFormData() {
     noConsecutiveMeat: $(DOM.noConsecutiveMeat).is(":checked"),
     perDayRoles,
     perWeekdayRoles,
+    sideSoupProteinLimit,
+    perWeekdaySideSoupProteinLimits,
     prepTimeLimitMinutes,
     perWeekdayPrepTimeLimits,
     weeklyQuota,
@@ -458,6 +534,8 @@ function applyCfgToForm(cfg) {
     if ((form.perDayRoles || {})[role] !== undefined) $(this).val(form.perDayRoles[role]);
   });
   renderWeekdayRoleOverrides(form.perWeekdayRoles || {});
+  $(DOM.sideSoupProteinLimit).val(form.sideSoupProteinLimit ?? 2);
+  renderWeekdayProteinOverrides(form.perWeekdaySideSoupProteinLimits || {});
   $(DOM.prepTimeLimitMinutes).val(form.prepTimeLimitMinutes ?? 90);
   const prepOverrides = form.perWeekdayPrepTimeLimits || {};
   $(DOM.weekdayPrepLimitInputs).each(function () {
@@ -1019,6 +1097,16 @@ $(async function () {
     $(DOM.weekdayRoleTable).on("click", ".weekday-role-delete", function () {
       $(this).closest("tr[data-weekday]").remove();
       updateWeekdayRoleAddOptions();
+      syncCfgTextareaFromForm();
+    });
+    $(DOM.sideSoupProteinLimit).on("change input", syncCfgTextareaFromForm);
+    $(DOM.weekdayProteinAdd).on("click", () => {
+      addWeekdayProteinOverride($(DOM.weekdayProteinAddSelect).val(), $(DOM.sideSoupProteinLimit).val() || 2, syncCfgTextareaFromForm);
+    });
+    $(DOM.weekdayProteinTable).on("change input", ".weekday-protein-limit", syncCfgTextareaFromForm);
+    $(DOM.weekdayProteinTable).on("click", ".weekday-protein-delete", function () {
+      $(this).closest("tr[data-weekday]").remove();
+      updateWeekdayProteinAddOptions();
       syncCfgTextareaFromForm();
     });
     $(DOM.prepTimeLimitMinutes).on("change input", syncCfgTextareaFromForm);

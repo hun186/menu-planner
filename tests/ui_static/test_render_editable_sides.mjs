@@ -69,3 +69,57 @@ test("renderResult: editable side selectors follow per-weekday side count", () =
   assert.doesNotMatch(renderedHtml, /data-slot="side_1"/);
   assert.doesNotMatch(renderedHtml, /（選擇配菜2）/);
 });
+
+
+test("renderResult: editable mode renders empty selectors for every configured role slot", () => {
+  const renderedHtml = renderToHtml(
+    oneDayResult({ date: "2026-03-18" }),
+    {
+      people: 250,
+      per_day_roles: { main: 1, noodle: 1, side: 2, veg: 1, soup: 1, fruit: 1 },
+      per_weekday_roles: {
+        3: { main: 1, noodle: 1, side: 2, veg: 1, soup: 1, fruit: 1 },
+      },
+    },
+  );
+
+  for (const role of ["main", "noodle", "veg", "soup", "fruit"]) {
+    assert.match(renderedHtml, new RegExp(`data-role="${role}"`));
+  }
+  assert.match(renderedHtml, /（選擇純蔬1）/);
+  assert.match(renderedHtml, /（選擇湯品1）/);
+  assert.match(renderedHtml, /（選擇水果1）/);
+});
+
+
+test("renderResult: editable mode renders remaining selectors when configured count exceeds scheduled items", () => {
+  const renderedHtml = renderToHtml(
+    oneDayResult({
+      date: "2026-03-18",
+      sides: [{ id: "s1", name: "配菜一" }],
+    }),
+    {
+      people: 250,
+      per_day_roles: { main: 5, noodle: 5, side: 5, veg: 5, soup: 5, fruit: 5 },
+      per_weekday_roles: {
+        3: { main: 5, noodle: 5, side: 5, veg: 5, soup: 5, fruit: 5 },
+      },
+    },
+  );
+
+  for (const slot of ["main_1", "main_2", "main_3", "main_4"]) {
+    assert.match(renderedHtml, new RegExp(`data-slot="${slot}"`));
+  }
+  for (const role of ["noodle", "veg", "soup", "fruit"]) {
+    assert.match(renderedHtml, new RegExp(`data-role="${role}"[^>]+data-slot="${role}"`));
+    for (const suffix of [1, 2, 3, 4]) {
+      assert.match(renderedHtml, new RegExp(`data-slot="${role}_${suffix}"`));
+    }
+  }
+  for (const suffix of [1, 2, 3, 4]) {
+    assert.match(renderedHtml, new RegExp(`data-slot="side_${suffix}"`));
+  }
+  assert.match(renderedHtml, /配菜一/);
+  assert.match(renderedHtml, /（選擇配菜5）/);
+  assert.match(renderedHtml, /（選擇純蔬5）/);
+});

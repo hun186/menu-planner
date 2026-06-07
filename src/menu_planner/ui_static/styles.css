@@ -477,7 +477,20 @@ textarea{
 .mini-table{ width:100%; border-collapse:collapse; font-size:13px; }
 .mini-table th,.mini-table td{ border:1px solid #e6e6e6; padding:8px; }
 .mini-table th{ background:#f6f6f6; text-align:left; }
-.mini-table input{ width:100%; padding:6px 8px; border:1px solid #e6e6e6; border-radius:8px; }
+.mini-table input{ width:100%; min-width:52px; padding:6px 8px; border:1px solid #e6e6e6; border-radius:8px; }
+.role-counts-table th,
+.role-counts-table td,
+#weekday_role_counts_table th,
+#weekday_role_counts_table td{
+  min-width:62px;
+  white-space:nowrap;
+}
+.role-counts-table th:first-child,
+.role-counts-table td:first-child,
+#weekday_role_counts_table th:first-child,
+#weekday_role_counts_table td:first-child{ min-width:96px; }
+#weekday_role_counts_table th:last-child,
+#weekday_role_counts_table td:last-child{ min-width:70px; }
 .weekday-role-actions select{ padding:6px 8px; border:1px solid var(--bd); border-radius:8px; background:#fff; }
 
 .suggest{

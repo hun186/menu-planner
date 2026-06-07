@@ -111,6 +111,21 @@ function editableRoleSlotCount(cfg, dateText, role, fallbackCount) {
   return Number.isFinite(count) && count >= 0 ? count : fallback;
 }
 
+function editableRoleCell({ items, cfg, dateText, dayIndex, role, fallbackCount, emptyLabel }) {
+  const slotCount = editableRoleSlotCount(cfg, dateText, role, fallbackCount);
+  const renderCount = Math.max(items.length, slotCount);
+  return Array.from({ length: renderCount }, (_, i) => {
+    const it = items[i] || {};
+    return renderEditableDish({
+      name: it?.name || `（選擇${emptyLabel}${i + 1}）`,
+      dayIndex,
+      role,
+      slot: i === 0 ? role : `${role}_${i}`,
+      dishId: it?.id,
+    });
+  }).join("<span class=\"dish-sep\">、</span>");
+}
+
 export function renderResult(result, cfg, options = {}) {
   const editable = !!options.editable;
   const errByDay = new Map();
@@ -215,11 +230,11 @@ export function renderResult(result, cfg, options = {}) {
     const fitness = (d.score_fitness !== undefined && d.score_fitness !== null) ? Number(d.score_fitness) : -rawScore;
 
     const mainCell = editable && isScheduled
-      ? mainObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇主菜${i + 1}）`, dayIndex, role: "main", slot: i === 0 ? "main" : `main_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
+      ? editableRoleCell({ items: mainObjs, cfg, dateText: d.date, dayIndex, role: "main", fallbackCount: 1, emptyLabel: "主菜" })
       : escapeHtml(main);
 
     const noodleCell = editable && isScheduled
-      ? noodleObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇麵食${i + 1}）`, dayIndex, role: "noodle", slot: i === 0 ? "noodle" : `noodle_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
+      ? editableRoleCell({ items: noodleObjs, cfg, dateText: d.date, dayIndex, role: "noodle", fallbackCount: 0, emptyLabel: "麵食" })
       : escapeHtml(noodle);
 
     const sideSlotCount = editableRoleSlotCount(cfg, d.date, "side", 2);
@@ -237,15 +252,15 @@ export function renderResult(result, cfg, options = {}) {
       : escapeHtml(sides);
 
     const vegCell = editable && isScheduled
-      ? vegObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇純蔬${i + 1}）`, dayIndex, role: "veg", slot: i === 0 ? "veg" : `veg_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
+      ? editableRoleCell({ items: vegObjs, cfg, dateText: d.date, dayIndex, role: "veg", fallbackCount: 1, emptyLabel: "純蔬" })
       : escapeHtml(veg);
 
     const soupCell = editable && isScheduled
-      ? soupObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇湯品${i + 1}）`, dayIndex, role: "soup", slot: i === 0 ? "soup" : `soup_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
+      ? editableRoleCell({ items: soupObjs, cfg, dateText: d.date, dayIndex, role: "soup", fallbackCount: 1, emptyLabel: "湯品" })
       : escapeHtml(soup);
 
     const fruitCell = editable && isScheduled
-      ? fruitObjs.map((it, i) => renderEditableDish({ name: it?.name || `（選擇水果${i + 1}）`, dayIndex, role: "fruit", slot: i === 0 ? "fruit" : `fruit_${i}`, dishId: it?.id })).join("<span class=\"dish-sep\">、</span>")
+      ? editableRoleCell({ items: fruitObjs, cfg, dateText: d.date, dayIndex, role: "fruit", fallbackCount: 1, emptyLabel: "水果" })
       : escapeHtml(fruit);
 
     const dayPeople = Number(peopleOverrides[d.date] ?? d.procurement?.people ?? defaultPeople);

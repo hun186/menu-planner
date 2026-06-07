@@ -6,6 +6,7 @@ ARTIFACT_DIR = Path("artifacts")
 ARTIFACT_DIR.mkdir(exist_ok=True)
 WEEKDAY_SCREENSHOT_PATH = ARTIFACT_DIR / "weekday_role_overrides.png"
 DAILY_SCREENSHOT_PATH = ARTIFACT_DIR / "daily_role_counts_compact.png"
+WEEKDAY_MOBILE_SCREENSHOT_PATH = ARTIFACT_DIR / "weekday_role_overrides_mobile.png"
 
 
 def main() -> None:
@@ -56,10 +57,20 @@ def main() -> None:
         expect(add_select.locator('option[value="3"]')).to_be_enabled()
 
         page.locator("#weekday_role_counts_table").screenshot(path=str(WEEKDAY_SCREENSHOT_PATH))
+
+        page.set_viewport_size({"width": 390, "height": 900})
+        page.locator("#weekday_role_counts_table").scroll_into_view_if_needed()
+        monday_side = monday_row.locator('input[data-role="side"]')
+        expect(monday_side).to_have_value("3")
+        box = monday_side.bounding_box()
+        if not box or box["width"] < 40:
+            raise AssertionError(f"weekday side input too narrow on mobile: {box}")
+        page.locator("#weekday_role_counts_table").screenshot(path=str(WEEKDAY_MOBILE_SCREENSHOT_PATH))
         browser.close()
 
     print(f"daily_screenshot={DAILY_SCREENSHOT_PATH}")
     print(f"weekday_screenshot={WEEKDAY_SCREENSHOT_PATH}")
+    print(f"weekday_mobile_screenshot={WEEKDAY_MOBILE_SCREENSHOT_PATH}")
 
 
 if __name__ == "__main__":

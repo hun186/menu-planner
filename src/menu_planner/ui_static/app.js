@@ -743,15 +743,30 @@ function bindResultEditing() {
   const $select = $("#dish_editor_select");
   const ctx = { dayIndex: null, slot: null, role: null };
 
+  function effectiveDishRoleForEdit(dish) {
+    if (dish?.role === "main" && String(dish?.meat_type || "").trim().toLowerCase() === "noodles") {
+      return "noodle";
+    }
+    return dish?.role || "";
+  }
+
+  function isDishCandidateForEditRole(dish, role) {
+    if (!dish || !role) return false;
+    // Keep the editor consistent with planner fallback: legacy main dishes whose
+    // protein/meat type is noodles are scheduled as noodle-role dishes.
+    return effectiveDishRoleForEdit(dish) === role;
+  }
+
   function fillOptions(role, currentId) {
     const candidates = state.dishes
-      .filter((d) => d.role === role)
+      .filter((d) => isDishCandidateForEditRole(d, role))
       .sort((a, b) => (a.name || "").localeCompare((b.name || ""), "zh-Hant"));
     $select.empty();
     candidates.forEach((d) => {
+      const effectiveRole = effectiveDishRoleForEdit(d) === "noodle" && d.role !== "noodle" ? "麵食 fallback" : formatRole(d.role);
       const $opt = $("<option></option>");
       $opt.val(d.id);
-      $opt.text(d.name || d.id);
+      $opt.text(`${d.name || d.id}（${effectiveRole}）`);
       $select.append($opt);
     });
     if (currentId) $select.val(currentId);

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { renderResult } from "../../src/menu_planner/ui_static/render.js";
 
@@ -122,4 +123,13 @@ test("renderResult: editable mode renders remaining selectors when configured co
   assert.match(renderedHtml, /配菜一/);
   assert.match(renderedHtml, /（選擇配菜5）/);
   assert.match(renderedHtml, /（選擇純蔬5）/);
+});
+
+test("result editor candidate filter treats main/noodles dishes as noodle fallback options", () => {
+  const appJs = readFileSync(new URL('../../src/menu_planner/ui_static/app.js', import.meta.url), 'utf8');
+
+  assert.match(appJs, /function effectiveDishRoleForEdit\(dish\)/);
+  assert.match(appJs, /dish\?\.role === "main" && String\(dish\?\.meat_type \|\| ""\)\.trim\(\)\.toLowerCase\(\) === "noodles"/);
+  assert.match(appJs, /return effectiveDishRoleForEdit\(dish\) === role;/);
+  assert.match(appJs, /麵食 fallback/);
 });

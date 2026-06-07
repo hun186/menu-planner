@@ -170,3 +170,143 @@ def test_noodle_role_schema_migration_preserves_dish_rows_and_foreign_keys(tmp_p
             "INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
             ("noodle1", "水餃", "noodle", "tw", None, "[]", "[1,2,3,4,5,6,7]"),
         )
+
+
+def test_noodle_role_schema_migration_ignores_preexisting_orphan_fk_rows(tmp_path):
+    db_path = tmp_path / "legacy_fk_orphan.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.executescript(
+            """
+            CREATE TABLE ingredients (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              category TEXT NOT NULL,
+              protein_group TEXT,
+              default_unit TEXT NOT NULL
+            );
+            CREATE TABLE dishes (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              role TEXT NOT NULL CHECK(role IN ('main','side','veg','soup','fruit')),
+              cuisine TEXT,
+              meat_type TEXT,
+              tags_json TEXT NOT NULL DEFAULT '[]'
+            );
+            CREATE TABLE dish_ingredients (
+              dish_id TEXT NOT NULL,
+              ingredient_id TEXT NOT NULL,
+              qty REAL NOT NULL,
+              unit TEXT NOT NULL,
+              PRIMARY KEY (dish_id, ingredient_id),
+              FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
+              FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE RESTRICT
+            );
+            INSERT INTO ingredients(id, name, category, protein_group, default_unit)
+            VALUES ('ing1', '雞肉', 'protein', NULL, 'g');
+            INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json)
+            VALUES ('dish1', '雞肉主菜', 'main', 'tw', 'chicken', '[]');
+            INSERT INTO dish_ingredients(dish_id, ingredient_id, qty, unit)
+            VALUES ('dish1', 'ing1', 100, 'g');
+            INSERT INTO dish_ingredients(dish_id, ingredient_id, qty, unit)
+            VALUES ('missing_dish', 'ing1', 50, 'g');
+            """
+        )
+
+    SQLiteAdminRepo(str(db_path)).ensure_compatible_schema()
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+        assert conn.execute("SELECT role FROM dishes WHERE id='dish1'").fetchone() == ("main",)
+        assert conn.execute(
+            "SELECT qty FROM dish_ingredients WHERE dish_id='missing_dish' AND ingredient_id='ing1'"
+        ).fetchone() == (50.0,)
+        assert conn.execute(
+            "INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, allowed_weekdays_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("noodle1", "水餃", "noodle", "tw", None, "[]", "[1,2,3,4,5,6,7]"),
+        ).rowcount == 1
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == [("dish_ingredients", 2, "dishes", 1)]
+
+def test_admin_write_routes_save_when_legacy_db_has_preexisting_fk_errors(tmp_path):
+    db_path = tmp_path / "legacy_route_orphan.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.executescript(
+            """
+            CREATE TABLE ingredients (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              category TEXT NOT NULL,
+              protein_group TEXT,
+              default_unit TEXT NOT NULL
+            );
+            CREATE TABLE dishes (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              role TEXT NOT NULL CHECK(role IN ('main','side','veg','soup','fruit')),
+              cuisine TEXT,
+              meat_type TEXT,
+              tags_json TEXT NOT NULL DEFAULT '[]'
+            );
+            CREATE TABLE dish_ingredients (
+              dish_id TEXT NOT NULL,
+              ingredient_id TEXT NOT NULL,
+              qty REAL NOT NULL,
+              unit TEXT NOT NULL,
+              PRIMARY KEY (dish_id, ingredient_id),
+              FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
+              FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE RESTRICT
+            );
+            CREATE TABLE ingredient_prices (
+              ingredient_id TEXT NOT NULL,
+              price_date TEXT NOT NULL,
+              price_per_unit REAL NOT NULL,
+              unit TEXT NOT NULL,
+              PRIMARY KEY (ingredient_id, price_date)
+            );
+            CREATE TABLE inventory (
+              ingredient_id TEXT PRIMARY KEY,
+              qty_on_hand REAL NOT NULL,
+              unit TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              expiry_date TEXT
+            );
+            INSERT INTO ingredients(id, name, category, protein_group, default_unit)
+            VALUES ('ing1', '雞肉', 'protein', NULL, 'g');
+            INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json)
+            VALUES ('dish1', '雞肉主菜', 'main', 'tw', 'chicken', '[]');
+            INSERT INTO dish_ingredients(dish_id, ingredient_id, qty, unit)
+            VALUES ('missing_dish', 'ing1', 50, 'g');
+            """
+        )
+
+    ing_resp = admin_catalog.upsert_ingredient(
+        "ing1",
+        admin_catalog.IngredientUpsert(
+            name="雞肉更新",
+            category="protein",
+            protein_group="chicken",
+            default_unit="g",
+        ),
+        db_path=str(db_path),
+    )
+    dish_resp = admin_catalog.upsert_dish(
+        "dish1",
+        admin_catalog.DishUpsert(
+            name="雞肉主菜更新",
+            role="main",
+            cuisine="tw",
+            meat_type="chicken",
+            tags=[],
+            allowed_weekdays=[1, 2, 3],
+            prep_minutes=15,
+        ),
+        db_path=str(db_path),
+    )
+
+    assert ing_resp == {"ok": True, "id": "ing1"}
+    assert dish_resp == {"ok": True, "id": "dish1"}
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute("SELECT name, protein_group FROM ingredients WHERE id='ing1'").fetchone() == ("雞肉更新", "chicken")
+        assert conn.execute("SELECT name, prep_minutes FROM dishes WHERE id='dish1'").fetchone() == ("雞肉主菜更新", 15)
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == [("dish_ingredients", 1, "dishes", 1)]

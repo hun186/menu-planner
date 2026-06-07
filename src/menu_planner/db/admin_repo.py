@@ -62,6 +62,13 @@ class SQLiteAdminRepo:
         conn.execute("ALTER TABLE dishes ADD COLUMN prep_minutes INTEGER NOT NULL DEFAULT 0")
 
     @staticmethod
+    def _foreign_key_errors(conn: sqlite3.Connection) -> set[Tuple[str, int, str, int]]:
+        return {
+            (str(table), int(rowid), str(parent), int(fkid))
+            for table, rowid, parent, fkid in conn.execute("PRAGMA foreign_key_check").fetchall()
+        }
+
+    @staticmethod
     def _ensure_dish_role_allows_noodle(conn: sqlite3.Connection) -> None:
         row = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='dishes'"
@@ -70,6 +77,7 @@ class SQLiteAdminRepo:
         if "'noodle'" in create_sql:
             return
 
+        preexisting_fk_errors = SQLiteAdminRepo._foreign_key_errors(conn)
         columns = [r[1] for r in conn.execute("PRAGMA table_info(dishes)").fetchall()]
         has_allowed = "allowed_weekdays_json" in columns
         has_prep = "prep_minutes" in columns
@@ -113,9 +121,10 @@ class SQLiteAdminRepo:
             conn.execute(f"ALTER TABLE {migration_table} RENAME TO dishes")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_dishes_role ON dishes(role)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_dishes_meat_type ON dishes(meat_type)")
-            fk_errors = conn.execute("PRAGMA foreign_key_check").fetchall()
-            if fk_errors:
-                raise RuntimeError(f"dishes role migration caused foreign-key errors: {fk_errors}")
+            fk_errors = SQLiteAdminRepo._foreign_key_errors(conn)
+            new_fk_errors = sorted(fk_errors - preexisting_fk_errors)
+            if new_fk_errors:
+                raise RuntimeError(f"dishes role migration caused foreign-key errors: {new_fk_errors}")
         finally:
             if foreign_keys_were_enabled:
                 conn.execute("PRAGMA foreign_keys = ON")

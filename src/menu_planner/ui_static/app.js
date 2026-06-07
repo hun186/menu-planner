@@ -367,6 +367,15 @@ function readFormData() {
     perWeekdayRoles[weekday][role] = parseInt($(this).val() || "0", 10);
   });
 
+  const prepTimeLimitMinutes = parseInt($(DOM.prepTimeLimitMinutes).val() || "90", 10);
+  const perWeekdayPrepTimeLimits = {};
+  $(DOM.weekdayPrepLimitInputs).each(function () {
+    const raw = String($(this).val() || "").trim();
+    if (!raw) return;
+    const weekday = String($(this).data("weekday"));
+    perWeekdayPrepTimeLimits[weekday] = parseInt(raw, 10);
+  });
+
   const weeklyQuota = {};
   $(DOM.weeklyQuotaInputs).each(function () {
     const meat = $(this).data("meat");
@@ -388,6 +397,8 @@ function readFormData() {
     noConsecutiveMeat: $(DOM.noConsecutiveMeat).is(":checked"),
     perDayRoles,
     perWeekdayRoles,
+    prepTimeLimitMinutes,
+    perWeekdayPrepTimeLimits,
     weeklyQuota,
     repeatLimits,
     preferInventory: $(DOM.preferInventory).is(":checked"),
@@ -447,6 +458,12 @@ function applyCfgToForm(cfg) {
     if ((form.perDayRoles || {})[role] !== undefined) $(this).val(form.perDayRoles[role]);
   });
   renderWeekdayRoleOverrides(form.perWeekdayRoles || {});
+  $(DOM.prepTimeLimitMinutes).val(form.prepTimeLimitMinutes ?? 90);
+  const prepOverrides = form.perWeekdayPrepTimeLimits || {};
+  $(DOM.weekdayPrepLimitInputs).each(function () {
+    const weekday = String($(this).data("weekday"));
+    $(this).val(prepOverrides[weekday] ?? "");
+  });
 
   $(DOM.weeklyQuotaInputs).each(function () {
     const meat = $(this).data("meat");
@@ -989,6 +1006,8 @@ $(async function () {
       updateWeekdayRoleAddOptions();
       syncCfgTextareaFromForm();
     });
+    $(DOM.prepTimeLimitMinutes).on("change input", syncCfgTextareaFromForm);
+    $(DOM.weekdayPrepLimitInputs).on("change input", syncCfgTextareaFromForm);
     $(DOM.weeklyQuotaInputs).on("change input", syncCfgTextareaFromForm);
     $(DOM.repeatLimitInputs).on("change input", syncCfgTextareaFromForm);
 

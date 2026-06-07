@@ -49,6 +49,54 @@ test('cfg transform round-trips dish allowed weekdays as hard planning config', 
 });
 
 
+test('index page exposes prep-time limit controls and config mapping', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+  const appJs = readFileSync(new URL('../../src/menu_planner/ui_static/app.js', import.meta.url), 'utf8');
+  const domJs = readFileSync(new URL('../../src/menu_planner/ui_static/dom.js', import.meta.url), 'utf8');
+
+  assert.match(html, /每日備菜時間上限/);
+  assert.match(html, /id="prep_time_limit_minutes" type="number" min="0" value="90"/);
+  assert.match(html, /id="weekday_prep_limits_table"/);
+  assert.match(html, /class="weekday-prep-limit" data-weekday="3"/);
+  assert.match(appJs, /perWeekdayPrepTimeLimits\[weekday\] = parseInt\(raw, 10\)/);
+  assert.match(appJs, /DOM\.weekdayPrepLimitInputs/);
+  assert.match(domJs, /prepTimeLimitMinutes/);
+  assert.match(domJs, /weekdayPrepLimitInputs/);
+
+  const cfg = buildCfgFromFormData(
+    { hard: {}, soft: {}, schedule: {} },
+    {
+      horizonDays: 7,
+      defaultPeople: 250,
+      scheduleWeekdays: [1, 2, 3, 4, 5],
+      forceIncludeDates: [],
+      forceExcludeDates: [],
+      peopleOverrides: {},
+      prepTimeLimitMinutes: 90,
+      perWeekdayPrepTimeLimits: { 3: 120 },
+      costMin: 0,
+      costMax: 999,
+      meatTypes: ['chicken'],
+      noConsecutiveMeat: true,
+      perDayRoles: { main: 1, noodle: 0, side: 2, veg: 1, soup: 1, fruit: 1 },
+      perWeekdayRoles: {},
+      weeklyQuota: { chicken: 2 },
+      repeatLimits: {},
+      preferInventory: false,
+      preferExpiry: false,
+      inventoryPreferIngredientIds: [],
+      excludeDishIds: [],
+      dishAllowedWeekdays: {},
+    },
+  );
+
+  assert.equal(cfg.prep_time_limit_minutes, 90);
+  assert.deepEqual(cfg.per_weekday_prep_time_limit_minutes, { 3: 120 });
+  assert.equal(deriveFormDataFromCfg(cfg).prepTimeLimitMinutes, 90);
+  assert.deepEqual(deriveFormDataFromCfg(cfg).perWeekdayPrepTimeLimits, { 3: 120 });
+});
+
+
 test('dish suggestion controls disclose that keyword results are limited', () => {
   const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
   const appJs = readFileSync(new URL('../../src/menu_planner/ui_static/app.js', import.meta.url), 'utf8');
@@ -150,6 +198,6 @@ test('settings board reserves enough width for dense constraint tables', () => {
   assert.match(styles, /\.planner-settings-card\s*\{[\s\S]*min-width\s*:\s*max\(100%, var\(--planner-settings-board-min-width\)\)\s*;/);
   assert.match(
     styles,
-    new RegExp('\\.quota-matrix-table,\\n\\.repeat-limits-table,\\n#daily_role_counts_table,\\n#weekday_role_counts_table\\s*\\{[\\s\\S]*min-width\\s*:\\s*var\\(--planner-settings-table-min-width\\)\\s*;'),
+    new RegExp('\\.quota-matrix-table,\\n\\.repeat-limits-table,\\n#daily_role_counts_table,\\n#weekday_role_counts_table,\\n#weekday_prep_limits_table\\s*\\{[\\s\\S]*min-width\\s*:\\s*var\\(--planner-settings-table-min-width\\)\\s*;'),
   );
 });

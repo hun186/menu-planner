@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS dishes (
   cuisine TEXT,
   meat_type TEXT,
   tags_json TEXT NOT NULL DEFAULT '[]',
-  allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]'
+  allowed_weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]',
+  prep_minutes INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS dish_ingredients (
@@ -523,7 +524,8 @@ def upsert_dishes_and_links(
       role,
       cuisine,
       meat_type,
-      json.dumps(d.get("tags", []), ensure_ascii=False)
+      json.dumps(d.get("tags", []), ensure_ascii=False),
+      max(0, int(as_float(d.get("prep_minutes", d.get("prep_time_minutes", 0)), default=0) or 0)),
     ))
 
     for di in (d.get("ingredients", []) or []):
@@ -563,14 +565,15 @@ def upsert_dishes_and_links(
       link_rows.append((dish_id, ing_id, float(qty), unit))
 
   conn.executemany("""
-    INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO dishes(id, name, role, cuisine, meat_type, tags_json, prep_minutes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name=excluded.name,
       role=excluded.role,
       cuisine=excluded.cuisine,
       meat_type=excluded.meat_type,
-      tags_json=excluded.tags_json
+      tags_json=excluded.tags_json,
+      prep_minutes=excluded.prep_minutes
   """, dish_rows)
 
   if sync_dish_links and dish_ids:
@@ -752,7 +755,7 @@ def export_db_to_excel(conn: sqlite3.Connection, xlsx_path: Path) -> None:
   table_queries = [
     ("meta", "SELECT key, value FROM meta ORDER BY key"),
     ("ingredients", "SELECT id, name, category, protein_group, default_unit FROM ingredients ORDER BY id"),
-    ("dishes", "SELECT id, name, role, cuisine, meat_type, tags_json FROM dishes ORDER BY role, id"),
+    ("dishes", "SELECT id, name, role, cuisine, meat_type, tags_json, prep_minutes FROM dishes ORDER BY role, id"),
     ("dish_ingredients", "SELECT dish_id, ingredient_id, qty, unit FROM dish_ingredients ORDER BY dish_id, ingredient_id"),
     ("ingredient_prices", "SELECT ingredient_id, price_date, price_per_unit, unit FROM ingredient_prices ORDER BY price_date, ingredient_id"),
     ("inventory", "SELECT ingredient_id, qty_on_hand, unit, updated_at, expiry_date FROM inventory ORDER BY ingredient_id"),

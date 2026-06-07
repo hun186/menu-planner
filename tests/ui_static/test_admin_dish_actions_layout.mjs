@@ -12,17 +12,26 @@ test('dish management table keeps an explicit operation column after cost column
   const headers = [...dishTableMatch[1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/g)]
     .map((match) => match[1].replace(/<[^>]+>/g, '').trim());
 
-  assert.deepEqual(headers, ['ID', '名稱', '角色', '肉類', '菜系', '允許供應日', '成本', '操作']);
-  assert.match(styles, /\.dish-tbl th:nth-child\(8\), \.dish-tbl td:nth-child\(8\)\{ width:16%; \}/);
+  assert.deepEqual(headers, ['ID', '名稱', '角色', '肉類', '菜系', '允許供應日', '備菜時間', '成本', '操作']);
+  assert.match(styles, /\.dish-tbl th:nth-child\(9\), \.dish-tbl td:nth-child\(9\)\{ width:14%; \}/);
 });
 
 test('dish table widths include action buttons without over-allocating columns', () => {
   const widths = [...styles.matchAll(/\.dish-tbl th:nth-child\(\d+\), \.dish-tbl td:nth-child\(\d+\)\{ width:(\d+)%; \}/g)]
     .map((match) => Number(match[1]));
 
-  assert.equal(widths.length, 8, 'expected explicit widths for all dish table columns');
+  assert.equal(widths.length, 9, 'expected explicit widths for all dish table columns');
   assert.equal(widths.reduce((sum, width) => sum + width, 0), 100);
-  assert.ok(widths[6] >= 15, 'cost column should be wide enough to keep numbers on one line');
-  assert.ok(widths[7] >= 16, 'operation column should still reserve enough width for compact row action buttons');
+  assert.ok(widths[7] >= 10, 'cost column should be wide enough to keep numbers on one line');
+  assert.ok(widths[8] >= 14, 'operation column should still reserve enough width for compact row action buttons');
   assert.match(styles, /\.tbl-scroll\{ width:100%; overflow-x:auto; \}/);
+});
+
+
+test('dish editor exposes prep minutes input and save payload field', () => {
+  const adminJs = readFileSync('src/menu_planner/ui_static/admin.js', 'utf8');
+
+  assert.match(adminHtml, /<label>備菜時間（分鐘）<\/label><input id="dish_prep_minutes" type="number" min="0" step="1" value="0" \/>/);
+  assert.match(adminJs, /prep_minutes: Number\(\$\("#dish_prep_minutes"\)\.val\(\) \|\| 0\)/);
+  assert.match(adminJs, /菜色：備菜時間（分鐘）必須是不可小於 0 的整數。/);
 });

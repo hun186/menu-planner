@@ -206,6 +206,7 @@
           </div>
           <div class="row"><label>肉類</label><input id="dish_meat" type="text" placeholder="chicken/pork/..." /></div>
           <div class="row"><label>菜系</label><input id="dish_cuisine" type="text" placeholder="台式/日式/..." /></div>
+          <div class="row"><label>備菜時間（分鐘）</label><input id="dish_prep_minutes" type="number" min="0" step="1" value="0" /></div>
           <div class="row"><label>標籤</label><input id="dish_tags" type="text" placeholder='可輸入 JSON: ["清淡","快手"] 或 逗號分隔: 清淡,快手' /></div>
           <div class="row">
             <label>允許供應日</label>
@@ -269,6 +270,7 @@
                 <th class="sortable-th" data-dish-sort-key="meat_type">肉類</th>
                 <th class="sortable-th" data-dish-sort-key="cuisine">菜系</th>
                 <th>允許供應日</th>
+                <th class="sortable-th" data-dish-sort-key="prep_minutes">備菜時間</th>
                 <th class="sortable-th" data-dish-sort-key="cost" title="1 人份估算成本（使用食材最新價格）">成本</th>
                 <th>操作</th>
               </tr>

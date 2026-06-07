@@ -153,6 +153,27 @@
           </tbody>
         </table>
 
+        <h3 class="h3">每日備菜時間上限</h3>
+        <div class="hint">全日已排菜色的「備菜時間（分鐘）」總和不可超過此上限；可針對週幾填入覆寫值，留空則使用全域預設。</div>
+        <div class="row">
+          <label>全域每日上限</label>
+          <input id="prep_time_limit_minutes" type="number" min="0" value="90" aria-label="全域每日備菜時間上限（分鐘）" />
+        </div>
+        <table class="mini-table prep-limit-table" id="weekday_prep_limits_table">
+          <thead><tr><th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th><th>星期五</th><th>星期六</th><th>星期日</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><input class="weekday-prep-limit" data-weekday="1" type="number" min="0" placeholder="預設" aria-label="星期一備菜時間上限覆寫（分鐘）"></td>
+              <td><input class="weekday-prep-limit" data-weekday="2" type="number" min="0" placeholder="預設" aria-label="星期二備菜時間上限覆寫（分鐘）"></td>
+              <td><input class="weekday-prep-limit" data-weekday="3" type="number" min="0" placeholder="預設" aria-label="星期三備菜時間上限覆寫（分鐘）"></td>
+              <td><input class="weekday-prep-limit" data-weekday="4" type="number" min="0" placeholder="預設" aria-label="星期四備菜時間上限覆寫（分鐘）"></td>
+              <td><input class="weekday-prep-limit" data-weekday="5" type="number" min="0" placeholder="預設" aria-label="星期五備菜時間上限覆寫（分鐘）"></td>
+              <td><input class="weekday-prep-limit" data-weekday="6" type="number" min="0" placeholder="預設" aria-label="星期六備菜時間上限覆寫（分鐘）"></td>
+              <td><input class="weekday-prep-limit" data-weekday="7" type="number" min="0" placeholder="預設" aria-label="星期日備菜時間上限覆寫（分鐘）"></td>
+            </tr>
+          </tbody>
+        </table>
+
         <hr class="hr" />
         <h3 class="h3">每週肉類配額（主菜）</h3>
         <table class="mini-table quota-matrix-table" id="weekly_quota_table">

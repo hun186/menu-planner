@@ -1,4 +1,4 @@
-:root { --bd:#e6e6e6; --bg:#fafafa; --tx:#111; }
+:root { --bd:#e6e6e6; --bg:#fafafa; --tx:#111; --planner-settings-board-min-width:672px; --planner-settings-table-min-width:640px; }
 *{ box-sizing:border-box; }
 body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto Sans TC", sans-serif; color:var(--tx); background:var(--bg); }
 .wrap{ max-width:1200px; margin:0 auto; padding:18px; }
@@ -21,6 +21,9 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
   height:100%;
 }
 .card.full{ grid-column: 1 / -1; }
+.planner-grid{
+  grid-template-columns: minmax(var(--planner-settings-board-min-width), 1fr) minmax(0, 1fr);
+}
 
 .grid.manage-grid-one-collapsed{
   grid-template-columns: minmax(118px, 154px) minmax(0, 1fr);
@@ -52,7 +55,7 @@ body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, "Noto 
     grid-template-columns: minmax(0, 1fr);
   }
   .planner-settings-card{
-    min-width:max(100%, 590px);
+    min-width:max(100%, var(--planner-settings-board-min-width));
   }
   .result-card{
     min-width:max(100%, 860px);
@@ -509,6 +512,12 @@ textarea{
 .mini-table th,.mini-table td{ border:1px solid #e6e6e6; padding:8px; }
 .mini-table th{ background:#f6f6f6; text-align:left; }
 .mini-table input{ width:100%; min-width:52px; padding:6px 8px; border:1px solid #e6e6e6; border-radius:8px; }
+.quota-matrix-table,
+.repeat-limits-table,
+#daily_role_counts_table,
+#weekday_role_counts_table{
+  min-width:var(--planner-settings-table-min-width);
+}
 .quota-matrix-table th,
 .quota-matrix-table td{
   text-align:center;
@@ -528,12 +537,6 @@ textarea{
 .repeat-limits-table td:nth-child(1),
 .repeat-limits-table td:nth-child(3){
   width:calc((100% - 164px) / 2);
-}
-@media (max-width: 720px){
-  .quota-matrix-table,
-  .repeat-limits-table{
-    min-width:640px;
-  }
 }
 .role-counts-table th,
 .role-counts-table td,

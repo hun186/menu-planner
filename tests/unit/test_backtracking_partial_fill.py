@@ -150,3 +150,57 @@ def test_fill_days_after_mains_cost_retry_has_soup_repeat_checker_imported():
     assert len(plan_days) == 1
     assert errors and errors[0]["code"] == "COST_OUT_OF_RANGE"
     assert explanations[0]["reason_code"] == "COST_OUT_OF_RANGE"
+
+
+def test_fill_days_after_mains_side_failure_does_not_freeze_repeat_window():
+    """Regression: a failed side day must not freeze the 7-active-day side window forever."""
+    horizon_days = 9
+    mains = [f"main_day{i}" for i in range(horizon_days)]
+    sides = [_mk_dish(f"side_{i}", "side") for i in range(7)]
+    vegs = [_mk_dish("veg_a", "veg")]
+    soups = [_mk_dish("soup_a", "soup")]
+    fruits = [_mk_dish("fruit_a", "fruit")]
+
+    feat = {
+        **{main_id: _mk_feat(main_id, "main", meat_type="pork") for main_id in mains},
+        **{side.id: _mk_feat(side.id, "side") for side in sides},
+        "veg_a": _mk_feat("veg_a", "veg"),
+        "soup_a": _mk_feat("soup_a", "soup"),
+        "fruit_a": _mk_feat("fruit_a", "fruit"),
+    }
+    hard = {
+        "seed": 7,
+        "repeat_limits": {
+            "max_same_side_in_7_days": 1,
+            "max_same_veg_in_7_days": 99,
+            "max_same_soup_in_7_days": 99,
+            "max_same_fruit_in_7_days": 99,
+        },
+        "cost_range_per_person_per_day": {"min": 0, "max": 999},
+    }
+    role_counts_by_day = [
+        {"main": 1, "noodle": 0, "side": 1, "veg": 1, "soup": 1, "fruit": 1}
+        for _ in range(horizon_days)
+    ]
+
+    plan_days, _score, explanations, errors = fill_days_after_mains(
+        horizon_days=horizon_days,
+        main_ids=mains,
+        sides=sides,
+        vegs=vegs,
+        soups=soups,
+        fruits=fruits,
+        feat=feat,
+        hard=hard,
+        weights={},
+        soft={},
+        start_date=date(2026, 5, 1),
+        role_counts_by_day=role_counts_by_day,
+    )
+
+    assert len(plan_days) == horizon_days
+    assert errors and errors[0]["code"] == "SIDE_NO_SOLUTION"
+    assert explanations[7]["reason_code"] == "SIDE_NO_SOLUTION"
+    assert plan_days[7].sides == []
+    assert len(plan_days[8].sides) == 1
+    assert explanations[8]["failed"] is False

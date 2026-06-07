@@ -120,3 +120,20 @@ test('repeat limit controls include all split menu roles', () => {
   assert.match(html, /純蔬 7 天重複上限/);
   assert.match(html, /data-key="max_same_veg_in_7_days"/);
 });
+
+
+test('weekly meat quotas use meat-type columns and repeat limits use paired rows', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+
+  assert.match(html, /<table class="mini-table quota-matrix-table" id="weekly_quota_table">/);
+  assert.match(html, /<tr><th>每週上限<\/th><th>雞<\/th><th>豬<\/th><th>牛<\/th><th>海鮮<\/th><th>素<\/th><\/tr>/);
+  assert.match(html, /<td>主菜數<\/td>/);
+  assert.match(html, /aria-label="雞每週上限"/);
+  assert.doesNotMatch(html, /<tr><td>雞<\/td><td><input class="quota"/);
+
+  assert.match(html, /<table class="mini-table repeat-limits-table" id="repeat_limits_table">/);
+  assert.match(html, /<tr><th>限制項目<\/th><th>數值<\/th><th>限制項目<\/th><th>數值<\/th><\/tr>/);
+  assert.match(html, /以兩欄並排呈現，保留完整限制名稱，同時減少垂直捲動/);
+  assert.match(html, /主菜 30 天重複上限<\/td><td><input class="repeat-limit"[\s\S]+麵食 7 天重複上限/);
+  assert.match(html, /食材窗口天數<\/td><td><input class="repeat-limit"[\s\S]+食材連續天數上限/);
+});

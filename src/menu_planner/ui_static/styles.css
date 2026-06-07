@@ -509,6 +509,32 @@ textarea{
 .mini-table th,.mini-table td{ border:1px solid #e6e6e6; padding:8px; }
 .mini-table th{ background:#f6f6f6; text-align:left; }
 .mini-table input{ width:100%; min-width:52px; padding:6px 8px; border:1px solid #e6e6e6; border-radius:8px; }
+.quota-matrix-table th,
+.quota-matrix-table td{
+  text-align:center;
+  white-space:nowrap;
+}
+.quota-matrix-table th:first-child,
+.quota-matrix-table td:first-child{
+  text-align:left;
+  min-width:88px;
+}
+.repeat-limits-table th:nth-child(2),
+.repeat-limits-table th:nth-child(4),
+.repeat-limits-table td:nth-child(2),
+.repeat-limits-table td:nth-child(4){
+  width:82px;
+}
+.repeat-limits-table td:nth-child(1),
+.repeat-limits-table td:nth-child(3){
+  width:calc((100% - 164px) / 2);
+}
+@media (max-width: 720px){
+  .quota-matrix-table,
+  .repeat-limits-table{
+    min-width:640px;
+  }
+}
 .role-counts-table th,
 .role-counts-table td,
 #weekday_role_counts_table th,

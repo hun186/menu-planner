@@ -155,35 +155,49 @@
 
         <hr class="hr" />
         <h3 class="h3">每週肉類配額（主菜）</h3>
-        <table class="mini-table" id="weekly_quota_table">
+        <table class="mini-table quota-matrix-table" id="weekly_quota_table">
           <thead>
-            <tr><th>肉類</th><th>每週上限</th></tr>
+            <tr><th>每週上限</th><th>雞</th><th>豬</th><th>牛</th><th>海鮮</th><th>素</th></tr>
           </thead>
           <tbody>
-            <tr><td>雞</td><td><input class="quota" data-meat="chicken" type="number" min="0" value="2"></td></tr>
-            <tr><td>豬</td><td><input class="quota" data-meat="pork" type="number" min="0" value="2"></td></tr>
-            <tr><td>牛</td><td><input class="quota" data-meat="beef" type="number" min="0" value="1"></td></tr>
-            <tr><td>海鮮</td><td><input class="quota" data-meat="seafood" type="number" min="0" value="1"></td></tr>
-            <tr><td>素</td><td><input class="quota" data-meat="vegetarian" type="number" min="0" value="2"></td></tr>
+            <tr>
+              <td>主菜數</td>
+              <td><input class="quota" data-meat="chicken" type="number" min="0" value="2" aria-label="雞每週上限"></td>
+              <td><input class="quota" data-meat="pork" type="number" min="0" value="2" aria-label="豬每週上限"></td>
+              <td><input class="quota" data-meat="beef" type="number" min="0" value="1" aria-label="牛每週上限"></td>
+              <td><input class="quota" data-meat="seafood" type="number" min="0" value="1" aria-label="海鮮每週上限"></td>
+              <td><input class="quota" data-meat="vegetarian" type="number" min="0" value="2" aria-label="素每週上限"></td>
+            </tr>
           </tbody>
         </table>
 
         <h3 class="h3">重複限制（可互動調整）</h3>
-        <table class="mini-table" id="repeat_limits_table">
+        <div class="hint">以兩欄並排呈現，保留完整限制名稱，同時減少垂直捲動。</div>
+        <table class="mini-table repeat-limits-table" id="repeat_limits_table">
           <thead>
-            <tr><th>限制項目</th><th>數值</th></tr>
+            <tr><th>限制項目</th><th>數值</th><th>限制項目</th><th>數值</th></tr>
           </thead>
           <tbody>
-            <tr><td>主菜 30 天重複上限</td><td><input class="repeat-limit" data-key="max_same_main_in_30_days" type="number" min="1" value="1"></td></tr>
-            <tr><td>麵食 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_noodle_in_7_days" type="number" min="1" value="1"></td></tr>
-            <tr><td>麵食 30 天重複上限</td><td><input class="repeat-limit" data-key="max_same_noodle_in_30_days" type="number" min="1" value="2"></td></tr>
-            <tr><td>配菜 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_side_in_7_days" type="number" min="1" value="1"></td></tr>
-            <tr><td>純蔬 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_veg_in_7_days" type="number" min="1" value="1"></td></tr>
-            <tr><td>湯 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_soup_in_7_days" type="number" min="1" value="1"></td></tr>
-            <tr><td>水果 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_fruit_in_7_days" type="number" min="1" value="1"></td></tr>
-            <tr><td>食材窗口重複上限</td><td><input class="repeat-limit" data-key="max_same_ingredient_in_window_days" type="number" min="1" value="2"></td></tr>
-            <tr><td>食材窗口天數</td><td><input class="repeat-limit" data-key="ingredient_repeat_window_days" type="number" min="1" value="4"></td></tr>
-            <tr><td>食材連續天數上限</td><td><input class="repeat-limit" data-key="max_consecutive_ingredient_days" type="number" min="1" value="2"></td></tr>
+            <tr>
+              <td>主菜 30 天重複上限</td><td><input class="repeat-limit" data-key="max_same_main_in_30_days" type="number" min="1" value="1" aria-label="主菜 30 天重複上限"></td>
+              <td>麵食 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_noodle_in_7_days" type="number" min="1" value="1" aria-label="麵食 7 天重複上限"></td>
+            </tr>
+            <tr>
+              <td>麵食 30 天重複上限</td><td><input class="repeat-limit" data-key="max_same_noodle_in_30_days" type="number" min="1" value="2" aria-label="麵食 30 天重複上限"></td>
+              <td>配菜 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_side_in_7_days" type="number" min="1" value="1" aria-label="配菜 7 天重複上限"></td>
+            </tr>
+            <tr>
+              <td>純蔬 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_veg_in_7_days" type="number" min="1" value="1" aria-label="純蔬 7 天重複上限"></td>
+              <td>湯 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_soup_in_7_days" type="number" min="1" value="1" aria-label="湯 7 天重複上限"></td>
+            </tr>
+            <tr>
+              <td>水果 7 天重複上限</td><td><input class="repeat-limit" data-key="max_same_fruit_in_7_days" type="number" min="1" value="1" aria-label="水果 7 天重複上限"></td>
+              <td>食材窗口重複上限</td><td><input class="repeat-limit" data-key="max_same_ingredient_in_window_days" type="number" min="1" value="2" aria-label="食材窗口重複上限"></td>
+            </tr>
+            <tr>
+              <td>食材窗口天數</td><td><input class="repeat-limit" data-key="ingredient_repeat_window_days" type="number" min="1" value="4" aria-label="食材窗口天數"></td>
+              <td>食材連續天數上限</td><td><input class="repeat-limit" data-key="max_consecutive_ingredient_days" type="number" min="1" value="2" aria-label="食材連續天數上限"></td>
+            </tr>
           </tbody>
         </table>
 

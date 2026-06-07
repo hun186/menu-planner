@@ -2,6 +2,7 @@ from datetime import date
 
 from src.menu_planner.db.repo import Dish
 from src.menu_planner.engine.backtracking import fill_days_after_mains, plan_mains_beam
+from src.menu_planner.engine.constraints import PlanDay, check_noodle_window_repeat
 from src.menu_planner.engine.features import DishFeatures
 from src.menu_planner.engine.planner import _get_active_mask, _split_dishes_by_role
 from src.menu_planner.engine.roles import counts_for_day
@@ -172,3 +173,73 @@ def test_fill_days_honors_multi_count_for_all_roles():
     assert len(day.vegs) == 2
     assert len(day.soups) == 2
     assert len(day.fruits) == 2
+
+
+def test_noodle_repeat_limit_blocks_reuse_within_7_days():
+    plan_days = [
+        PlanDay(
+            main="main_a",
+            sides=["side_a"],
+            veg="veg_a",
+            soup="soup_a",
+            fruit="fruit_a",
+            noodle="noodle_a",
+        )
+    ]
+
+    assert not check_noodle_window_repeat(
+        1, ["noodle_a"], plan_days, max_repeat=1, window_days=7
+    )
+    assert check_noodle_window_repeat(
+        1, ["noodle_b"], plan_days, max_repeat=1, window_days=7
+    )
+
+
+def test_noodle_repeat_limit_allows_weekly_wednesday_reuse():
+    plan_days = [
+        PlanDay(
+            main="main_a",
+            sides=["side_a"],
+            veg="veg_a",
+            soup="soup_a",
+            fruit="fruit_a",
+            noodle="noodle_a",
+        ),
+        *[
+            PlanDay(
+                main="main_b",
+                sides=["side_b"],
+                veg="veg_b",
+                soup="soup_b",
+                fruit="fruit_b",
+            )
+            for _ in range(6)
+        ],
+    ]
+
+    assert check_noodle_window_repeat(
+        7, ["noodle_a"], plan_days, max_repeat=1, window_days=7
+    )
+
+
+def test_noodle_30_day_repeat_limit_runs_independently_from_7_day_limit():
+    plan_days = []
+    for day_idx in range(20):
+        noodle = "noodle_a" if day_idx in {0, 10} else ""
+        plan_days.append(
+            PlanDay(
+                main="main_a",
+                sides=["side_a"],
+                veg="veg_a",
+                soup="soup_a",
+                fruit="fruit_a",
+                noodle=noodle,
+            )
+        )
+
+    assert check_noodle_window_repeat(
+        20, ["noodle_a"], plan_days, max_repeat=1, window_days=7
+    )
+    assert not check_noodle_window_repeat(
+        20, ["noodle_a"], plan_days, max_repeat=2, window_days=30
+    )

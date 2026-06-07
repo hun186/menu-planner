@@ -101,6 +101,7 @@ test('daily role counts use the same compact role-column layout as weekday overr
   const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
 
   assert.match(html, /<table class="mini-table role-counts-table" id="daily_role_counts_table">/);
+  assert.match(html, /<table class="mini-table role-counts-table" id="weekday_role_counts_table">/);
   assert.match(html, /<th>設定<\/th><th>主菜<\/th><th>麵食<\/th><th>配菜<\/th><th>純蔬<\/th><th>湯<\/th><th>水果<\/th>/);
   assert.match(html, /<tr><td>全域每日預設<\/td>/);
   assert.match(html, /aria-label="全域每日預設主菜數量"/);

@@ -280,6 +280,15 @@ textarea{
 }
 
 .summary{ display:flex; gap:16px; flex-wrap:wrap; font-size:13px; padding:8px 0 14px 0; }
+.result{
+  max-width:100%;
+  overflow-x:auto;
+  padding-bottom:4px;
+  -webkit-overflow-scrolling:touch;
+}
+.result > .tbl{
+  min-width:860px;
+}
 .tbl{ width:100%; border-collapse:collapse; font-size:13px; }
 
 .tbl-scroll{ width:100%; overflow-x:auto; }

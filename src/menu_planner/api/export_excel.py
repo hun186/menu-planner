@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
 
+from ..engine.roles import ROLE_LABELS, ROLE_ORDER, ROLE_PLURALS
 from .export_excel_breakdown import build_human_breakdown
 from .export_excel_sheets import (
     append_config_sheet,
@@ -28,23 +29,7 @@ def _to_float_or_none(value: Any) -> float | None:
         return None
 
 
-ROLE_LABELS = {
-    "main": "主菜",
-    "noodle": "麵食",
-    "side": "配菜",
-    "veg": "純蔬",
-    "soup": "湯",
-    "fruit": "水果",
-}
-ROLE_PLURALS = {
-    "main": "mains",
-    "noodle": "noodles",
-    "side": "sides",
-    "veg": "vegs",
-    "soup": "soups",
-    "fruit": "fruits",
-}
-ROLE_EXPORT_ORDER = ("main", "noodle", "side", "veg", "soup", "fruit")
+ROLE_EXPORT_ORDER = ROLE_ORDER
 METRIC_HEADERS = ["成本", "目標匹配度", "分數拆解(JSON)", "分數拆解(易讀)"]
 
 

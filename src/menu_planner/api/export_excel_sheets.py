@@ -7,6 +7,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from ..engine.roles import ROLE_LABELS
 from .export_excel_breakdown import num
 
 DAILY_SUBTOTAL_FILL = PatternFill(fill_type="solid", fgColor="FFFDE68A")
@@ -42,7 +43,7 @@ def append_procurement_sheet(wb: Workbook, result: Dict[str, Any]) -> None:
             for ingredient in (dish.get("ingredients") or []):
                 ws.append([
                     date_text,
-                    role,
+                    ROLE_LABELS.get(role, role),
                     dish_name,
                     ingredient.get("ingredient_name", ""),
                     ingredient.get("qty_per_person", ""),

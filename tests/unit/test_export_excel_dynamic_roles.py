@@ -112,3 +112,62 @@ def test_export_excel_falls_back_to_single_role_shape_for_legacy_items():
     assert headers[:7] == ["日期", "主菜", "配菜1", "配菜2", "純蔬", "湯", "水果"]
     values = [sheet.cell(row=2, column=col).value for col in range(1, 8)]
     assert values == ["2026-03-05", "主菜A", "配菜A", "配菜B", "純蔬A", "湯A", "水果A"]
+
+
+def test_export_excel_human_breakdown_covers_all_dynamic_roles():
+    cfg = {"per_day_roles": {"main": 1, "noodle": 1, "side": 1, "veg": 1, "soup": 1, "fruit": 1}}
+    result = {
+        "days": [
+            {
+                "date": "2026-03-06",
+                "items": {
+                    "mains": [{"id": "m1", "name": "主菜A", "inventory_hit_ratio": 0.5}],
+                    "noodles": [{"id": "n1", "name": "麵食A", "inventory_hit_ratio": 0.25, "near_expiry_days_min": 3}],
+                    "sides": [{"id": "s1", "name": "配菜A", "inventory_hit_ratio": 0.1}],
+                    "vegs": [{"id": "v1", "name": "純蔬A", "inventory_hit_ratio": 0.2, "near_expiry_days_min": 6}],
+                    "soups": [{"id": "so1", "name": "湯A", "inventory_hit_ratio": 0.3}],
+                    "fruits": [{"id": "f1", "name": "水果A", "inventory_hit_ratio": 0.4, "near_expiry_days_min": 2}],
+                },
+                "score_breakdown": {
+                    "near_expiry_bonus": -3,
+                    "use_inventory_bonus_others": -2,
+                    "use_inventory_bonus_main": -1,
+                },
+                "score_summary": {"bonus": -6, "penalty": 0, "raw": -6, "fitness": 6},
+            }
+        ]
+    }
+
+    workbook_bytes = build_plan_workbook(cfg, result)
+    wb = openpyxl.load_workbook(io.BytesIO(workbook_bytes), data_only=True)
+    human = wb["菜單"].cell(row=2, column=wb["菜單"].max_column).value
+
+    assert "主菜庫存命中：主菜A 50%" in human
+    assert "非主菜庫存命中：麵食A 25%、配菜A 10%、純蔬A 20%、湯A 30%、水果A 40%" in human
+    assert "近到期：麵食A（3天）、純蔬A（6天）、水果A（2天）" in human
+
+
+def test_export_excel_procurement_detail_uses_role_labels_and_role_order():
+    cfg = {}
+    result = {
+        "days": [
+            {
+                "date": "2026-03-07",
+                "procurement": {
+                    "people": 10,
+                    "dishes": [
+                        {"role": "main", "dish_name": "主菜A", "ingredients": [{"ingredient_name": "雞肉"}]},
+                        {"role": "noodle", "dish_name": "麵食A", "ingredients": [{"ingredient_name": "麵"}]},
+                        {"role": "veg", "dish_name": "純蔬A", "ingredients": [{"ingredient_name": "青菜"}]},
+                    ],
+                },
+            }
+        ]
+    }
+
+    workbook_bytes = build_plan_workbook(cfg, result)
+    wb = openpyxl.load_workbook(io.BytesIO(workbook_bytes), data_only=True)
+    sheet = wb["採買明細"]
+
+    roles = [sheet.cell(row=row, column=2).value for row in range(2, sheet.max_row + 1)]
+    assert roles == ["主菜", "麵食", "純蔬"]

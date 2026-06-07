@@ -5,6 +5,22 @@ from datetime import date, timedelta
 from typing import Any, Dict
 
 ROLE_ORDER = ("main", "noodle", "side", "veg", "soup", "fruit")
+ROLE_LABELS = {
+    "main": "主菜",
+    "noodle": "麵食",
+    "side": "配菜",
+    "veg": "純蔬",
+    "soup": "湯",
+    "fruit": "水果",
+}
+ROLE_PLURALS = {
+    "main": "mains",
+    "noodle": "noodles",
+    "side": "sides",
+    "veg": "vegs",
+    "soup": "soups",
+    "fruit": "fruits",
+}
 DEFAULT_ROLE_COUNTS = {"main": 1, "noodle": 0, "side": 2, "veg": 1, "soup": 1, "fruit": 1}
 
 

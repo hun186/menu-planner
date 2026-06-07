@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from ..db.repo import DishIngredient, Ingredient, PriceItem, SQLiteRepo
+from ..engine.roles import ROLE_ORDER, ROLE_PLURALS
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:
@@ -27,19 +28,18 @@ def _convert_unit(qty: float, from_unit: str, to_unit: str, conv: Dict[Tuple[str
 
 def _iter_day_dishes(day: Dict[str, Any]) -> Iterable[Tuple[str, Dict[str, Any]]]:
     items = day.get("items") or {}
-    plural_roles = {"main": "mains", "noodle": "noodles", "veg": "vegs", "soup": "soups", "fruit": "fruits"}
-    for role, plural in plural_roles.items():
+    if not isinstance(items, dict):
+        return
+
+    for role in ROLE_ORDER:
+        plural = ROLE_PLURALS[role]
         dishes = items.get(plural)
         if not isinstance(dishes, list) or not dishes:
             dish = items.get(role) or {}
-            dishes = [dish] if dish.get("id") else []
+            dishes = [dish] if isinstance(dish, dict) and dish.get("id") else []
         for dish in dishes:
             if (dish or {}).get("id"):
                 yield role, dish
-
-    for side in (items.get("sides") or []):
-        if (side or {}).get("id"):
-            yield "side", side
 
 
 def _resolve_day_people(

@@ -79,3 +79,27 @@
 ### 重要結論
 
 - 管理端寫入權限現在只有一條路徑：使用 active superuser 帳號登入後，以 Bearer token 呼叫 API。
+
+## 2026-06-08 Vercel Auth Store Crash Fix
+
+### 任務目的
+
+- 修正導入帳號管理系統後，Vercel Serverless Function 在部署環境啟動時可能因預設 auth user store 寫入專案目錄而崩潰的問題。
+
+### 主要修改內容
+
+- `AuthStore` 初始化改為先嘗試使用預設 `.auth_users.json`；若未顯式設定 `AUTH_USERS_FILE` 且預設位置不可寫，會退回作業系統暫存目錄中的 ephemeral auth store。
+- 若使用者顯式設定 `AUTH_USERS_FILE`，寫入錯誤仍會直接拋出，避免設定錯誤被靜默掩蓋。
+- 新增單元測試覆蓋「預設路徑不可寫時 fallback」與「顯式路徑不可寫時不 fallback」。
+
+### 驗證結果
+
+- `python -c "import fastapi, pytest"` 通過。
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py` 通過，4 tests passed。
+- `python -m compileall -q src/menu_planner/api/auth/auth_store.py src/menu_planner/api/auth/dependencies.py src/menu_planner/api/auth/router.py api/index.py` 通過。
+- 使用 `AUTH_USERS_FILE` 指向暫存檔啟動 `uvicorn`，並以 `curl` 呼叫 `/v1/auth/users`，服務正常回應 401 Unauthorized，確認 auth router 可啟動且未發生 server crash。
+
+### 重要結論
+
+- Vercel 或其他唯讀部署環境不應在 import-time 強制寫入專案根目錄；預設 fallback 可避免啟動即崩潰。
+- `/tmp` 類暫存 auth store 只適合避免 serverless crash，不適合作為長期帳號資料保存方式。

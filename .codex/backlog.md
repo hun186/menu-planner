@@ -8,3 +8,5 @@
 - 建立可用的 API integration 測試策略，解決目前 TestClient 需要 `httpx2` 但環境無法安裝的問題。
 - 為帳號管理 UI 補 Playwright 視覺驗證；目前 Chromium 安裝受 HTTP 403 限制。
 - 若未來需要自動化寫入 API，設計可審計且可撤銷的 service account / API token，不恢復共享 Admin Key。
+- 為 Vercel/Serverless 部署新增正式持久化 auth store（例如 Postgres、KV 或集中式 auth provider），取代目前只用來避免崩潰的 `/tmp` fallback。
+- 在部署文件補充 `AUTH_SECRET`、bootstrap superuser 與正式 auth storage 的 Vercel 環境變數設定指南。

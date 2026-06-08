@@ -85,3 +85,26 @@ Open
 
 狀態：
 Open
+
+---
+
+## Vercel Serverless 本機檔案系統不適合保存帳號資料
+
+首次發現：
+2026-06-08
+
+問題：
+- Vercel Serverless 部署環境可能無法寫入專案根目錄。
+- 預設 `.auth_users.json` 若在 import-time 被建立，可能造成 Function Invocation Failed。
+- 已加入預設 fallback 到暫存目錄以避免啟動崩潰，但暫存目錄不保證跨冷啟動、部署或多實例保存。
+
+影響：
+- 帳號註冊、審核與登入資料在 Vercel 上若只使用 fallback 暫存 store，可能遺失或不同實例不同步。
+
+暫時解法：
+- 設定可寫且可保存的 `AUTH_USERS_FILE`（若平台支援）。
+- 或設定 `AUTH_BOOTSTRAP_SUPERUSER_USERNAME` / `AUTH_BOOTSTRAP_SUPERUSER_PASSWORD` 供每次啟動建立 superuser。
+- 長期應改用資料庫或集中式 auth provider。
+
+狀態：
+Open

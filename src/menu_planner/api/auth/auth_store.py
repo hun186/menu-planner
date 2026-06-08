@@ -8,6 +8,7 @@ import os
 import secrets
 import tempfile
 import time
+import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,6 +60,10 @@ def _auth_file() -> Path:
     if configured:
         return Path(configured).expanduser().resolve()
     return _project_root() / ".auth_users.json"
+
+
+def _fallback_auth_file() -> Path:
+    return Path(tempfile.gettempdir()).resolve() / "menu-planner" / ".auth_users.json"
 
 
 def _token_secret() -> bytes:
@@ -147,10 +152,27 @@ def _load_bootstrap_superusers() -> list[dict[str, str]]:
 class AuthStore:
     def __init__(self, path: Path | None = None) -> None:
         self._lock = RLock()
+        self._explicit_path = path is not None or bool(_env_value("AUTH_USERS_FILE"))
         self.path = path or _auth_file()
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._ensure_file()
+        self._prepare_storage()
         self.ensure_bootstrap_superusers()
+
+    def _prepare_storage(self) -> None:
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._ensure_file()
+        except OSError as exc:
+            if self._explicit_path:
+                raise
+            fallback = _fallback_auth_file()
+            warnings.warn(
+                f"Auth user store {self.path} is not writable ({exc}); using ephemeral store {fallback}.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            self.path = fallback
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._ensure_file()
 
     def _ensure_file(self) -> None:
         if not self.path.exists():

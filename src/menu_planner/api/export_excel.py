@@ -16,7 +16,7 @@ from .export_excel_sheets import (
     append_procurement_sheet,
     append_procurement_summary_sheet,
     append_summary_sheet,
-    set_col_width,
+    auto_fit_columns,
 )
 
 
@@ -140,7 +140,37 @@ def _extract_role_names(items: Dict[str, Any], role: str, count: int) -> list[st
     return names[:count]
 
 
-def _extract_menu_row(day: Dict[str, Any], role_slots: Dict[str, int]) -> list[Any]:
+def _as_positive_int(value: Any, fallback: int) -> int:
+    try:
+        return max(1, int(float(value)))
+    except Exception:
+        return fallback
+
+
+def _resolve_day_people(cfg: Dict[str, Any], day: Dict[str, Any], day_index: int) -> int:
+    procurement = day.get("procurement") if isinstance(day, dict) else None
+    if isinstance(procurement, dict) and procurement.get("people") not in (None, ""):
+        return _as_positive_int(procurement.get("people"), 250)
+
+    default_people = _as_positive_int((cfg or {}).get("people", 250), 250)
+    schedule = (cfg or {}).get("schedule") or {}
+    overrides = schedule.get("people_overrides") if isinstance(schedule, dict) else {}
+    if isinstance(overrides, dict):
+        date_key = str(day.get("date", ""))
+        override = overrides.get(date_key)
+        if override in (None, ""):
+            override = overrides.get(str(day_index))
+        if override not in (None, ""):
+            return _as_positive_int(override, default_people)
+    return default_people
+
+
+def _extract_menu_row(
+    cfg: Dict[str, Any],
+    day: Dict[str, Any],
+    role_slots: Dict[str, int],
+    day_index: int,
+) -> list[Any]:
     items = day.get("items", {}) or {}
     if not isinstance(items, dict):
         items = {}
@@ -160,6 +190,7 @@ def _extract_menu_row(day: Dict[str, Any], role_slots: Dict[str, int]) -> list[A
     return [
         day.get("date", ""),
         _weekday_short_label(day.get("date")),
+        _resolve_day_people(cfg, day, day_index),
         *role_values,
         day.get("day_cost", ""),
         fitness if fitness is not None else "",
@@ -204,7 +235,7 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     ws.title = "菜單"
     days = result.get("days", []) or []
     role_slots = _compute_role_slots(cfg, days)
-    header = ["日期", "週幾", *_role_headers(role_slots), *METRIC_HEADERS]
+    header = ["日期", "週幾", "人數", *_role_headers(role_slots), *METRIC_HEADERS]
     ws.append(header)
 
     bold = Font(bold=True)
@@ -214,8 +245,8 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
         cell.alignment = Alignment(vertical="center")
 
     weekend_offday_fill = PatternFill(fill_type="solid", fgColor=WEEKEND_OFFDAY_FILL)
-    for day in days:
-        ws.append(_extract_menu_row(day, role_slots))
+    for day_index, day in enumerate(days):
+        ws.append(_extract_menu_row(cfg, day, role_slots, day_index))
         if _is_weekend_offday(day):
             for cell in ws[ws.max_row]:
                 cell.fill = weekend_offday_fill
@@ -223,18 +254,7 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     total_cost, total_fitness, fitness_count = _compute_plan_totals(days)
 
     ws.freeze_panes = "A2"
-    widths = {1: 12, 2: 4}
-    role_header_count = len(header) - 2 - len(METRIC_HEADERS)
-    for col in range(3, 3 + role_header_count):
-        widths[col] = 18
-    metric_start = 3 + role_header_count
-    widths.update({
-        metric_start: 10,
-        metric_start + 1: 10,
-        metric_start + 2: 48,
-        metric_start + 3: 60,
-    })
-    set_col_width(ws, widths)
+    auto_fit_columns(ws, max_width=80)
 
     wrap = Alignment(vertical="top", wrap_text=True)
     human_col = len(header)

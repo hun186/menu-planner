@@ -183,6 +183,8 @@ def test_generate_and_export_excel():
     headers = [sheet.cell(row=1, column=col).value for col in range(1, sheet.max_column + 1)]
     assert headers == [
         "日期",
+        "週幾",
+        "人數",
         *_expected_role_headers(cfg),
         "成本",
         "目標匹配度",
@@ -191,6 +193,8 @@ def test_generate_and_export_excel():
     ]
     assert "麵食" in headers
     assert "純蔬" in headers
+    assert sheet.cell(row=2, column=3).value == cfg.get("people", 250)
+    assert sheet.column_dimensions["A"].width > sheet.column_dimensions["B"].width
     assert detail_sheet.max_row > 1
     assert summary_sheet.max_row > 1
     summary_labels = [summary_sheet.cell(row=r, column=3).value for r in range(2, summary_sheet.max_row + 1)]

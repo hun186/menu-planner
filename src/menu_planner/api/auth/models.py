@@ -12,4 +12,4 @@ class AuthPayload(BaseModel):
 
 
 class ApprovePayload(BaseModel):
-    role: str = Field(..., pattern="^(user|manager|superuser)$")
+    role: str = Field(..., pattern="^(user|manager|backup_manager|superuser)$")

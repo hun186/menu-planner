@@ -103,3 +103,56 @@
 
 - Vercel 或其他唯讀部署環境不應在 import-time 強制寫入專案根目錄；預設 fallback 可避免啟動即崩潰。
 - `/tmp` 類暫存 auth store 只適合避免 serverless crash，不適合作為長期帳號資料保存方式。
+
+## 2026-06-08 Role Permission and Account Page Update
+
+### 任務目的
+
+- 回答並落實帳號權限分層：訪客、普通帳號、超級管理者的可用功能需更清楚，並降低資料維護人員不必要取得 superuser 的風險。
+
+### 主要修改內容
+
+- 新增 active user 等級的資料維護授權 dependency，讓已啟用的普通帳號可維護資料庫內容。
+- 將食材、菜色、價格、庫存、單位換算、菜色食材清單、庫存食材合併、手動建立備份與備份註解改為 active user 即可執行。
+- 保留帳號審核為 superuser 權限；備份還原、單一備份刪除與批次備份刪除後續已拆給 backup_manager 或 superuser。
+- 新增獨立帳號管理頁，包含登入、註冊、帳號審核與權限說明區塊；資料庫管理頁改回專注資料庫與備份作業。
+- 導航列新增帳號管理入口，並顯示目前登入帳號與帳號等級；未登入時顯示訪客狀態。
+
+### 驗證結果
+
+- 相關 Node UI static 測試通過。
+- 相關 Python unit 測試通過。
+- 本機啟動 FastAPI 後，以 HTTP 讀取 `/account.html`、`/admin`、`/` 均可取得新頁面/導覽內容。
+- 完整 UI static suite 仍有既有 `test_index_allowed_weekdays.mjs` 2 項失敗，與本次帳號/權限修改無關。
+- Playwright Chromium 仍因 Proxy/CDN HTTP 403 無法安裝，因此無法產生 hover 截圖；已用靜態測試與 HTTP 頁面檢查作為替代證據。
+
+### 重要結論
+
+- 「完善資料」不再需要發 superuser；一般已啟用帳號即可處理資料維護與建立備份。
+- 具破壞性或不可逆風險較高的備份還原/刪除，後續已拆給備份管理員或 superuser；帳號管理仍需 superuser。
+
+## 2026-06-08 Backup Manager Role
+
+### 任務目的
+
+- 依使用者回饋，將備份還原與刪除從完整 superuser 權限拆出，新增介於普通帳號與 superuser 之間的「備份管理員」。
+
+### 主要修改內容
+
+- 新增 `backup_manager` 角色，帳號審核時可指派。
+- 新增 `require_backup_manager` 授權 dependency，允許 `backup_manager` 與 `superuser` 執行高風險備份操作。
+- 備份還原、單一備份刪除與批次備份刪除改由備份管理員或 superuser 執行，不再要求完整 superuser。
+- 備份管理員仍可執行普通已啟用帳號可做的資料維護操作，但不能審核、拒絕或刪除帳號。
+- 帳號管理頁、導覽列角色標籤與資料庫管理頁權限文案已加入備份管理員說明。
+
+### 驗證結果
+
+- 相關 Node UI static 測試通過。
+- 相關 Python unit 測試通過。
+- 本機啟動 FastAPI 後，以 HTTP 讀取 `/account.html`、`/admin`、`/` 均可取得備份管理員與新權限文案。
+- Playwright Chromium 下載仍因 CDN HTTP 403 無法完成，未能產生 hover 截圖；以靜態測試與 HTTP 頁面檢查作為替代證據。
+
+### 重要結論
+
+- 現在權限層級為：訪客 < active user/manager < backup_manager < superuser。
+- `backup_manager` 可管理備份檔並維護資料，但不具帳號審核能力。

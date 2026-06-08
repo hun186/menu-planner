@@ -279,5 +279,11 @@ def get_admin_page():
     return HTMLResponse(html)
 
 
+@app.get("/account")
+def get_account_page():
+    account_html_path = UI_DIR / "account.html"
+    return HTMLResponse(account_html_path.read_text(encoding="utf-8"))
+
+
 # 靜態 UI（http://localhost:18000/）
 app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")

@@ -920,3 +920,102 @@ body{ padding-top:76px; }
 .allowed-dish-rule .t{
   font-weight:600;
 }
+
+.admin-top-grid-single{
+  grid-template-columns:minmax(0, 1fr);
+}
+.account-grid{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap:12px;
+  align-items:start;
+  margin-top:12px;
+}
+.permission-title-row{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.permission-title-row h2{ margin:0; }
+.permission-help{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  border-radius:999px;
+  border:1px solid #93c5fd;
+  color:#1d4ed8;
+  background:#eff6ff;
+  font-weight:700;
+  cursor:help;
+}
+.permission-popover{
+  position:absolute;
+  top:34px;
+  right:0;
+  z-index:20;
+  display:none;
+  max-width:360px;
+  padding:10px 12px;
+  border:1px solid #93c5fd;
+  border-radius:10px;
+  color:#0f172a;
+  background:#fff;
+  box-shadow:0 14px 32px rgba(15,23,42,.18);
+  font-size:13px;
+  line-height:1.5;
+}
+.permission-help:hover + .permission-popover,
+.permission-help:focus + .permission-popover,
+.permission-popover:hover{
+  display:block;
+}
+.permission-summary{
+  margin:12px 0;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid #bbf7d0;
+  background:#f0fdf4;
+  color:#14532d;
+  font-weight:600;
+}
+.permission-list{
+  display:grid;
+  gap:10px;
+}
+.permission-list section{
+  border:1px solid var(--bd);
+  border-radius:10px;
+  padding:10px 12px;
+  background:#fafafa;
+}
+.permission-list h3{
+  margin:0 0 6px;
+  font-size:15px;
+}
+.permission-list ul{
+  margin:0;
+  padding-left:20px;
+  color:#374151;
+  line-height:1.6;
+}
+.nav-auth-status{
+  color:#d1fae5;
+  text-decoration:none;
+  padding:7px 10px;
+  border:1px solid rgba(187,247,208,.55);
+  border-radius:999px;
+  background:rgba(5,150,105,.24);
+  font-size:13px;
+  white-space:nowrap;
+}
+.nav-auth-status:hover{ background:rgba(34,197,94,.34); color:#fff; }
+
+@media (max-width: 900px){
+  .account-grid{ grid-template-columns:minmax(0, 1fr); }
+}
+@media (max-width: 768px){
+  .nav-auth-status{ width:100%; text-align:center; }
+}

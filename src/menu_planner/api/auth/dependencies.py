@@ -22,6 +22,21 @@ def current_user(authorization: str | None = Header(default=None)) -> AuthUser:
     return AuthUser(username=username, role=str(stored.get("role") or "user"), status="active")
 
 
+def require_active_user(user: AuthUser = Depends(current_user)) -> AuthUser:
+    return user
+
+
+def require_data_editor(authorization: str | None = Header(default=None)) -> AuthUser:
+    return current_user(authorization)
+
+
+def require_backup_manager(authorization: str | None = Header(default=None)) -> AuthUser:
+    user = current_user(authorization)
+    if user.role not in {"backup_manager", "superuser"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要備份管理員或超級使用者權限。")
+    return user
+
+
 def require_superuser(user: AuthUser = Depends(current_user)) -> AuthUser:
     if user.role != "superuser":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要超級使用者權限。")

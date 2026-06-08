@@ -18,6 +18,7 @@
         <a href="/">排菜總覽</a>
         <a href="/admin">資料庫管理</a>
         <a href="/inventory.html">庫存統整</a>
+        <a href="/account.html">帳號管理</a>
       </div>
     </div>
   </nav>
@@ -26,59 +27,13 @@
     <header class="hdr">
       <h1>資料庫管理</h1>
       <div class="sub">
-        管理食材、菜色與菜色食材用量。<a href="/" style="color:#111;">回到排菜</a>
+        管理食材、菜色與菜色食材用量。資料維護操作需要已啟用帳號；備份還原與刪除需要備份管理員或超級管理者。<a href="/account.html" style="color:#111;">帳號管理</a>
       </div>
     </header>
 
     <div id="js_error_banner" class="js-error-banner" role="alert" aria-live="assertive" hidden></div>
 
-    <div class="admin-top-grid">
-      <div class="card admin-top-card">
-        <h2>帳號與管理權限</h2>
-        <div id="auth_status" class="hint">尚未登入；寫入操作需要 superuser 帳號。</div>
-        <div class="row">
-          <label>帳號</label>
-          <input id="auth_username" type="text" autocomplete="username" placeholder="輸入帳號" />
-        </div>
-        <div class="row">
-          <label>密碼</label>
-          <input id="auth_password" type="password" autocomplete="current-password" placeholder="輸入密碼" />
-        </div>
-        <div class="row">
-          <label>姓名</label>
-          <input id="auth_full_name" type="text" placeholder="註冊時可填" />
-        </div>
-        <div class="row">
-          <label>部門</label>
-          <input id="auth_department" type="text" placeholder="註冊時可填" />
-        </div>
-        <div class="row">
-          <label>備註</label>
-          <input id="auth_note" type="text" placeholder="註冊原因或權限需求" />
-        </div>
-        <div class="btns">
-          <button id="auth_login" class="primary">登入</button>
-          <button id="auth_register">註冊帳號</button>
-          <button id="auth_refresh_me">檢查登入</button>
-          <button id="auth_logout">登出</button>
-        </div>
-        <details class="collapsible-panel auth-users-panel">
-          <summary class="collapsible-summary">
-            <h3 class="h3">帳號審核</h3>
-            <button id="auth_users_reload" type="button">重新整理帳號</button>
-          </summary>
-          <div class="tbl-scroll">
-            <table class="tbl" id="auth_users_tbl">
-              <thead>
-                <tr><th>帳號</th><th>姓名</th><th>角色</th><th>狀態</th><th>部門</th><th>操作</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </details>
-        <div id="msg_auth" class="msg"></div>
-      </div>
-
+    <div class="admin-top-grid admin-top-grid-single">
       <div class="card admin-top-card">
         <h2>資料庫備份還原</h2>
         <div class="row">

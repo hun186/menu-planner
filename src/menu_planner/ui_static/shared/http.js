@@ -5,23 +5,41 @@ function detailToMessage(detail, fallback) {
   return fallback;
 }
 
-export function adminKey() {
+export function authToken() {
   try {
-    return localStorage.getItem("menu_admin_key") || "";
+    return localStorage.getItem("menu_auth_token") || "";
   } catch {
     return "";
   }
 }
 
-export async function httpJson(url, options = {}, { includeAdminKey = false } = {}) {
+export function authUser() {
+  try {
+    return JSON.parse(localStorage.getItem("menu_auth_user") || "null");
+  } catch {
+    return null;
+  }
+}
+
+export function saveAuthSession(token, user) {
+  localStorage.setItem("menu_auth_token", token || "");
+  localStorage.setItem("menu_auth_user", JSON.stringify(user || null));
+}
+
+export function clearAuthSession() {
+  localStorage.removeItem("menu_auth_token");
+  localStorage.removeItem("menu_auth_user");
+}
+
+export async function httpJson(url, options = {}, { includeAuth = false } = {}) {
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
 
-  if (includeAdminKey) {
-    const key = adminKey();
-    if (key) headers["X-Admin-Key"] = key;
+  if (includeAuth) {
+    const token = authToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
   }
 
   const res = await fetch(url, { ...options, headers });

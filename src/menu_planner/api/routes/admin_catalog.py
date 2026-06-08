@@ -1,7 +1,6 @@
 #src/menu_planner/api/routes/admin_catalog.py
 from __future__ import annotations
 
-import os
 import sqlite3
 import shutil
 from datetime import date, datetime
@@ -9,13 +8,14 @@ from io import BytesIO
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from pydantic import BaseModel, Field, field_validator
 
+from ..auth import require_admin_user
 from ...db.admin_repo import SQLiteAdminRepo
 from ...db.backup import (
     BACKUP_REASON_DEFAULT,
@@ -106,12 +106,6 @@ def ensure_ingredient_exists(repo: SQLiteAdminRepo, ingredient_id: str) -> None:
 def ensure_dish_exists(repo: SQLiteAdminRepo, dish_id: str) -> None:
     if not repo.dish_exists(dish_id):
         raise HTTPException(status_code=404, detail="找不到此菜色")
-
-
-def require_admin_key(x_admin_key: Optional[str] = Header(default=None)):
-    required = os.getenv("MENU_ADMIN_KEY")
-    if required and x_admin_key != required:
-        raise HTTPException(status_code=401, detail="未授權：需要有效的 X-Admin-Key")
 
 
 class IngredientUpsert(BaseModel):
@@ -209,7 +203,7 @@ def list_dishes(
     return repo.list_dishes(q=q, role=role, ingredient_id=ingredient_id, page=page, page_size=page_size)
 
 
-@router.put("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_key)])
+@router.put("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_user)])
 def upsert_ingredient(
     ingredient_id: str,
     body: IngredientUpsert,
@@ -224,7 +218,7 @@ def upsert_ingredient(
     return {"ok": True, "id": ingredient_id}
 
 
-@router.delete("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_key)])
+@router.delete("/ingredients/{ingredient_id}", dependencies=[Depends(require_admin_user)])
 def delete_ingredient(
     ingredient_id: str,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -250,7 +244,7 @@ def delete_ingredient(
         )
 
 
-@router.post("/ingredients/{ingredient_id}/rename", dependencies=[Depends(require_admin_key)])
+@router.post("/ingredients/{ingredient_id}/rename", dependencies=[Depends(require_admin_user)])
 def rename_ingredient(
     ingredient_id: str,
     body: IngredientRenameIn,
@@ -317,7 +311,7 @@ def list_prices(
     return repo.list_prices(ingredient_id, limit=limit)
 
 
-@router.put("/ingredients/{ingredient_id}/prices/{price_date}", dependencies=[Depends(require_admin_key)])
+@router.put("/ingredients/{ingredient_id}/prices/{price_date}", dependencies=[Depends(require_admin_user)])
 def upsert_price(
     ingredient_id: str,
     price_date: str,
@@ -336,7 +330,7 @@ def upsert_price(
     return {"ok": True}
 
 
-@router.delete("/ingredients/{ingredient_id}/prices/{price_date}", dependencies=[Depends(require_admin_key)])
+@router.delete("/ingredients/{ingredient_id}/prices/{price_date}", dependencies=[Depends(require_admin_user)])
 def delete_price(
     ingredient_id: str,
     price_date: str,
@@ -366,7 +360,7 @@ def get_inventory(
     return repo.get_inventory(ingredient_id)  # 可能回 null
 
 
-@router.put("/ingredients/{ingredient_id}/inventory", dependencies=[Depends(require_admin_key)])
+@router.put("/ingredients/{ingredient_id}/inventory", dependencies=[Depends(require_admin_user)])
 def upsert_inventory(
     ingredient_id: str,
     body: InventoryUpsert,
@@ -402,7 +396,7 @@ def list_unit_conversions(
     return repo.list_unit_conversions()
 
 
-@router.put("/unit-conversions/{from_unit}/{to_unit}", dependencies=[Depends(require_admin_key)])
+@router.put("/unit-conversions/{from_unit}/{to_unit}", dependencies=[Depends(require_admin_user)])
 def upsert_unit_conversion(
     from_unit: str,
     to_unit: str,
@@ -425,7 +419,7 @@ def upsert_unit_conversion(
     return {"ok": True, "from_unit": src, "to_unit": tgt}
 
 
-@router.delete("/unit-conversions/{from_unit}/{to_unit}", dependencies=[Depends(require_admin_key)])
+@router.delete("/unit-conversions/{from_unit}/{to_unit}", dependencies=[Depends(require_admin_user)])
 def delete_unit_conversion(
     from_unit: str,
     to_unit: str,
@@ -514,7 +508,7 @@ def get_db_backup_stats(
     return _summarize_backup_usage(files)
 
 
-@router.post("/backups/create", dependencies=[Depends(require_admin_key)])
+@router.post("/backups/create", dependencies=[Depends(require_admin_user)])
 def create_manual_db_backup(
     body: BackupCreateIn,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -525,7 +519,7 @@ def create_manual_db_backup(
     return {"ok": True, "reason": reason, "comment": comment}
 
 
-@router.post("/backups/restore", dependencies=[Depends(require_admin_key)])
+@router.post("/backups/restore", dependencies=[Depends(require_admin_user)])
 def restore_db_backup(
     body: BackupRestoreIn,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -554,7 +548,7 @@ def restore_db_backup(
     return {"ok": True, "restored_from": backup_name}
 
 
-@router.delete("/backups/{backup_name}", dependencies=[Depends(require_admin_key)])
+@router.delete("/backups/{backup_name}", dependencies=[Depends(require_admin_user)])
 def delete_db_backup(
     backup_name: str,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -579,7 +573,7 @@ def delete_db_backup(
     return {"ok": True, "deleted": name}
 
 
-@router.post("/backups/batch-delete", dependencies=[Depends(require_admin_key)])
+@router.post("/backups/batch-delete", dependencies=[Depends(require_admin_user)])
 def batch_delete_db_backups(
     body: BackupBatchDeleteIn,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -627,7 +621,7 @@ def batch_delete_db_backups(
     }
 
 
-@router.patch("/backups/{backup_name}/comment", dependencies=[Depends(require_admin_key)])
+@router.patch("/backups/{backup_name}/comment", dependencies=[Depends(require_admin_user)])
 def update_db_backup_comment(
     backup_name: str,
     body: BackupCommentIn,
@@ -654,7 +648,7 @@ def update_db_backup_comment(
     return {"ok": True, "filename": name, "comment": body.comment}
 
 
-@router.post("/inventory/summary/merge-ingredient", dependencies=[Depends(require_admin_key)])
+@router.post("/inventory/summary/merge-ingredient", dependencies=[Depends(require_admin_user)])
 def merge_inventory_ingredient(
     body: IngredientMergeIn,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -760,7 +754,7 @@ def export_dishes_excel(
     )
 
 
-@router.put("/dishes/{dish_id}", dependencies=[Depends(require_admin_key)])
+@router.put("/dishes/{dish_id}", dependencies=[Depends(require_admin_user)])
 def upsert_dish(
     dish_id: str,
     body: DishUpsert,
@@ -790,7 +784,7 @@ def _delete_dish_by_id(dish_id: str, db_path: str) -> dict:
     return {"ok": True}
 
 
-@router.post("/dishes/delete", dependencies=[Depends(require_admin_key)])
+@router.post("/dishes/delete", dependencies=[Depends(require_admin_user)])
 def delete_dish_by_body(
     body: EntityDeleteIn,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -798,7 +792,7 @@ def delete_dish_by_body(
     return _delete_dish_by_id(body.id, db_path)
 
 
-@router.delete("/dishes/{dish_id}", dependencies=[Depends(require_admin_key)])
+@router.delete("/dishes/{dish_id}", dependencies=[Depends(require_admin_user)])
 def delete_dish(
     dish_id: str,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -806,7 +800,7 @@ def delete_dish(
     return _delete_dish_by_id(dish_id, db_path)
 
 
-@router.post("/dishes/{dish_id}/rename", dependencies=[Depends(require_admin_key)])
+@router.post("/dishes/{dish_id}/rename", dependencies=[Depends(require_admin_user)])
 def rename_dish(
     dish_id: str,
     body: DishRenameIn,
@@ -854,7 +848,7 @@ def get_dish_ingredients(
     return repo.get_dish_ingredients(dish_id)
 
 
-@router.put("/dishes/{dish_id}/ingredients", dependencies=[Depends(require_admin_key)])
+@router.put("/dishes/{dish_id}/ingredients", dependencies=[Depends(require_admin_user)])
 def put_dish_ingredients(
     dish_id: str,
     items: List[DishIngredientIn] = Body(...),

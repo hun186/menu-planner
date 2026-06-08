@@ -34,24 +34,24 @@ WRITE_ROUTES = {
 }
 
 
-def _has_admin_key_dependency(route) -> bool:
+def _has_admin_user_dependency(route) -> bool:
     names = [getattr(dep.call, "__name__", "") for dep in route.dependant.dependencies]
-    return "require_admin_key" in names
+    return "require_admin_user" in names
 
 
-def test_read_routes_do_not_require_admin_key_dependency():
+def test_read_routes_do_not_require_admin_user_dependency():
     for route in app.router.routes:
         path = getattr(route, "path", None)
         methods = set(getattr(route, "methods", set()) or set())
         for method in methods:
             if (method, path) in READ_ROUTES:
-                assert _has_admin_key_dependency(route) is False, f"{method} {path} should stay readable without admin key"
+                assert _has_admin_user_dependency(route) is False, f"{method} {path} should stay readable without admin user"
 
 
-def test_write_routes_still_require_admin_key_dependency():
+def test_write_routes_still_require_admin_user_dependency():
     for route in app.router.routes:
         path = getattr(route, "path", None)
         methods = set(getattr(route, "methods", set()) or set())
         for method in methods:
             if (method, path) in WRITE_ROUTES:
-                assert _has_admin_key_dependency(route) is True, f"{method} {path} must require admin key"
+                assert _has_admin_user_dependency(route) is True, f"{method} {path} must require admin user"

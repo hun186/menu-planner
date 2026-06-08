@@ -15,8 +15,8 @@ export function buildCfgFromFormData(baseCfg, formData) {
 
   cfg.per_day_roles = formData.perDayRoles;
   cfg.per_weekday_roles = formData.perWeekdayRoles;
-  cfg.side_soup_protein_limit = formData.sideSoupProteinLimit ?? 2;
-  cfg.per_weekday_side_soup_protein_limit = formData.perWeekdaySideSoupProteinLimits || {};
+  cfg.side_soup_meat_limit = formData.sideSoupMeatLimit ?? 2;
+  cfg.per_weekday_side_soup_meat_limit = formData.perWeekdaySideSoupMeatLimits || {};
   cfg.prep_time_limit_minutes = formData.prepTimeLimitMinutes ?? 90;
   cfg.per_weekday_prep_time_limit_minutes = formData.perWeekdayPrepTimeLimits || {};
 
@@ -63,8 +63,8 @@ export function deriveFormDataFromCfg(cfg) {
     noConsecutiveMeat: !!hard.no_consecutive_same_main_meat,
     perDayRoles: cfg?.per_day_roles || { main: 1, noodle: 0, side: 2, veg: 1, soup: 1, fruit: 1 },
     perWeekdayRoles: cfg?.per_weekday_roles || {},
-    sideSoupProteinLimit: cfg?.side_soup_protein_limit ?? 2,
-    perWeekdaySideSoupProteinLimits: cfg?.per_weekday_side_soup_protein_limit || {},
+    sideSoupMeatLimit: cfg?.side_soup_meat_limit ?? cfg?.side_soup_protein_limit ?? 2,
+    perWeekdaySideSoupMeatLimits: cfg?.per_weekday_side_soup_meat_limit || cfg?.per_weekday_side_soup_protein_limit || {},
     prepTimeLimitMinutes: cfg?.prep_time_limit_minutes ?? 90,
     perWeekdayPrepTimeLimits: cfg?.per_weekday_prep_time_limit_minutes || {},
     weeklyQuota: hard.weekly_max_main_meat || {},

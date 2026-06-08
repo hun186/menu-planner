@@ -145,6 +145,57 @@ test('index page supports adding and deleting weekday role overrides', () => {
 });
 
 
+test('side-soup meat weekday overrides use compact weekday-column layout', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+  const appJs = readFileSync(new URL('../../src/menu_planner/ui_static/app.js', import.meta.url), 'utf8');
+  const domJs = readFileSync(new URL('../../src/menu_planner/ui_static/dom.js', import.meta.url), 'utf8');
+
+  assert.match(html, /每日配菜＋湯品含肉數量上限/);
+  assert.match(html, /id="side_soup_meat_limit" type="number" min="0" value="2"/);
+  assert.match(html, /<table class="mini-table meat-limit-table" id="weekday_meat_limits_table">/);
+  assert.match(html, /<thead><tr><th>星期一<\/th><th>星期二<\/th><th>星期三<\/th><th>星期四<\/th><th>星期五<\/th><th>星期六<\/th><th>星期日<\/th><\/tr><\/thead>/);
+  assert.match(html, /class="weekday-meat-limit" data-weekday="3" type="number" min="0" placeholder="預設"/);
+  assert.doesNotMatch(html, /id="weekday_meat_add_select"/);
+  assert.doesNotMatch(html, /class="weekday-meat-delete"/);
+  assert.match(appJs, /perWeekdaySideSoupMeatLimits\[weekday\] = parseInt\(raw, 10\)/);
+  assert.match(appJs, /DOM\.weekdayMeatLimitInputs/);
+  assert.match(domJs, /sideSoupMeatLimit/);
+  assert.match(domJs, /weekdayMeatLimitInputs/);
+
+  const cfg = buildCfgFromFormData(
+    { hard: {}, soft: {}, schedule: {} },
+    {
+      horizonDays: 7,
+      defaultPeople: 250,
+      scheduleWeekdays: [1, 2, 3, 4, 5],
+      forceIncludeDates: [],
+      forceExcludeDates: [],
+      peopleOverrides: {},
+      sideSoupMeatLimit: 2,
+      perWeekdaySideSoupMeatLimits: { 3: 1 },
+      costMin: 0,
+      costMax: 999,
+      meatTypes: ['chicken'],
+      noConsecutiveMeat: true,
+      perDayRoles: { main: 1, noodle: 0, side: 2, veg: 1, soup: 1, fruit: 1 },
+      perWeekdayRoles: {},
+      weeklyQuota: { chicken: 2 },
+      repeatLimits: {},
+      preferInventory: false,
+      preferExpiry: false,
+      inventoryPreferIngredientIds: [],
+      excludeDishIds: [],
+      dishAllowedWeekdays: {},
+    },
+  );
+
+  assert.equal(cfg.side_soup_meat_limit, 2);
+  assert.deepEqual(cfg.per_weekday_side_soup_meat_limit, { 3: 1 });
+  assert.equal(deriveFormDataFromCfg(cfg).sideSoupMeatLimit, 2);
+  assert.deepEqual(deriveFormDataFromCfg(cfg).perWeekdaySideSoupMeatLimits, { 3: 1 });
+});
+
+
 test('daily role counts use the same compact role-column layout as weekday overrides', () => {
   const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
 
@@ -198,6 +249,6 @@ test('settings board reserves enough width for dense constraint tables', () => {
   assert.match(styles, /\.planner-settings-card\s*\{[\s\S]*min-width\s*:\s*max\(100%, var\(--planner-settings-board-min-width\)\)\s*;/);
   assert.match(
     styles,
-    new RegExp('\\.quota-matrix-table,\\n\\.repeat-limits-table,\\n#daily_role_counts_table,\\n#weekday_role_counts_table,\\n#weekday_prep_limits_table\\s*\\{[\\s\\S]*min-width\\s*:\\s*var\\(--planner-settings-table-min-width\\)\\s*;'),
+    new RegExp('\\.quota-matrix-table,\\n\\.repeat-limits-table,\\n#daily_role_counts_table,\\n#weekday_role_counts_table,\\n#weekday_meat_limits_table,\\n#weekday_prep_limits_table\\s*\\{[\\s\\S]*min-width\\s*:\\s*var\\(--planner-settings-table-min-width\\)\\s*;'),
   );
 });

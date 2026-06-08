@@ -35,7 +35,7 @@ class PlanContext:
     all_dishes: List[Dish]
     dishes_by_id: Dict[str, Dish]
     dish_ingredient_ids: Dict[str, Set[str]]
-    dish_has_protein: Dict[str, bool]
+    dish_has_meat: Dict[str, bool]
     feat: Dict[str, Any]
     mains: List[Dish]
     sides: List[Dish]
@@ -240,18 +240,14 @@ def _build_dish_ingredient_ids(
     return out
 
 
-def _build_dish_has_protein(
-    dish_ingredients: List[DishIngredient],
-    ingredients: Dict[str, Ingredient],
-) -> Dict[str, bool]:
-    out: Dict[str, bool] = {}
-    for di in dish_ingredients:
-        ing = ingredients.get(di.ingredient_id)
-        if ing is not None and str(ing.protein_group or "").strip():
-            out[di.dish_id] = True
-        else:
-            out.setdefault(di.dish_id, False)
-    return out
+MEAT_LIMIT_TYPES = {"chicken", "pork", "beef", "fish", "seafood"}
+
+
+def _build_dish_has_meat(dishes: List[Dish]) -> Dict[str, bool]:
+    return {
+        d.id: str(d.meat_type or "").strip().lower() in MEAT_LIMIT_TYPES
+        for d in dishes
+    }
 
 
 def _max_active_days_in_window(active_mask: List[bool], window_days: int = 30) -> int:
@@ -408,10 +404,22 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         "per_weekday_prep_time_limit_minutes",
         hard.get("per_weekday_prep_time_limit_minutes", {}),
     )
-    hard["side_soup_protein_limit"] = cfg.get("side_soup_protein_limit", hard.get("side_soup_protein_limit", 2))
-    hard["per_weekday_side_soup_protein_limit"] = cfg.get(
-        "per_weekday_side_soup_protein_limit",
-        hard.get("per_weekday_side_soup_protein_limit", {}),
+    hard["side_soup_meat_limit"] = cfg.get(
+        "side_soup_meat_limit",
+        cfg.get(
+            "side_soup_protein_limit",
+            hard.get("side_soup_meat_limit", hard.get("side_soup_protein_limit", 2)),
+        ),
+    )
+    hard["per_weekday_side_soup_meat_limit"] = cfg.get(
+        "per_weekday_side_soup_meat_limit",
+        cfg.get(
+            "per_weekday_side_soup_protein_limit",
+            hard.get(
+                "per_weekday_side_soup_meat_limit",
+                hard.get("per_weekday_side_soup_protein_limit", {}),
+            ),
+        ),
     )
     soft = cfg.get("soft", {}) or {}
     weights = cfg.get("weights", {}) or {}
@@ -477,7 +485,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         all_dishes=all_dishes,
         dishes_by_id=dishes_by_id,
         dish_ingredient_ids=_build_dish_ingredient_ids(dish_ingredients, ingredients, hard),
-        dish_has_protein=_build_dish_has_protein(dish_ingredients, ingredients),
+        dish_has_meat=_build_dish_has_meat(all_dishes),
         feat=feat,
         mains=mains,
         sides=sides,
@@ -542,7 +550,7 @@ def _run_backtracking(ctx: PlanContext) -> Tuple[List[PlanDay], float, List[Dict
         weights=ctx.weights,
         soft=ctx.soft,
         dish_ingredient_ids=ctx.dish_ingredient_ids,
-        dish_has_protein=ctx.dish_has_protein,
+        dish_has_meat=ctx.dish_has_meat,
         start_date=ctx.start_date,
         active_mask=ctx.active_mask,
         role_counts_by_day=ctx.role_counts_by_day,
@@ -578,7 +586,7 @@ def _run_local_search(
     # Local search currently optimizes cost/repeat heuristics only; keep prep-time
     # hard limits enforced by backtracking from being invalidated by later swaps.
     if ("prep_time_limit_minutes" in ctx.hard or ctx.hard.get("per_weekday_prep_time_limit_minutes")
-            or "side_soup_protein_limit" in ctx.hard or ctx.hard.get("per_weekday_side_soup_protein_limit")):
+            or "side_soup_meat_limit" in ctx.hard or ctx.hard.get("per_weekday_side_soup_meat_limit")):
         local_search_safe = False
 
     if ls_enabled and local_search_safe and (not incomplete_days) and (not base_errors):
@@ -594,7 +602,6 @@ def _run_local_search(
             weights=ctx.weights,
             soft=ctx.soft,
             dish_ingredient_ids=ctx.dish_ingredient_ids,
-        dish_has_protein=ctx.dish_has_protein,
             iterations=int(ls.get("iterations", 800)),
             accept_worse_probability=float(ls.get("accept_worse_probability", 0.03)),
             seed=ctx.seed,

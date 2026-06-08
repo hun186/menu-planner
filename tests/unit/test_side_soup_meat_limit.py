@@ -1,7 +1,7 @@
 from datetime import date
 
 from src.menu_planner.config.loader import validate_config
-from src.menu_planner.db.repo import Dish
+from src.menu_planner.db.repo import Dish, DishIngredient, Ingredient
 from src.menu_planner.engine.backtracking import fill_days_after_mains
 from src.menu_planner.engine.features import DishFeatures
 from src.menu_planner.engine.planner import _build_dish_has_meat
@@ -95,3 +95,73 @@ def test_fill_days_honors_side_soup_meat_limit_and_weekday_override():
     assert _meat_count(plan[1], dish_has_meat) <= 1
     assert explanations[0]["side_soup_meat_limit"] == 2
     assert explanations[1]["side_soup_meat_limit"] == 1
+
+
+def test_build_dish_has_meat_detects_meat_from_ingredient_protein_group_when_dish_meat_missing():
+    dishes = [
+        _dish("side_missing_meat", "side"),
+        _dish("soup_direct_shrimp", "soup", "shrimp"),
+        _dish("side_tofu_only", "side"),
+    ]
+    ingredients = {
+        "ing_pork": Ingredient("ing_pork", "豬肉片", "meat", "pork", "g"),
+        "ing_tofu": Ingredient("ing_tofu", "豆腐", "soy", None, "g"),
+    }
+    dish_ingredients = [
+        DishIngredient("side_missing_meat", "ing_pork", 10, "g"),
+        DishIngredient("side_tofu_only", "ing_tofu", 10, "g"),
+    ]
+
+    dish_has_meat = _build_dish_has_meat(dishes, dish_ingredients, ingredients)
+
+    assert dish_has_meat["side_missing_meat"] is True
+    assert dish_has_meat["soup_direct_shrimp"] is True
+    assert dish_has_meat["side_tofu_only"] is False
+
+
+def test_fill_days_counts_ingredient_protein_group_meat_toward_side_soup_limit():
+    start = date(2026, 6, 1)
+    dishes = [
+        _dish("main_a", "main", "chicken"),
+        _dish("soup_plain", "soup"),
+        _dish("side_missing_meat", "side"),
+        _dish("side_plain", "side"),
+        _dish("side_tofu", "side"),
+    ]
+    feat = {d.id: _feat(d) for d in dishes}
+    ingredients = {
+        "ing_pork": Ingredient("ing_pork", "豬肉片", "meat", "pork", "g"),
+    }
+    dish_ingredients = [DishIngredient("side_missing_meat", "ing_pork", 10, "g")]
+    dish_has_meat = _build_dish_has_meat(dishes, dish_ingredients, ingredients)
+    hard = {
+        "seed": 1,
+        "side_soup_meat_limit": 0,
+        "repeat_limits": {
+            "max_same_side_in_7_days": 99,
+            "max_same_soup_in_7_days": 99,
+            "max_same_ingredient_in_window_days": 99,
+        },
+        "cost_range_per_person_per_day": {"min": 0, "max": 999},
+    }
+
+    plan, _score, _explanations, errors = fill_days_after_mains(
+        horizon_days=1,
+        main_ids=["main_a"],
+        sides=[d for d in dishes if d.role == "side"],
+        vegs=[],
+        soups=[d for d in dishes if d.role == "soup"],
+        fruits=[],
+        feat=feat,
+        hard=hard,
+        weights={},
+        soft={},
+        dish_has_meat=dish_has_meat,
+        start_date=start,
+        role_counts_by_day=[{"main": 1, "noodle": 0, "side": 2, "veg": 0, "soup": 1, "fruit": 0}],
+        mains=[d for d in dishes if d.role == "main"],
+    )
+
+    assert errors == []
+    assert "side_missing_meat" not in plan[0].sides
+    assert sum(1 for did in list(plan[0].sides) + list(plan[0].soups) if dish_has_meat.get(did, False)) == 0

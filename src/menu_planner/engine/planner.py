@@ -14,7 +14,7 @@ from ..db.repo import Dish, DishIngredient, Ingredient, SQLiteRepo
 from .backtracking import fill_days_after_mains, plan_mains_beam
 from .constraints import PlanDay
 from .explain import build_explanations
-from .features import build_dish_features
+from .features import _normalize_meat_type, build_dish_features
 from .local_search import improve_by_local_search
 from .roles import counts_for_day, has_any_role, legacy_main_noodle_as_noodle
 
@@ -243,11 +243,31 @@ def _build_dish_ingredient_ids(
 MEAT_LIMIT_TYPES = {"chicken", "pork", "beef", "fish", "seafood"}
 
 
-def _build_dish_has_meat(dishes: List[Dish]) -> Dict[str, bool]:
-    return {
-        d.id: str(d.meat_type or "").strip().lower() in MEAT_LIMIT_TYPES
-        for d in dishes
+def _is_meat_protein_group(value: Any) -> bool:
+    return _normalize_meat_type(value) in MEAT_LIMIT_TYPES
+
+
+def _build_dish_has_meat(
+    dishes: List[Dish],
+    dish_ingredients: List[DishIngredient] | None = None,
+    ingredients: Dict[str, Ingredient] | None = None,
+) -> Dict[str, bool]:
+    direct_meat_by_dish = {d.id: _is_meat_protein_group(d.meat_type) for d in dishes}
+    if not dish_ingredients or not ingredients:
+        return direct_meat_by_dish
+
+    ingredient_meat_by_id = {
+        ing_id: _is_meat_protein_group(ing.protein_group)
+        for ing_id, ing in ingredients.items()
     }
+
+    for di in dish_ingredients:
+        if direct_meat_by_dish.get(di.dish_id, False):
+            continue
+        if ingredient_meat_by_id.get(di.ingredient_id, False):
+            direct_meat_by_dish[di.dish_id] = True
+
+    return direct_meat_by_dish
 
 
 def _max_active_days_in_window(active_mask: List[bool], window_days: int = 30) -> int:
@@ -485,7 +505,7 @@ def _prepare_context(db_path: str, cfg: Dict[str, Any]) -> PlanContext:
         all_dishes=all_dishes,
         dishes_by_id=dishes_by_id,
         dish_ingredient_ids=_build_dish_ingredient_ids(dish_ingredients, ingredients, hard),
-        dish_has_meat=_build_dish_has_meat(all_dishes),
+        dish_has_meat=_build_dish_has_meat(all_dishes, dish_ingredients, ingredients),
         feat=feat,
         mains=mains,
         sides=sides,

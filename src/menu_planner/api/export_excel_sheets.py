@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from typing import Any, Dict, Tuple
 
 from openpyxl import Workbook
@@ -19,6 +20,32 @@ WEEKLY_SUBTOTAL_FONT = Font(color="FF1E3A8A", bold=True)
 def set_col_width(ws, widths: Dict[int, float]) -> None:
     for col_idx, width in widths.items():
         ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+
+def _display_width(value: Any) -> int:
+    if value is None:
+        return 0
+    text = str(value)
+    if not text:
+        return 0
+    widths = []
+    for line in text.splitlines() or [text]:
+        width = 0
+        for ch in line:
+            width += 2 if unicodedata.east_asian_width(ch) in {"F", "W"} else 1
+        widths.append(width)
+    return max(widths, default=0)
+
+
+def auto_fit_columns(ws, min_width: float = 4, max_width: float = 80, padding: float = 2) -> None:
+    for col_idx in range(1, ws.max_column + 1):
+        best = 0
+        for row in range(1, ws.max_row + 1):
+            best = max(best, _display_width(ws.cell(row=row, column=col_idx).value))
+        ws.column_dimensions[get_column_letter(col_idx)].width = max(
+            min_width,
+            min(max_width, best + padding),
+        )
 
 
 def append_procurement_sheet(wb: Workbook, result: Dict[str, Any]) -> None:
@@ -57,7 +84,7 @@ def append_procurement_sheet(wb: Workbook, result: Dict[str, Any]) -> None:
                 ])
 
     ws.freeze_panes = "A2"
-    set_col_width(ws, {1: 12, 2: 10, 3: 20, 4: 18, 5: 12, 6: 8, 7: 12, 8: 10, 9: 10, 10: 12, 11: 10, 12: 12})
+    auto_fit_columns(ws)
 
 
 def append_procurement_summary_sheet(wb: Workbook, result: Dict[str, Any]) -> None:
@@ -132,7 +159,7 @@ def append_procurement_summary_sheet(wb: Workbook, result: Dict[str, Any]) -> No
     ws.append(["", "", "全部合計", "", "", "", "", round(grand_total, 2), ""])
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = f"A1:I{ws.max_row}"
-    set_col_width(ws, {1: 10, 2: 12, 3: 18, 4: 10, 5: 10, 6: 12, 7: 10, 8: 12, 9: 14})
+    auto_fit_columns(ws)
 
 
 def append_summary_sheet(
@@ -160,7 +187,7 @@ def append_summary_sheet(
     ws.append(["平均目標匹配度/日", round(total_fitness / max(fitness_count, 1), 2)])
     ws.append(["說明", "目標匹配度越高越好；若未提供 score_fitness，則使用 -原始分數 當目標匹配度。"])
 
-    set_col_width(ws, {1: 18, 2: 60})
+    auto_fit_columns(ws, max_width=80)
 
 
 def append_config_sheet(wb: Workbook, cfg: Dict[str, Any]) -> None:
@@ -173,4 +200,4 @@ def append_config_sheet(wb: Workbook, cfg: Dict[str, Any]) -> None:
     for line in cfg_str.splitlines():
         ws.append([line])
 
-    set_col_width(ws, {1: 110})
+    auto_fit_columns(ws, max_width=120)

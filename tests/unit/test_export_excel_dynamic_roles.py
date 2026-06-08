@@ -7,6 +7,8 @@ from src.menu_planner.api.export_excel import build_plan_workbook
 
 def test_export_excel_uses_dynamic_role_slots_from_config_and_result():
     cfg = {
+        "people": 250,
+        "schedule": {"people_overrides": {"2026-03-04": 280}},
         "per_day_roles": {"main": 2, "noodle": 1, "side": 4, "veg": 2, "soup": 1, "fruit": 1},
         "per_weekday_roles": {"3": {"main": 1, "noodle": 2, "side": 1, "veg": 3, "soup": 2, "fruit": 1}},
     }
@@ -46,6 +48,7 @@ def test_export_excel_uses_dynamic_role_slots_from_config_and_result():
     assert headers == [
         "日期",
         "週幾",
+        "人數",
         "主菜1",
         "主菜2",
         "麵食1",
@@ -66,9 +69,10 @@ def test_export_excel_uses_dynamic_role_slots_from_config_and_result():
         "分數拆解(易讀)",
     ]
     values = [sheet.cell(row=2, column=col).value for col in range(1, sheet.max_column + 1)]
-    assert values[:16] == [
+    assert values[:17] == [
         "2026-03-04",
         "三",
+        280,
         "主菜A",
         "主菜B",
         "麵食A",
@@ -111,9 +115,9 @@ def test_export_excel_falls_back_to_single_role_shape_for_legacy_items():
     sheet = wb["菜單"]
 
     headers = [sheet.cell(row=1, column=col).value for col in range(1, sheet.max_column + 1)]
-    assert headers[:8] == ["日期", "週幾", "主菜", "配菜1", "配菜2", "純蔬", "湯", "水果"]
-    values = [sheet.cell(row=2, column=col).value for col in range(1, 9)]
-    assert values == ["2026-03-05", "四", "主菜A", "配菜A", "配菜B", "純蔬A", "湯A", "水果A"]
+    assert headers[:9] == ["日期", "週幾", "人數", "主菜", "配菜1", "配菜2", "純蔬", "湯", "水果"]
+    values = [sheet.cell(row=2, column=col).value for col in range(1, 10)]
+    assert values == ["2026-03-05", "四", 250, "主菜A", "配菜A", "配菜B", "純蔬A", "湯A", "水果A"]
 
 
 def test_export_excel_adds_weekday_column_and_marks_weekend_offdays():
@@ -131,12 +135,15 @@ def test_export_excel_adds_weekday_column_and_marks_weekend_offdays():
 
     assert sheet.cell(row=1, column=1).value == "日期"
     assert sheet.cell(row=1, column=2).value == "週幾"
+    assert sheet.cell(row=1, column=3).value == "人數"
     assert sheet.cell(row=2, column=1).value == "2026-03-07"
     assert sheet.cell(row=2, column=2).value == "六"
+    assert sheet.cell(row=2, column=3).value == 250
     assert sheet.cell(row=3, column=2).value == "一"
-    assert sheet.column_dimensions["B"].width == 4
+    assert sheet.column_dimensions["A"].width > sheet.column_dimensions["B"].width
     assert sheet.cell(row=2, column=1).fill.fgColor.rgb == "FFFFE4E6"
     assert sheet.cell(row=2, column=2).fill.fgColor.rgb == "FFFFE4E6"
+    assert sheet.cell(row=2, column=3).fill.fgColor.rgb == "FFFFE4E6"
     assert sheet.cell(row=3, column=1).fill.fgColor.rgb != "FFFFE4E6"
 
 

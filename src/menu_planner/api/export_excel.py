@@ -32,13 +32,13 @@ def _to_float_or_none(value: Any) -> float | None:
 ROLE_EXPORT_ORDER = ROLE_ORDER
 METRIC_HEADERS = ["成本", "目標匹配度", "分數拆解(JSON)", "分數拆解(易讀)"]
 WEEKDAY_SHORT_LABELS = {
-    1: "（一）",
-    2: "（二）",
-    3: "（三）",
-    4: "（四）",
-    5: "（五）",
-    6: "（六）",
-    7: "（日）",
+    1: "一",
+    2: "二",
+    3: "三",
+    4: "四",
+    5: "五",
+    6: "六",
+    7: "日",
 }
 WEEKEND_OFFDAY_FILL = "FFFFE4E6"
 
@@ -223,7 +223,7 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     total_cost, total_fitness, fitness_count = _compute_plan_totals(days)
 
     ws.freeze_panes = "A2"
-    widths = {1: 12, 2: 8}
+    widths = {1: 12, 2: 4}
     role_header_count = len(header) - 2 - len(METRIC_HEADERS)
     for col in range(3, 3 + role_header_count):
         widths[col] = 18

@@ -296,9 +296,9 @@ textarea{
   min-width:860px;
 }
 .result-menu-table{
-  --result-date-col-width: calc(13ch + 16px);
-  --result-weekday-col-width: calc(4ch + 12px);
-  --result-people-col-width: calc(4ch + 12px);
+  --result-date-col-width: calc(10ch + 12px);
+  --result-weekday-col-width: 36px;
+  --result-people-col-width: 46px;
 }
 .result-menu-table .result-date-col{
   width:var(--result-date-col-width);
@@ -316,6 +316,19 @@ textarea{
 .result-menu-table th:nth-child(3),
 .result-menu-table td:nth-child(3){
   white-space:nowrap;
+}
+.result-menu-table th:nth-child(1),
+.result-menu-table td:nth-child(1){
+  padding-left:6px;
+  padding-right:6px;
+}
+.result-menu-table th:nth-child(2),
+.result-menu-table td:nth-child(2),
+.result-menu-table th:nth-child(3),
+.result-menu-table td:nth-child(3){
+  padding-left:4px;
+  padding-right:4px;
+  text-align:center;
 }
 .tbl{ width:100%; border-collapse:collapse; font-size:13px; }
 
@@ -774,8 +787,10 @@ select{
 }
 
 .day-people-input{
-  width:58px;
-  padding:4px 5px;
+  box-sizing:border-box;
+  width:42px;
+  padding:4px 3px;
+  text-align:center;
   border:1px solid var(--bd);
   border-radius:6px;
 }

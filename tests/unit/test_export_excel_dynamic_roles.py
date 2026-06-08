@@ -68,7 +68,7 @@ def test_export_excel_uses_dynamic_role_slots_from_config_and_result():
     values = [sheet.cell(row=2, column=col).value for col in range(1, sheet.max_column + 1)]
     assert values[:16] == [
         "2026-03-04",
-        "（三）",
+        "三",
         "主菜A",
         "主菜B",
         "麵食A",
@@ -113,7 +113,7 @@ def test_export_excel_falls_back_to_single_role_shape_for_legacy_items():
     headers = [sheet.cell(row=1, column=col).value for col in range(1, sheet.max_column + 1)]
     assert headers[:8] == ["日期", "週幾", "主菜", "配菜1", "配菜2", "純蔬", "湯", "水果"]
     values = [sheet.cell(row=2, column=col).value for col in range(1, 9)]
-    assert values == ["2026-03-05", "（四）", "主菜A", "配菜A", "配菜B", "純蔬A", "湯A", "水果A"]
+    assert values == ["2026-03-05", "四", "主菜A", "配菜A", "配菜B", "純蔬A", "湯A", "水果A"]
 
 
 def test_export_excel_adds_weekday_column_and_marks_weekend_offdays():
@@ -132,8 +132,9 @@ def test_export_excel_adds_weekday_column_and_marks_weekend_offdays():
     assert sheet.cell(row=1, column=1).value == "日期"
     assert sheet.cell(row=1, column=2).value == "週幾"
     assert sheet.cell(row=2, column=1).value == "2026-03-07"
-    assert sheet.cell(row=2, column=2).value == "（六）"
-    assert sheet.cell(row=3, column=2).value == "（一）"
+    assert sheet.cell(row=2, column=2).value == "六"
+    assert sheet.cell(row=3, column=2).value == "一"
+    assert sheet.column_dimensions["B"].width == 4
     assert sheet.cell(row=2, column=1).fill.fgColor.rgb == "FFFFE4E6"
     assert sheet.cell(row=2, column=2).fill.fgColor.rgb == "FFFFE4E6"
     assert sheet.cell(row=3, column=1).fill.fgColor.rgb != "FFFFE4E6"

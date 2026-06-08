@@ -58,6 +58,95 @@ export function shouldRenderFailedRow(day, dayErrs = []) {
 
 
 
+
+const RESULT_COLUMNS = [
+  { key: "date", label: "日期", colClass: "result-date-col" },
+  { key: "weekday", label: "週幾", colClass: "result-weekday-col" },
+  { key: "people", label: "人數", colClass: "result-people-col" },
+  { key: "main", label: "主菜" },
+  { key: "noodle", label: "麵食" },
+  { key: "side", label: "配菜" },
+  { key: "veg", label: "純蔬配菜" },
+  { key: "soup", label: "湯" },
+  { key: "fruit", label: "水果" },
+  { key: "cost", label: "成本" },
+  { key: "fitness", label: "目標匹配度" },
+];
+
+const RESULT_COLUMN_STORAGE_KEY = "menuPlanner.resultTable.hiddenColumns";
+
+function loadHiddenResultColumns() {
+  if (typeof window === "undefined" || !window.localStorage) return new Set();
+  try {
+    const raw = window.localStorage.getItem(RESULT_COLUMN_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((key) => RESULT_COLUMNS.some((col) => col.key === key)) : []);
+  } catch (_err) {
+    return new Set();
+  }
+}
+
+function saveHiddenResultColumns(hiddenColumns) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(RESULT_COLUMN_STORAGE_KEY, JSON.stringify(Array.from(hiddenColumns)));
+  } catch (_err) {
+    // 忽略 localStorage 限制，欄位切換在目前畫面仍可運作。
+  }
+}
+
+function resultColumnDataAttrs(key) {
+  return `data-result-column="${key}"`;
+}
+
+function renderResultColumnControls(hiddenColumns) {
+  const buttons = RESULT_COLUMNS.map((col) => {
+    const checked = hiddenColumns.has(col.key) ? "" : " checked";
+    return `<label class="result-column-toggle">
+      <input type="checkbox" class="result-column-toggle-input" data-result-column-toggle="${col.key}"${checked} />
+      <span>${escapeHtml(col.label)}</span>
+    </label>`;
+  }).join("");
+
+  return `<div class="result-column-panel" aria-label="排菜結果欄位顯示設定">
+    <div class="result-column-panel-title">欄位顯示</div>
+    <div class="result-column-toggle-list">${buttons}</div>
+  </div>`;
+}
+
+function applyResultColumnVisibility(root) {
+  if (!root || typeof root.querySelectorAll !== "function") return;
+  const hiddenColumns = new Set(
+    Array.from(root.querySelectorAll(".result-column-toggle-input:not(:checked)"))
+      .map((input) => input.getAttribute("data-result-column-toggle"))
+      .filter(Boolean),
+  );
+  const visibleCount = Math.max(1, RESULT_COLUMNS.length - hiddenColumns.size);
+
+  RESULT_COLUMNS.forEach((col) => {
+    const hidden = hiddenColumns.has(col.key);
+    root.querySelectorAll(`[data-result-column="${col.key}"]`).forEach((el) => {
+      el.hidden = hidden;
+      el.classList.toggle("result-column-hidden", hidden);
+    });
+  });
+
+  root.querySelectorAll(".result-explain-cell").forEach((cell) => {
+    cell.colSpan = visibleCount;
+  });
+  saveHiddenResultColumns(hiddenColumns);
+}
+
+function bindResultColumnControls() {
+  if (typeof document === "undefined") return;
+  const root = document.querySelector(DOM.result);
+  if (!root) return;
+  root.querySelectorAll(".result-column-toggle-input").forEach((input) => {
+    input.addEventListener("change", () => applyResultColumnVisibility(root));
+  });
+  applyResultColumnVisibility(root);
+}
+
 function renderProcurementDetail(day) {
   const procurement = day?.procurement || {};
   const dishes = procurement?.dishes || [];
@@ -178,17 +267,19 @@ export function renderResult(result, cfg, options = {}) {
     <div><b>目標匹配度</b>：${fitTotal.toFixed(2)}</div>
   </div>`;
 
+  const hiddenColumns = loadHiddenResultColumns();
+  html += renderResultColumnControls(hiddenColumns);
+
+  const colgroup = RESULT_COLUMNS.map((col) => {
+    const cls = col.colClass ? ` class="${col.colClass}"` : "";
+    return `<col${cls} ${resultColumnDataAttrs(col.key)} />`;
+  }).join("");
+  const headCells = RESULT_COLUMNS.map((col) => `<th ${resultColumnDataAttrs(col.key)}>${escapeHtml(col.label)}</th>`).join("");
+
   html += `<table class="tbl result-menu-table">
-    <colgroup>
-      <col class="result-date-col" />
-      <col class="result-weekday-col" />
-      <col class="result-people-col" />
-      <col span="8" />
-    </colgroup>
+    <colgroup>${colgroup}</colgroup>
     <thead>
-      <tr>
-        <th>日期</th><th>週幾</th><th>人數</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>目標匹配度</th>
-      </tr>
+      <tr>${headCells}</tr>
     </thead>
     <tbody>`;
 
@@ -204,12 +295,17 @@ export function renderResult(result, cfg, options = {}) {
     if (!isScheduled) {
       const offdayClass = isWeekend ? "row-offday row-weekend-offday" : "row-offday";
       html += `<tr class="${offdayClass}">
-        <td>${d.date || ""}</td>
-        <td class="weekday-cell">${weekdayLabel}</td>
-        <td></td>
-        <td colspan="6"><span class="muted">免排日（依排程設定）</span></td>
-        <td></td>
-        <td></td>
+        <td ${resultColumnDataAttrs("date")}>${d.date || ""}</td>
+        <td class="weekday-cell" ${resultColumnDataAttrs("weekday")}>${weekdayLabel}</td>
+        <td ${resultColumnDataAttrs("people")}></td>
+        <td ${resultColumnDataAttrs("main")}><span class="muted">免排日（依排程設定）</span></td>
+        <td ${resultColumnDataAttrs("noodle")}></td>
+        <td ${resultColumnDataAttrs("side")}></td>
+        <td ${resultColumnDataAttrs("veg")}></td>
+        <td ${resultColumnDataAttrs("soup")}></td>
+        <td ${resultColumnDataAttrs("fruit")}></td>
+        <td ${resultColumnDataAttrs("cost")}></td>
+        <td ${resultColumnDataAttrs("fitness")}></td>
       </tr>`;
       return;
     }
@@ -218,18 +314,22 @@ export function renderResult(result, cfg, options = {}) {
       const mainName = d.items?.main?.name || "(主菜已排但明細不足)";
       const reason = dayErrs.map((e) => (e.message || e.code)).filter(Boolean).join(" / ") || "當天無可行組合";
       html += `<tr class="row-failed">
-        <td>${d.date || ""}</td>
-        <td class="weekday-cell">${weekdayLabel}</td>
-        <td>${defaultPeople}</td>
-        <td>${escapeHtml(mainName)}</td>
-        <td colspan="5"><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
-        <td>${d.day_cost ?? ""}</td>
-        <td></td>
+        <td ${resultColumnDataAttrs("date")}>${d.date || ""}</td>
+        <td class="weekday-cell" ${resultColumnDataAttrs("weekday")}>${weekdayLabel}</td>
+        <td ${resultColumnDataAttrs("people")}>${defaultPeople}</td>
+        <td ${resultColumnDataAttrs("main")}>${escapeHtml(mainName)}</td>
+        <td ${resultColumnDataAttrs("noodle")}><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
+        <td ${resultColumnDataAttrs("side")}></td>
+        <td ${resultColumnDataAttrs("veg")}></td>
+        <td ${resultColumnDataAttrs("soup")}></td>
+        <td ${resultColumnDataAttrs("fruit")}></td>
+        <td ${resultColumnDataAttrs("cost")}>${d.day_cost ?? ""}</td>
+        <td ${resultColumnDataAttrs("fitness")}></td>
       </tr>`;
 
       const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason });
       html += `<tr class="explain">
-        <td colspan="11">
+        <td class="result-explain-cell" colspan="11">
           <details open>
             <summary>原因與建議</summary>
             <pre class="pre">${escapeHtml(detailJson)}</pre>
@@ -301,24 +401,24 @@ export function renderResult(result, cfg, options = {}) {
       : String(dayPeople);
 
     html += `<tr>
-      <td>${d.date}</td>
-      <td class="weekday-cell">${weekdayLabel}</td>
-      <td>${peopleCell}</td>
-      <td>${mainCell}</td>
-      <td>${noodleCell}</td>
-      <td>${sideCell}</td>
-      <td>${vegCell}</td>
-      <td>${soupCell}</td>
-      <td>${fruitCell}</td>
-      <td>${cost}</td>
-      <td><b>${fitness.toFixed(1)}</b></td>
+      <td ${resultColumnDataAttrs("date")}>${d.date}</td>
+      <td class="weekday-cell" ${resultColumnDataAttrs("weekday")}>${weekdayLabel}</td>
+      <td ${resultColumnDataAttrs("people")}>${peopleCell}</td>
+      <td ${resultColumnDataAttrs("main")}>${mainCell}</td>
+      <td ${resultColumnDataAttrs("noodle")}>${noodleCell}</td>
+      <td ${resultColumnDataAttrs("side")}>${sideCell}</td>
+      <td ${resultColumnDataAttrs("veg")}>${vegCell}</td>
+      <td ${resultColumnDataAttrs("soup")}>${soupCell}</td>
+      <td ${resultColumnDataAttrs("fruit")}>${fruitCell}</td>
+      <td ${resultColumnDataAttrs("cost")}>${cost}</td>
+      <td ${resultColumnDataAttrs("fitness")}><b>${fitness.toFixed(1)}</b></td>
     </tr>`;
 
     if (dayErrs.length > 0 || d.failed) {
       const reason = dayErrs.map((e) => (e.message || e.code)).filter(Boolean).join(" / ") || d.message || "部分欄位未滿足限制";
       const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason, reason_code: d.reason_code, details: d.details });
       html += `<tr class="explain">
-        <td colspan="11">
+        <td class="result-explain-cell" colspan="11">
           <details open>
             <summary>⚠️ 部分限制未滿足：${escapeHtml(reason)}</summary>
             <pre class="pre">${escapeHtml(detailJson)}</pre>
@@ -356,7 +456,7 @@ export function renderResult(result, cfg, options = {}) {
     const daySummary = `今日小結：加分 ${sum.bonus.toFixed(1)} ／ 扣分 ${sum.penalty.toFixed(1)} ／ 原始 ${sum.raw.toFixed(1)}（目標匹配度 ${sum.fitness.toFixed(1)}）`;
 
     html += `<tr class="explain">
-      <td colspan="11">
+      <td class="result-explain-cell" colspan="11">
         <details>
           <summary>可解釋明細</summary>
           <div class="explain-box">
@@ -379,4 +479,5 @@ export function renderResult(result, cfg, options = {}) {
 
   html += "</tbody></table>";
   $(DOM.result).html(html);
+  bindResultColumnControls();
 }

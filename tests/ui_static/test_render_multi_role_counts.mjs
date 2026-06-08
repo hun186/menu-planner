@@ -72,8 +72,34 @@ test("renderResult: adds weekday column and highlights weekend offdays", () => {
 
   renderResult(result, { people: 250 }, { editable: false });
 
-  assert.match(renderedHtml, /<th>日期<\/th><th>週幾<\/th><th>人數<\/th>/);
-  assert.match(renderedHtml, /<tr class="row-offday row-weekend-offday">[\s\S]*<td class="weekday-cell">六<\/td>/);
-  assert.match(renderedHtml, /<td class="weekday-cell">一<\/td>/);
-  assert.match(renderedHtml, /<td colspan="11">[\s\S]*可解釋明細/);
+  assert.match(renderedHtml, /<th data-result-column="date">日期<\/th><th data-result-column="weekday">週幾<\/th><th data-result-column="people">人數<\/th>/);
+  assert.match(renderedHtml, /<tr class="row-offday row-weekend-offday">[\s\S]*<td class="weekday-cell" data-result-column="weekday">六<\/td>/);
+  assert.match(renderedHtml, /<td class="weekday-cell" data-result-column="weekday">一<\/td>/);
+  assert.match(renderedHtml, /<td class="result-explain-cell" colspan="11">[\s\S]*可解釋明細/);
+});
+
+
+test("renderResult: renders column visibility controls and column data markers", () => {
+  let renderedHtml = "";
+  global.$ = (selector) => {
+    assert.equal(selector, "#result");
+    return {
+      html(value) {
+        renderedHtml = String(value || "");
+      },
+    };
+  };
+
+  renderResult({
+    summary: { days: 1, total_cost: 0, avg_cost_per_day: 0, total_score: 0 },
+    days: [{ day_index: 0, date: "2026-03-23", is_scheduled: true, items: {}, day_cost: 0, score: 0, score_breakdown: {} }],
+    errors: [],
+  }, { people: 250 }, { editable: false });
+
+  assert.match(renderedHtml, /<div class="result-column-panel" aria-label="排菜結果欄位顯示設定">/);
+  assert.match(renderedHtml, /data-result-column-toggle="main" checked/);
+  assert.match(renderedHtml, /data-result-column-toggle="fitness" checked/);
+  assert.match(renderedHtml, /<col class="result-date-col" data-result-column="date" \/>/);
+  assert.match(renderedHtml, /<td data-result-column="main">/);
+  assert.match(renderedHtml, /<td data-result-column="fitness"><b>0\.0<\/b><\/td>/);
 });

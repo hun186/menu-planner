@@ -45,6 +45,7 @@ def test_export_excel_uses_dynamic_role_slots_from_config_and_result():
     headers = [sheet.cell(row=1, column=col).value for col in range(1, sheet.max_column + 1)]
     assert headers == [
         "日期",
+        "週幾",
         "主菜1",
         "主菜2",
         "麵食1",
@@ -65,8 +66,9 @@ def test_export_excel_uses_dynamic_role_slots_from_config_and_result():
         "分數拆解(易讀)",
     ]
     values = [sheet.cell(row=2, column=col).value for col in range(1, sheet.max_column + 1)]
-    assert values[:15] == [
+    assert values[:16] == [
         "2026-03-04",
+        "（三）",
         "主菜A",
         "主菜B",
         "麵食A",
@@ -109,9 +111,32 @@ def test_export_excel_falls_back_to_single_role_shape_for_legacy_items():
     sheet = wb["菜單"]
 
     headers = [sheet.cell(row=1, column=col).value for col in range(1, sheet.max_column + 1)]
-    assert headers[:7] == ["日期", "主菜", "配菜1", "配菜2", "純蔬", "湯", "水果"]
-    values = [sheet.cell(row=2, column=col).value for col in range(1, 8)]
-    assert values == ["2026-03-05", "主菜A", "配菜A", "配菜B", "純蔬A", "湯A", "水果A"]
+    assert headers[:8] == ["日期", "週幾", "主菜", "配菜1", "配菜2", "純蔬", "湯", "水果"]
+    values = [sheet.cell(row=2, column=col).value for col in range(1, 9)]
+    assert values == ["2026-03-05", "（四）", "主菜A", "配菜A", "配菜B", "純蔬A", "湯A", "水果A"]
+
+
+def test_export_excel_adds_weekday_column_and_marks_weekend_offdays():
+    cfg = {}
+    result = {
+        "days": [
+            {"date": "2026-03-07", "is_scheduled": False, "items": {}},
+            {"date": "2026-03-09", "is_scheduled": True, "items": {}},
+        ]
+    }
+
+    workbook_bytes = build_plan_workbook(cfg, result)
+    wb = openpyxl.load_workbook(io.BytesIO(workbook_bytes), data_only=True)
+    sheet = wb["菜單"]
+
+    assert sheet.cell(row=1, column=1).value == "日期"
+    assert sheet.cell(row=1, column=2).value == "週幾"
+    assert sheet.cell(row=2, column=1).value == "2026-03-07"
+    assert sheet.cell(row=2, column=2).value == "（六）"
+    assert sheet.cell(row=3, column=2).value == "（一）"
+    assert sheet.cell(row=2, column=1).fill.fgColor.rgb == "FFFFE4E6"
+    assert sheet.cell(row=2, column=2).fill.fgColor.rgb == "FFFFE4E6"
+    assert sheet.cell(row=3, column=1).fill.fgColor.rgb != "FFFFE4E6"
 
 
 def test_export_excel_human_breakdown_covers_all_dynamic_roles():

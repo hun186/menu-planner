@@ -28,6 +28,16 @@ test('dish table widths include action buttons without over-allocating columns',
 });
 
 
+test('dish cost warning badge wraps inside cost column without overlapping actions', () => {
+  const adminJs = readFileSync('src/menu_planner/ui_static/admin.js', 'utf8');
+
+  assert.match(adminJs, /<td class="dish-cost-cell">\s*<span class="dish-cost-line"><span class="dish-cost-value">/);
+  assert.match(styles, /\.dish-tbl td\.dish-cost-cell\{[\s\S]*white-space:normal;[\s\S]*overflow-wrap:anywhere;[\s\S]*\}/);
+  assert.match(styles, /\.dish-cost-line\{[\s\S]*display:inline-flex;[\s\S]*flex-wrap:wrap;[\s\S]*\}/);
+  assert.match(styles, /\.dish-cost-value\{[\s\S]*white-space:nowrap;[\s\S]*\}/);
+});
+
+
 test('dish editor exposes prep minutes input and save payload field', () => {
   const adminJs = readFileSync('src/menu_planner/ui_static/admin.js', 'utf8');
 

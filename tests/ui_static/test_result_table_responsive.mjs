@@ -16,9 +16,10 @@ test("result menu table reserves compact date and people columns", () => {
   const render = readFileSync("src/menu_planner/ui_static/render.js", "utf8");
   const styles = readFileSync("src/menu_planner/ui_static/styles.css", "utf8");
 
-  assert.match(render, /<table class="tbl result-menu-table">[\s\S]*<col class="result-date-col" \/>[\s\S]*<col class="result-people-col" \/>/);
+  assert.match(render, /<table class="tbl result-menu-table">[\s\S]*<col class="result-date-col" \/>[\s\S]*<col class="result-weekday-col" \/>[\s\S]*<col class="result-people-col" \/>/);
   assert.match(render, /class="day-people-input" type="number" min="1" max="9999"/);
   assert.match(styles, /--result-date-col-width\s*:\s*calc\(13ch \+ 16px\)\s*;/);
+  assert.match(styles, /--result-weekday-col-width\s*:\s*calc\(4ch \+ 12px\)\s*;/);
   assert.match(styles, /--result-people-col-width\s*:\s*calc\(4ch \+ 12px\)\s*;/);
-  assert.match(styles, /\.result-menu-table th:nth-child\(1\),[\s\S]*\.result-menu-table td:nth-child\(2\)\{[\s\S]*white-space\s*:\s*nowrap\s*;/);
+  assert.match(styles, /\.result-menu-table th:nth-child\(1\),[\s\S]*\.result-menu-table td:nth-child\(3\)\{[\s\S]*white-space\s*:\s*nowrap\s*;/);
 });

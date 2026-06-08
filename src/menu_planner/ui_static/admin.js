@@ -461,7 +461,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
           <td>${escapeHtml(formatWeekdays(x.allowed_weekdays))}</td>
           <td>${escapeHtml(Number(x.prep_minutes || 0))} 分鐘</td>
           <td class="dish-cost-cell">
-            <span class="dish-cost-value">${escapeHtml(costCell.text)}</span>${warningBadge}
+            <span class="dish-cost-line"><span class="dish-cost-value">${escapeHtml(costCell.text)}</span>${warningBadge}</span>
           </td>
           <td>
             <div class="row-actions">

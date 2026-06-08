@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict, Iterable
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font
+from openpyxl.styles import Alignment, Font, PatternFill
 
 from ..engine.roles import ROLE_LABELS, ROLE_ORDER, ROLE_PLURALS
 from .export_excel_breakdown import build_human_breakdown
@@ -31,6 +31,38 @@ def _to_float_or_none(value: Any) -> float | None:
 
 ROLE_EXPORT_ORDER = ROLE_ORDER
 METRIC_HEADERS = ["成本", "目標匹配度", "分數拆解(JSON)", "分數拆解(易讀)"]
+WEEKDAY_SHORT_LABELS = {
+    1: "（一）",
+    2: "（二）",
+    3: "（三）",
+    4: "（四）",
+    5: "（五）",
+    6: "（六）",
+    7: "（日）",
+}
+WEEKEND_OFFDAY_FILL = "FFFFE4E6"
+
+
+def _iso_weekday_from_date_text(value: Any) -> int | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value).isoweekday()
+    except ValueError:
+        return None
+
+
+def _weekday_short_label(value: Any) -> str:
+    weekday = _iso_weekday_from_date_text(value)
+    return WEEKDAY_SHORT_LABELS.get(weekday, "") if weekday is not None else ""
+
+
+def _is_weekend_offday(day: Dict[str, Any]) -> bool:
+    is_scheduled = day.get("is_scheduled")
+    if is_scheduled is None:
+        is_scheduled = True
+    weekday = _iso_weekday_from_date_text(day.get("date"))
+    return not bool(is_scheduled) and weekday in (6, 7)
 
 
 def _as_nonnegative_int(value: Any) -> int:
@@ -127,6 +159,7 @@ def _extract_menu_row(day: Dict[str, Any], role_slots: Dict[str, int]) -> list[A
     human = build_human_breakdown(day) if not day.get("failed") else ""
     return [
         day.get("date", ""),
+        _weekday_short_label(day.get("date")),
         *role_values,
         day.get("day_cost", ""),
         fitness if fitness is not None else "",
@@ -171,7 +204,7 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
     ws.title = "菜單"
     days = result.get("days", []) or []
     role_slots = _compute_role_slots(cfg, days)
-    header = ["日期", *_role_headers(role_slots), *METRIC_HEADERS]
+    header = ["日期", "週幾", *_role_headers(role_slots), *METRIC_HEADERS]
     ws.append(header)
 
     bold = Font(bold=True)
@@ -180,17 +213,21 @@ def build_plan_workbook(cfg: Dict[str, Any], result: Dict[str, Any]) -> bytes:
         cell.font = bold
         cell.alignment = Alignment(vertical="center")
 
+    weekend_offday_fill = PatternFill(fill_type="solid", fgColor=WEEKEND_OFFDAY_FILL)
     for day in days:
         ws.append(_extract_menu_row(day, role_slots))
+        if _is_weekend_offday(day):
+            for cell in ws[ws.max_row]:
+                cell.fill = weekend_offday_fill
 
     total_cost, total_fitness, fitness_count = _compute_plan_totals(days)
 
     ws.freeze_panes = "A2"
-    widths = {1: 12}
-    role_header_count = len(header) - 1 - len(METRIC_HEADERS)
-    for col in range(2, 2 + role_header_count):
+    widths = {1: 12, 2: 8}
+    role_header_count = len(header) - 2 - len(METRIC_HEADERS)
+    for col in range(3, 3 + role_header_count):
         widths[col] = 18
-    metric_start = 2 + role_header_count
+    metric_start = 3 + role_header_count
     widths.update({
         metric_start: 10,
         metric_start + 1: 10,

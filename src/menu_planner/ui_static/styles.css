@@ -297,10 +297,14 @@ textarea{
 }
 .result-menu-table{
   --result-date-col-width: calc(13ch + 16px);
+  --result-weekday-col-width: calc(4ch + 12px);
   --result-people-col-width: calc(4ch + 12px);
 }
 .result-menu-table .result-date-col{
   width:var(--result-date-col-width);
+}
+.result-menu-table .result-weekday-col{
+  width:var(--result-weekday-col-width);
 }
 .result-menu-table .result-people-col{
   width:var(--result-people-col-width);
@@ -308,7 +312,9 @@ textarea{
 .result-menu-table th:nth-child(1),
 .result-menu-table td:nth-child(1),
 .result-menu-table th:nth-child(2),
-.result-menu-table td:nth-child(2){
+.result-menu-table td:nth-child(2),
+.result-menu-table th:nth-child(3),
+.result-menu-table td:nth-child(3){
   white-space:nowrap;
 }
 .tbl{ width:100%; border-collapse:collapse; font-size:13px; }
@@ -330,6 +336,13 @@ textarea{
 }
 .row-offday td{
   background:#fbfbfb;
+}
+.row-weekend-offday td{
+  background:#fff1f2;
+}
+.weekday-cell{
+  text-align:center;
+  white-space:nowrap;
 }
 .ing-tbl th, .ing-tbl td,
 .dish-tbl th, .dish-tbl td{
@@ -716,12 +729,21 @@ select{
 }
 
 .dish-tbl td.dish-cost-cell{
-  white-space:nowrap;
+  white-space:normal;
   word-break:keep-all;
+  overflow-wrap:anywhere;
+}
+
+.dish-cost-line{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  max-width:100%;
+  flex-wrap:wrap;
 }
 
 .dish-cost-value{
-  margin-right:6px;
+  white-space:nowrap;
 }
 
 .cost-warning-icon{

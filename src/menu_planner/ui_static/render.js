@@ -99,6 +99,26 @@ function isoWeekdayFromDateString(dateText) {
   return utcDay === 0 ? 7 : utcDay;
 }
 
+const WEEKDAY_SHORT_LABELS = new Map([
+  [1, "（一）"],
+  [2, "（二）"],
+  [3, "（三）"],
+  [4, "（四）"],
+  [5, "（五）"],
+  [6, "（六）"],
+  [7, "（日）"],
+]);
+
+function weekdayShortLabelFromDateString(dateText) {
+  const weekday = isoWeekdayFromDateString(dateText);
+  return weekday === null ? "" : WEEKDAY_SHORT_LABELS.get(weekday) || "";
+}
+
+function isWeekendDateString(dateText) {
+  const weekday = isoWeekdayFromDateString(dateText);
+  return weekday === 6 || weekday === 7;
+}
+
 function editableRoleSlotCount(cfg, dateText, role, fallbackCount) {
   const fallback = Number.isFinite(Number(fallbackCount)) && Number(fallbackCount) >= 0 ? Number(fallbackCount) : 0;
   const weekday = isoWeekdayFromDateString(dateText);
@@ -161,12 +181,13 @@ export function renderResult(result, cfg, options = {}) {
   html += `<table class="tbl result-menu-table">
     <colgroup>
       <col class="result-date-col" />
+      <col class="result-weekday-col" />
       <col class="result-people-col" />
       <col span="8" />
     </colgroup>
     <thead>
       <tr>
-        <th>日期</th><th>人數</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>目標匹配度</th>
+        <th>日期</th><th>週幾</th><th>人數</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬配菜</th><th>湯</th><th>水果</th><th>成本</th><th>目標匹配度</th>
       </tr>
     </thead>
     <tbody>`;
@@ -177,9 +198,14 @@ export function renderResult(result, cfg, options = {}) {
     const dayErrs = errByDay.get(dayIndex) || [];
     const isFailed = shouldRenderFailedRow(d, dayErrs);
 
+    const weekdayLabel = weekdayShortLabelFromDateString(d.date);
+    const isWeekend = isWeekendDateString(d.date);
+
     if (!isScheduled) {
-      html += `<tr class="row-offday">
+      const offdayClass = isWeekend ? "row-offday row-weekend-offday" : "row-offday";
+      html += `<tr class="${offdayClass}">
         <td>${d.date || ""}</td>
+        <td class="weekday-cell">${weekdayLabel}</td>
         <td></td>
         <td colspan="6"><span class="muted">免排日（依排程設定）</span></td>
         <td></td>
@@ -193,6 +219,7 @@ export function renderResult(result, cfg, options = {}) {
       const reason = dayErrs.map((e) => (e.message || e.code)).filter(Boolean).join(" / ") || "當天無可行組合";
       html += `<tr class="row-failed">
         <td>${d.date || ""}</td>
+        <td class="weekday-cell">${weekdayLabel}</td>
         <td>${defaultPeople}</td>
         <td>${escapeHtml(mainName)}</td>
         <td colspan="5"><span class="warn">⚠️ 排程失敗</span>：${escapeHtml(reason)}</td>
@@ -202,7 +229,7 @@ export function renderResult(result, cfg, options = {}) {
 
       const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason });
       html += `<tr class="explain">
-        <td colspan="10">
+        <td colspan="11">
           <details open>
             <summary>原因與建議</summary>
             <pre class="pre">${escapeHtml(detailJson)}</pre>
@@ -275,6 +302,7 @@ export function renderResult(result, cfg, options = {}) {
 
     html += `<tr>
       <td>${d.date}</td>
+      <td class="weekday-cell">${weekdayLabel}</td>
       <td>${peopleCell}</td>
       <td>${mainCell}</td>
       <td>${noodleCell}</td>
@@ -290,7 +318,7 @@ export function renderResult(result, cfg, options = {}) {
       const reason = dayErrs.map((e) => (e.message || e.code)).filter(Boolean).join(" / ") || d.message || "部分欄位未滿足限制";
       const detailJson = dayErrs.length ? pretty(dayErrs) : pretty({ message: reason, reason_code: d.reason_code, details: d.details });
       html += `<tr class="explain">
-        <td colspan="10">
+        <td colspan="11">
           <details open>
             <summary>⚠️ 部分限制未滿足：${escapeHtml(reason)}</summary>
             <pre class="pre">${escapeHtml(detailJson)}</pre>
@@ -328,7 +356,7 @@ export function renderResult(result, cfg, options = {}) {
     const daySummary = `今日小結：加分 ${sum.bonus.toFixed(1)} ／ 扣分 ${sum.penalty.toFixed(1)} ／ 原始 ${sum.raw.toFixed(1)}（目標匹配度 ${sum.fitness.toFixed(1)}）`;
 
     html += `<tr class="explain">
-      <td colspan="10">
+      <td colspan="11">
         <details>
           <summary>可解釋明細</summary>
           <div class="explain-box">

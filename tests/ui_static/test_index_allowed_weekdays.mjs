@@ -196,6 +196,16 @@ test('side-soup meat weekday overrides use compact weekday-column layout', () =>
 });
 
 
+test('advanced planning controls are separated by green thick dividers', () => {
+  const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
+
+  assert.match(html, /<hr class="hr" \/>\s*<h3 class="h3">每日各角色數量<\/h3>/);
+  assert.match(html, /<hr class="hr" \/>\s*<h3 class="h3">每日配菜＋湯品含肉數量上限<\/h3>/);
+  assert.match(html, /<hr class="hr" \/>\s*<h3 class="h3">每日備菜時間上限<\/h3>/);
+  assert.match(html, /<hr class="hr" \/>\s*<h3 class="h3">重複限制（可互動調整）<\/h3>/);
+});
+
+
 test('daily role counts use the same compact role-column layout as weekday overrides', () => {
   const html = readFileSync(new URL('../../src/menu_planner/ui_static/index.html', import.meta.url), 'utf8');
 

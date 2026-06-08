@@ -4,6 +4,7 @@ from src.menu_planner.config.loader import validate_config
 from src.menu_planner.db.repo import Dish
 from src.menu_planner.engine.backtracking import fill_days_after_mains
 from src.menu_planner.engine.features import DishFeatures
+from src.menu_planner.engine.planner import _build_dish_has_meat
 
 
 def _dish(did, role, meat=None):
@@ -23,16 +24,16 @@ def _feat(dish):
     )
 
 
-def _protein_count(day, dish_has_protein):
-    return sum(1 for did in list(day.sides) + list(day.soups) if dish_has_protein.get(did, False))
+def _meat_count(day, dish_has_meat):
+    return sum(1 for did in list(day.sides) + list(day.soups) if dish_has_meat.get(did, False))
 
 
-def test_validate_config_accepts_global_and_weekday_side_soup_protein_limits():
+def test_validate_config_accepts_global_and_weekday_side_soup_meat_limits():
     ok, errors = validate_config(
         {
             "horizon_days": 1,
-            "side_soup_protein_limit": 2,
-            "per_weekday_side_soup_protein_limit": {"2": 1},
+            "side_soup_meat_limit": 2,
+            "per_weekday_side_soup_meat_limit": {"2": 1},
         }
     )
 
@@ -40,26 +41,23 @@ def test_validate_config_accepts_global_and_weekday_side_soup_protein_limits():
     assert errors == []
 
 
-def test_fill_days_honors_side_soup_protein_limit_and_weekday_override():
+def test_fill_days_honors_side_soup_meat_limit_and_weekday_override():
     start = date(2026, 6, 1)  # Monday; day index 1 is Tuesday override.
     dishes = [
         _dish("main_a", "main", "chicken"),
         _dish("soup_plain", "soup"),
-        _dish("side_protein_a", "side"),
-        _dish("side_protein_b", "side"),
+        _dish("side_chicken", "side", "chicken"),
+        _dish("side_pork", "side", "pork"),
+        _dish("side_egg", "side", "egg"),
+        _dish("side_tofu", "side", "vegetarian"),
         _dish("side_plain", "side"),
     ]
     feat = {d.id: _feat(d) for d in dishes}
-    dish_has_protein = {
-        "side_protein_a": True,
-        "side_protein_b": True,
-        "side_plain": False,
-        "soup_plain": False,
-    }
+    dish_has_meat = _build_dish_has_meat(dishes)
     hard = {
         "seed": 1,
-        "side_soup_protein_limit": 2,
-        "per_weekday_side_soup_protein_limit": {"2": 1},
+        "side_soup_meat_limit": 2,
+        "per_weekday_side_soup_meat_limit": {"2": 1},
         "repeat_limits": {
             "max_same_side_in_7_days": 99,
             "max_same_soup_in_7_days": 99,
@@ -79,7 +77,7 @@ def test_fill_days_honors_side_soup_protein_limit_and_weekday_override():
         hard=hard,
         weights={},
         soft={},
-        dish_has_protein=dish_has_protein,
+        dish_has_meat=dish_has_meat,
         start_date=start,
         role_counts_by_day=[
             {"main": 1, "noodle": 0, "side": 2, "veg": 0, "soup": 1, "fruit": 0},
@@ -89,7 +87,11 @@ def test_fill_days_honors_side_soup_protein_limit_and_weekday_override():
     )
 
     assert errors == []
-    assert _protein_count(plan[0], dish_has_protein) <= 2
-    assert _protein_count(plan[1], dish_has_protein) <= 1
-    assert explanations[0]["side_soup_protein_limit"] == 2
-    assert explanations[1]["side_soup_protein_limit"] == 1
+    assert dish_has_meat["side_chicken"] is True
+    assert dish_has_meat["side_pork"] is True
+    assert dish_has_meat["side_egg"] is False
+    assert dish_has_meat["side_tofu"] is False
+    assert _meat_count(plan[0], dish_has_meat) <= 2
+    assert _meat_count(plan[1], dish_has_meat) <= 1
+    assert explanations[0]["side_soup_meat_limit"] == 2
+    assert explanations[1]["side_soup_meat_limit"] == 1

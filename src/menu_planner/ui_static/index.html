@@ -153,27 +153,25 @@
           </tbody>
         </table>
 
-        <h3 class="h3">每日配菜＋湯品含蛋白質數量上限</h3>
-        <div class="hint">計算配菜與湯品中，食材「蛋白質」欄位非空的菜色合計數；週幾覆寫會取代全域每日預設。</div>
+        <h3 class="h3">每日配菜＋湯品含肉數量上限</h3>
+        <div class="hint">計算配菜與湯品中，菜色肉類為雞、豬、牛、魚或海鮮的合計數；蛋、豆腐、素食或未填肉類不計入，週幾覆寫會取代全域每日預設。</div>
         <div class="row">
           <label>全域每日上限</label>
-          <input id="side_soup_protein_limit" type="number" min="0" value="2" aria-label="全域每日配菜與湯品含蛋白質數量上限" />
+          <input id="side_soup_meat_limit" type="number" min="0" value="2" aria-label="全域每日配菜與湯品含肉數量上限" />
         </div>
-        <div class="inline left weekday-protein-actions" aria-label="新增含蛋白質上限週幾覆寫" style="margin-top:8px; margin-bottom:8px;">
-          <select id="weekday_protein_add_select" aria-label="選擇要新增的含蛋白質上限週幾覆寫">
-            <option value="1">星期一</option>
-            <option value="2">星期二</option>
-            <option value="3">星期三</option>
-            <option value="4">星期四</option>
-            <option value="5">星期五</option>
-            <option value="6">星期六</option>
-            <option value="7">星期日</option>
-          </select>
-          <button type="button" id="weekday_protein_add">新增週幾覆寫</button>
-        </div>
-        <table class="mini-table protein-limit-table" id="weekday_protein_limits_table">
-          <thead><tr><th>週幾覆寫</th><th>含蛋白質上限</th><th>操作</th></tr></thead>
-          <tbody></tbody>
+        <table class="mini-table meat-limit-table" id="weekday_meat_limits_table">
+          <thead><tr><th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th><th>星期五</th><th>星期六</th><th>星期日</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><input class="weekday-meat-limit" data-weekday="1" type="number" min="0" placeholder="預設" aria-label="星期一配菜與湯品含肉數量上限覆寫"></td>
+              <td><input class="weekday-meat-limit" data-weekday="2" type="number" min="0" placeholder="預設" aria-label="星期二配菜與湯品含肉數量上限覆寫"></td>
+              <td><input class="weekday-meat-limit" data-weekday="3" type="number" min="0" placeholder="預設" aria-label="星期三配菜與湯品含肉數量上限覆寫"></td>
+              <td><input class="weekday-meat-limit" data-weekday="4" type="number" min="0" placeholder="預設" aria-label="星期四配菜與湯品含肉數量上限覆寫"></td>
+              <td><input class="weekday-meat-limit" data-weekday="5" type="number" min="0" placeholder="預設" aria-label="星期五配菜與湯品含肉數量上限覆寫"></td>
+              <td><input class="weekday-meat-limit" data-weekday="6" type="number" min="0" placeholder="預設" aria-label="星期六配菜與湯品含肉數量上限覆寫"></td>
+              <td><input class="weekday-meat-limit" data-weekday="7" type="number" min="0" placeholder="預設" aria-label="星期日配菜與湯品含肉數量上限覆寫"></td>
+            </tr>
+          </tbody>
         </table>
 
         <h3 class="h3">每日備菜時間上限</h3>

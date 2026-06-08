@@ -139,6 +139,6 @@
   },
   "prep_time_limit_minutes": 90,
   "per_weekday_prep_time_limit_minutes": {},
-  "side_soup_protein_limit": 2,
-  "per_weekday_side_soup_protein_limit": {}
+  "side_soup_meat_limit": 2,
+  "per_weekday_side_soup_meat_limit": {}
 }

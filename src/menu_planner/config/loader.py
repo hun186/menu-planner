@@ -90,7 +90,7 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
             errs.append(f"{path} 必須是整數")
 
     _validate_nonnegative_int("prep_time_limit_minutes", cfg.get("prep_time_limit_minutes", 90))
-    _validate_nonnegative_int("side_soup_protein_limit", cfg.get("side_soup_protein_limit", 2))
+    _validate_nonnegative_int("side_soup_meat_limit", cfg.get("side_soup_meat_limit", cfg.get("side_soup_protein_limit", 2)))
     per_weekday_prep = cfg.get("per_weekday_prep_time_limit_minutes")
     if per_weekday_prep is not None:
         if not isinstance(per_weekday_prep, dict):
@@ -106,21 +106,21 @@ def validate_config(cfg: Dict[str, Any]) -> Tuple[bool, List[str]]:
                     errs.append(f"per_weekday_prep_time_limit_minutes 僅支援 1~7：{weekday}")
                     continue
                 _validate_nonnegative_int(f"per_weekday_prep_time_limit_minutes.{weekday}", minutes)
-    per_weekday_protein = cfg.get("per_weekday_side_soup_protein_limit")
-    if per_weekday_protein is not None:
-        if not isinstance(per_weekday_protein, dict):
-            errs.append("per_weekday_side_soup_protein_limit 必須是物件（weekday -> 非負整數）")
+    per_weekday_meat = cfg.get("per_weekday_side_soup_meat_limit", cfg.get("per_weekday_side_soup_protein_limit"))
+    if per_weekday_meat is not None:
+        if not isinstance(per_weekday_meat, dict):
+            errs.append("per_weekday_side_soup_meat_limit 必須是物件（weekday -> 非負整數）")
         else:
-            for weekday, limit in per_weekday_protein.items():
+            for weekday, limit in per_weekday_meat.items():
                 try:
                     wd = int(weekday)
                 except Exception:
-                    errs.append(f"per_weekday_side_soup_protein_limit 僅支援 1~7：{weekday}")
+                    errs.append(f"per_weekday_side_soup_meat_limit 僅支援 1~7：{weekday}")
                     continue
                 if wd < 1 or wd > 7:
-                    errs.append(f"per_weekday_side_soup_protein_limit 僅支援 1~7：{weekday}")
+                    errs.append(f"per_weekday_side_soup_meat_limit 僅支援 1~7：{weekday}")
                     continue
-                _validate_nonnegative_int(f"per_weekday_side_soup_protein_limit.{weekday}", limit)
+                _validate_nonnegative_int(f"per_weekday_side_soup_meat_limit.{weekday}", limit)
 
     per_weekday_roles = cfg.get("per_weekday_roles")
     if per_weekday_roles is not None:

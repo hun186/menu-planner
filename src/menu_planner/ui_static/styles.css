@@ -518,6 +518,7 @@ textarea{
 .repeat-limits-table,
 #daily_role_counts_table,
 #weekday_role_counts_table,
+#weekday_meat_limits_table,
 #weekday_prep_limits_table{
   min-width:var(--planner-settings-table-min-width);
 }
@@ -550,6 +551,8 @@ textarea{
 .role-counts-table td:first-child{ min-width:96px; }
 #weekday_role_counts_table th:last-child,
 #weekday_role_counts_table td:last-child{ min-width:70px; }
+.meat-limit-table th,
+.meat-limit-table td,
 .prep-limit-table th,
 .prep-limit-table td{
   min-width:84px;

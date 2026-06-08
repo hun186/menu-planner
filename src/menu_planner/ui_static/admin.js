@@ -1,6 +1,6 @@
 import * as adminApi from "./admin/api.js";
 import { createCatalogCache, setCatalogCache } from "./shared/catalog_cache.js";
-import { adminKey } from "./shared/http.js";
+import { authUser, clearAuthSession, saveAuthSession, authToken } from "./shared/http.js";
 import { escapeHtml } from "./shared/html.js";
 import { sortThenPaginate } from "./shared/sort_pagination.js";
 import { createIngredientLookup } from "./admin/ingredient_lookup.js";
@@ -55,6 +55,13 @@ const {
   upsertDish,
   upsertIngredient,
   upsertUnitConversion,
+  loginAuth,
+  registerAuth,
+  getAuthMe,
+  listAuthUsers,
+  approveAuthUser,
+  rejectAuthUser,
+  deleteAuthUser,
 } = adminApi;
 
 async function requestUnitConversionApi(url, options = {}) {
@@ -62,8 +69,8 @@ async function requestUnitConversionApi(url, options = {}) {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
-  const key = adminKey();
-  if (key) headers["X-Admin-Key"] = key;
+  const token = authToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(url, { ...options, headers });
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -849,7 +856,113 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     $("#modal_ing").removeClass("hide");
   }
   
+
+  function renderAuthStatus(user = authUser()) {
+    const $status = $("#auth_status");
+    if (!$status.length) return;
+    if (user?.username) {
+      $status.html(`目前登入：<strong>${escapeHtml(user.username)}</strong>（${escapeHtml(user.role || "user")}）`);
+    } else {
+      $status.text("尚未登入；寫入操作需要 superuser 帳號。");
+    }
+  }
+
+  async function refreshAuthUsers() {
+    const $body = $("#auth_users_tbl tbody");
+    if (!$body.length) return;
+    try {
+      const payload = await listAuthUsers();
+      const users = Array.isArray(payload?.users) ? payload.users : [];
+      $body.html(users.map((u) => `
+        <tr>
+          <td>${escapeHtml(u.username || "")}</td>
+          <td>${escapeHtml(u.full_name || "")}</td>
+          <td>${escapeHtml(u.role || "")}</td>
+          <td>${escapeHtml(u.status || "")}</td>
+          <td>${escapeHtml(u.department || "")}</td>
+          <td>
+            <select class="auth-role" data-user="${escapeHtml(u.username || "")}">
+              ${["user", "manager", "superuser"].map((role) => `<option value="${role}" ${role === u.role ? "selected" : ""}>${role}</option>`).join("")}
+            </select>
+            <button class="auth-approve" data-user="${escapeHtml(u.username || "")}">核准</button>
+            <button class="auth-reject" data-user="${escapeHtml(u.username || "")}">拒絕</button>
+            <button class="auth-delete" data-user="${escapeHtml(u.username || "")}">刪除</button>
+          </td>
+        </tr>
+      `).join(""));
+      $("#msg_auth").text(`已載入 ${users.length} 個帳號。`).removeClass("err");
+    } catch (e) {
+      $body.html("");
+      $("#msg_auth").text(`帳號清單載入失敗：${e?.message || e}`).addClass("err");
+    }
+  }
+
+  function bindAuthUI() {
+    renderAuthStatus();
+    $("#auth_login").on("click", async () => {
+      try {
+        const username = ($("#auth_username").val() || "").trim();
+        const password = $("#auth_password").val() || "";
+        const payload = await loginAuth(username, password);
+        saveAuthSession(payload.access_token, payload.user);
+        renderAuthStatus(payload.user);
+        $("#msg_auth").text("登入成功。寫入操作會自動附加 Bearer Token。").removeClass("err");
+        await refreshAuthUsers();
+      } catch (e) {
+        $("#msg_auth").text(`登入失敗：${e?.message || e}`).addClass("err");
+      }
+    });
+    $("#auth_register").on("click", async () => {
+      try {
+        const payload = await registerAuth({
+          username: ($("#auth_username").val() || "").trim(),
+          password: $("#auth_password").val() || "",
+          fullName: ($("#auth_full_name").val() || "").trim(),
+          department: ($("#auth_department").val() || "").trim(),
+          note: ($("#auth_note").val() || "").trim(),
+        });
+        $("#msg_auth").text(payload.message || "帳號已建立。").removeClass("err");
+      } catch (e) {
+        $("#msg_auth").text(`註冊失敗：${e?.message || e}`).addClass("err");
+      }
+    });
+    $("#auth_logout").on("click", () => {
+      clearAuthSession();
+      renderAuthStatus(null);
+      $("#auth_users_tbl tbody").html("");
+      $("#msg_auth").text("已登出。").removeClass("err");
+    });
+    $("#auth_refresh_me").on("click", async () => {
+      try {
+        const payload = await getAuthMe();
+        saveAuthSession(authToken(), payload.user);
+        renderAuthStatus(payload.user);
+        $("#msg_auth").text("登入狀態有效。").removeClass("err");
+      } catch (e) {
+        $("#msg_auth").text(`登入狀態檢查失敗：${e?.message || e}`).addClass("err");
+      }
+    });
+    $("#auth_users_reload").on("click", refreshAuthUsers);
+    $("#auth_users_tbl").on("click", ".auth-approve", async function () {
+      const username = $(this).data("user");
+      const role = $(this).siblings(".auth-role").val() || "user";
+      await approveAuthUser(username, role);
+      await refreshAuthUsers();
+    });
+    $("#auth_users_tbl").on("click", ".auth-reject", async function () {
+      await rejectAuthUser($(this).data("user"));
+      await refreshAuthUsers();
+    });
+    $("#auth_users_tbl").on("click", ".auth-delete", async function () {
+      const username = $(this).data("user");
+      if (!confirm(`確定刪除帳號 ${username}？`)) return;
+      await deleteAuthUser(username);
+      await refreshAuthUsers();
+    });
+  }
+
   function bindUI() {
+    bindAuthUI();
     bindManagePanelToggles();
 
     const onResize = debounce(syncEditorPaneHeights, 120);
@@ -1226,17 +1339,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       }, "已儲存價格。");
     });
 
-    // admin key
-    $("#admin_key").val(adminKey());
-    $("#save_admin_key").on("click", () => {
-      localStorage.setItem("menu_admin_key", ($("#admin_key").val() || "").trim());
-      alert("已儲存。");
-    });
-    $("#clear_admin_key").on("click", () => {
-      localStorage.removeItem("menu_admin_key");
-      $("#admin_key").val("");
-      alert("已清除。");
-    });
   }
 
   $(async function () {
@@ -1252,8 +1354,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     } catch (e) {
       const raw = e?.message || e;
       const message = String(raw || "");
-      const hint = /401|未授權|X-Admin-Key/i.test(message)
-        ? "（請先在頁面下方輸入並儲存 Admin Key，再重新整理）"
+      const hint = /401|未授權|登入|權限/i.test(message)
+        ? "（請先使用 superuser 帳號登入，再重新整理）"
         : "";
       setStatusMsg(DOM.msgIng, `食材載入失敗：${message}${hint}`, true);
       setStatusMsg(DOM.msgDish, `菜色載入失敗：${message}${hint}`, true);
@@ -1265,8 +1367,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     } catch (e) {
       const raw = e?.message || e;
       const message = String(raw || "");
-      const hint = /401|未授權|X-Admin-Key/i.test(message)
-        ? "（請先在頁面下方輸入並儲存 Admin Key，再重新整理）"
+      const hint = /401|未授權|登入|權限/i.test(message)
+        ? "（請先使用 superuser 帳號登入，再重新整理）"
         : "";
       setStatusMsg(DOM.msgBackup, `備份清單載入失敗：${message}${hint}`, true);
     }

@@ -19,6 +19,7 @@ from ..engine.errors import PlanError
 from ..engine.features import build_dish_features
 from ..engine.local_search import compute_total_score
 from ..engine.planner import plan_month
+from .auth import router as auth_router
 from .export_excel import build_filename, build_plan_workbook
 from .procurement import attach_procurement_details
 from .routes.admin_catalog import router as admin_catalog_router
@@ -31,6 +32,7 @@ DEFAULT_DB_PATH = str((Path.cwd() / "data" / "menu.db").resolve())
 
 app = FastAPI(title="Menu Planner", version="0.1.0")
 
+app.include_router(auth_router)
 app.include_router(admin_catalog_router)
 
 

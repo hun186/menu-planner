@@ -34,16 +34,49 @@
 
     <div class="admin-top-grid">
       <div class="card admin-top-card">
-        <h2>管理權限（選配）</h2>
+        <h2>帳號與管理權限</h2>
+        <div id="auth_status" class="hint">尚未登入；寫入操作需要 superuser 帳號。</div>
         <div class="row">
-          <label>Admin Key</label>
-          <input id="admin_key" type="password" placeholder="若後端有設定 MENU_ADMIN_KEY，請在此輸入" />
+          <label>帳號</label>
+          <input id="auth_username" type="text" autocomplete="username" placeholder="輸入帳號" />
+        </div>
+        <div class="row">
+          <label>密碼</label>
+          <input id="auth_password" type="password" autocomplete="current-password" placeholder="輸入密碼" />
+        </div>
+        <div class="row">
+          <label>姓名</label>
+          <input id="auth_full_name" type="text" placeholder="註冊時可填" />
+        </div>
+        <div class="row">
+          <label>部門</label>
+          <input id="auth_department" type="text" placeholder="註冊時可填" />
+        </div>
+        <div class="row">
+          <label>備註</label>
+          <input id="auth_note" type="text" placeholder="註冊原因或權限需求" />
         </div>
         <div class="btns">
-          <button id="save_admin_key" class="primary">儲存到本機</button>
-          <button id="clear_admin_key">清除</button>
+          <button id="auth_login" class="primary">登入</button>
+          <button id="auth_register">註冊帳號</button>
+          <button id="auth_refresh_me">檢查登入</button>
+          <button id="auth_logout">登出</button>
         </div>
-        <div class="hint">若後端未設定金鑰，這欄可不填。</div>
+        <details class="collapsible-panel auth-users-panel">
+          <summary class="collapsible-summary">
+            <h3 class="h3">帳號審核</h3>
+            <button id="auth_users_reload" type="button">重新整理帳號</button>
+          </summary>
+          <div class="tbl-scroll">
+            <table class="tbl" id="auth_users_tbl">
+              <thead>
+                <tr><th>帳號</th><th>姓名</th><th>角色</th><th>狀態</th><th>部門</th><th>操作</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </details>
+        <div id="msg_auth" class="msg"></div>
       </div>
 
       <div class="card admin-top-card">

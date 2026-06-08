@@ -1,4 +1,4 @@
-import { adminKey, httpArray, httpJson } from "../shared/http.js";
+import { authToken, httpArray, httpJson } from "../shared/http.js";
 
 const CATALOG_MANAGE_PAGE_SIZE = 10000;
 
@@ -37,6 +37,40 @@ export const ADMIN_API = {
   dishesExport: "/admin/catalog/dishes/export",
 };
 
+export function loginAuth(username, password) {
+  return httpJson("/v1/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
+}
+
+export function registerAuth({ username, password, fullName = "", department = "", note = "" }) {
+  return httpJson("/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ username, password, full_name: fullName, department, note }),
+  });
+}
+
+export function getAuthMe() {
+  return httpJson("/v1/auth/me", { method: "GET", headers: {} }, { includeAuth: true });
+}
+
+export function listAuthUsers() {
+  return httpJson("/v1/auth/users", { method: "GET", headers: {} }, { includeAuth: true });
+}
+
+export function approveAuthUser(username, role = "user") {
+  return httpJson(`/v1/auth/users/${encodeURIComponent(username)}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ role }),
+  }, { includeAuth: true });
+}
+
+export function rejectAuthUser(username) {
+  return httpJson(`/v1/auth/users/${encodeURIComponent(username)}/reject`, { method: "POST" }, { includeAuth: true });
+}
+
+export function deleteAuthUser(username) {
+  return httpJson(`/v1/auth/users/${encodeURIComponent(username)}`, { method: "DELETE" }, { includeAuth: true });
+}
+
 export async function loadCatalog() {
   const [ingredients, dishes] = await Promise.all([
     httpArray("/catalog/ingredients", { method: "GET", headers: {} }),
@@ -47,8 +81,8 @@ export async function loadCatalog() {
 
 async function fetchAdminBlob(url) {
   const headers = {};
-  const key = adminKey();
-  if (key) headers["X-Admin-Key"] = key;
+  const token = authToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(url, { method: "GET", headers });
   if (!res.ok) {
     let detail = "";
@@ -71,7 +105,7 @@ async function loadAllCatalogItems(endpoint, params) {
     return `${endpoint}?${pageParams.toString()}`;
   };
 
-  const firstPage = await httpJson(buildUrl(1), { method: "GET", headers: {} }, { includeAdminKey: true });
+  const firstPage = await httpJson(buildUrl(1), { method: "GET", headers: {} }, { includeAuth: true });
   const total = Number(firstPage?.total || 0);
   const totalPages = Math.max(
     1,
@@ -91,7 +125,7 @@ async function loadAllCatalogItems(endpoint, params) {
 
   const remainingPages = Array.from({ length: totalPages - 1 }, (_item, index) => index + 2);
   const remainingPayloads = await Promise.all(
-    remainingPages.map((page) => httpJson(buildUrl(page), { method: "GET", headers: {} }, { includeAdminKey: true })),
+    remainingPages.map((page) => httpJson(buildUrl(page), { method: "GET", headers: {} }, { includeAuth: true })),
   );
   const items = remainingPayloads.reduce(
     (acc, payload) => acc.concat(Array.isArray(payload?.items) ? payload.items : []),
@@ -137,35 +171,35 @@ export async function searchIngredients(q = "", limit = 20) {
     page_size: String(limit),
   });
   if (q) params.set("q", q);
-  const payload = await httpJson(`${ADMIN_API.ingredients}?${params.toString()}`, { method: "GET", headers: {} }, { includeAdminKey: true });
+  const payload = await httpJson(`${ADMIN_API.ingredients}?${params.toString()}`, { method: "GET", headers: {} }, { includeAuth: true });
   return Array.isArray(payload?.items) ? payload.items : [];
 }
 
 export function upsertIngredient(id, body) {
-  return httpJson(ADMIN_API.ingUpsert(id), { method: "PUT", body: JSON.stringify(body) }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.ingUpsert(id), { method: "PUT", body: JSON.stringify(body) }, { includeAuth: true });
 }
 
 export function renameIngredient(sourceId, targetId, body) {
   return httpJson(
     ADMIN_API.ingRename(sourceId),
     { method: "POST", body: JSON.stringify({ ...body, target_id: targetId }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
 export function deleteIngredient(id) {
-  return httpJson(ADMIN_API.ingDelete(id), { method: "DELETE" }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.ingDelete(id), { method: "DELETE" }, { includeAuth: true });
 }
 
 export function upsertDish(id, body) {
-  return httpJson(ADMIN_API.dishUpsert(id), { method: "PUT", body: JSON.stringify(body) }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.dishUpsert(id), { method: "PUT", body: JSON.stringify(body) }, { includeAuth: true });
 }
 
 export function renameDish(sourceId, targetId, body) {
   return httpJson(
     ADMIN_API.dishRename(sourceId),
     { method: "POST", body: JSON.stringify({ ...body, target_id: targetId }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
@@ -173,23 +207,23 @@ export function deleteDish(id) {
   return httpJson(
     ADMIN_API.dishDelete,
     { method: "POST", body: JSON.stringify({ id }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
 export function getDishIngredients(dishId) {
-  return httpJson(ADMIN_API.dishIngGet(dishId), { method: "GET", headers: {} }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.dishIngGet(dishId), { method: "GET", headers: {} }, { includeAuth: true });
 }
 
 export function putDishIngredients(dishId, rows) {
-  return httpJson(ADMIN_API.dishIngPut(dishId), { method: "PUT", body: JSON.stringify(rows) }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.dishIngPut(dishId), { method: "PUT", body: JSON.stringify(rows) }, { includeAuth: true });
 }
 
 export function previewDishCost(rows, servings = 1) {
   return httpJson(
     ADMIN_API.dishCostPreview,
     { method: "POST", body: JSON.stringify({ items: rows, servings }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
@@ -198,27 +232,27 @@ export function listDishCostPreview(dishIds = []) {
   (dishIds || []).forEach(id => params.append("dish_id", id));
   const query = params.toString();
   const url = query ? `${ADMIN_API.dishCostPreview}?${query}` : ADMIN_API.dishCostPreview;
-  return httpArray(url, { method: "GET", headers: {} }, { includeAdminKey: true });
+  return httpArray(url, { method: "GET", headers: {} }, { includeAuth: true });
 }
 
 export function getIngredientInventory(ingId) {
-  return httpJson(ADMIN_API.ingInventory(ingId), { method: "GET", headers: {} }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.ingInventory(ingId), { method: "GET", headers: {} }, { includeAuth: true });
 }
 
 export function putIngredientInventory(ingId, body) {
-  return httpJson(ADMIN_API.ingInventory(ingId), { method: "PUT", body: JSON.stringify(body) }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.ingInventory(ingId), { method: "PUT", body: JSON.stringify(body) }, { includeAuth: true });
 }
 
 export function getIngredientPrices(ingId, limit = 30) {
-  return httpJson(`${ADMIN_API.ingPrices(ingId)}?limit=${limit}`, { method: "GET", headers: {} }, { includeAdminKey: true });
+  return httpJson(`${ADMIN_API.ingPrices(ingId)}?limit=${limit}`, { method: "GET", headers: {} }, { includeAuth: true });
 }
 
 export function putIngredientPrice(ingId, date, body) {
-  return httpJson(ADMIN_API.ingPriceUpsert(ingId, date), { method: "PUT", body: JSON.stringify(body) }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.ingPriceUpsert(ingId, date), { method: "PUT", body: JSON.stringify(body) }, { includeAuth: true });
 }
 
 export function deleteIngredientPrice(ingId, date) {
-  return httpJson(ADMIN_API.ingPriceDelete(ingId, date), { method: "DELETE" }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.ingPriceDelete(ingId, date), { method: "DELETE" }, { includeAuth: true });
 }
 
 export function listInventorySummary({ q = "", onlyInStock = false } = {}) {
@@ -227,7 +261,7 @@ export function listInventorySummary({ q = "", onlyInStock = false } = {}) {
   params.set("only_in_stock", onlyInStock ? "true" : "false");
   const query = params.toString();
   const url = query ? `${ADMIN_API.inventorySummary}?${query}` : ADMIN_API.inventorySummary;
-  return httpArray(url, { method: "GET", headers: {} }, { includeAdminKey: true });
+  return httpArray(url, { method: "GET", headers: {} }, { includeAuth: true });
 }
 
 export function exportInventorySummaryExcel({ q = "", onlyInStock = false } = {}) {
@@ -243,35 +277,35 @@ export function mergeInventoryIngredient(sourceIngredientId, targetIngredientId)
   return httpJson(
     ADMIN_API.inventoryMergeIngredient,
     { method: "POST", body: JSON.stringify({ source_ingredient_id: sourceIngredientId, target_ingredient_id: targetIngredientId }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
 export function listUnitConversions() {
-  return httpArray(ADMIN_API.unitConversions, { method: "GET", headers: {} }, { includeAdminKey: true });
+  return httpArray(ADMIN_API.unitConversions, { method: "GET", headers: {} }, { includeAuth: true });
 }
 
 export function upsertUnitConversion(fromUnit, toUnit, factor) {
   return httpJson(
     ADMIN_API.unitConversionUpsert(fromUnit, toUnit),
     { method: "PUT", body: JSON.stringify({ factor }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
 export function deleteUnitConversion(fromUnit, toUnit) {
-  return httpJson(ADMIN_API.unitConversionDelete(fromUnit, toUnit), { method: "DELETE" }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.unitConversionDelete(fromUnit, toUnit), { method: "DELETE" }, { includeAuth: true });
 }
 
 export function listDbBackups() {
-  return httpArray(ADMIN_API.backups, { method: "GET", headers: {} }, { includeAdminKey: true });
+  return httpArray(ADMIN_API.backups, { method: "GET", headers: {} }, { includeAuth: true });
 }
 
 export function restoreDbBackup(backupFilename) {
   return httpJson(
     ADMIN_API.backupRestore,
     { method: "POST", body: JSON.stringify({ backup_filename: backupFilename }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
@@ -279,12 +313,12 @@ export function createDbBackup({ reason = "admin_manual_snapshot", comment = "" 
   return httpJson(
     ADMIN_API.backupCreate,
     { method: "POST", body: JSON.stringify({ reason, comment }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
 export function deleteDbBackup(backupFilename) {
-  return httpJson(ADMIN_API.backupDelete(backupFilename), { method: "DELETE" }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.backupDelete(backupFilename), { method: "DELETE" }, { includeAuth: true });
 }
 
 export function deleteDbBackupsByDateRange({ date = "", dateFrom = "", dateTo = "" } = {}) {
@@ -298,19 +332,19 @@ export function deleteDbBackupsByDateRange({ date = "", dateFrom = "", dateTo = 
   return httpJson(
     ADMIN_API.backupBatchDelete,
     { method: "POST", body: JSON.stringify(payload) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 
 export function getDbBackupStats() {
-  return httpJson(ADMIN_API.backupStats, { method: "GET", headers: {} }, { includeAdminKey: true });
+  return httpJson(ADMIN_API.backupStats, { method: "GET", headers: {} }, { includeAuth: true });
 }
 
 export function updateDbBackupComment(backupFilename, comment = "") {
   return httpJson(
     ADMIN_API.backupComment(backupFilename),
     { method: "PATCH", body: JSON.stringify({ comment }) },
-    { includeAdminKey: true }
+    { includeAuth: true }
   );
 }
 

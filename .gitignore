@@ -5,3 +5,6 @@ __pycache__/
 data/menu_plan_360d.xlsx
 *.xlsx#
 /data/backups
+
+# Local auth user store (contains password hashes)
+.auth_users.json

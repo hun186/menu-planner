@@ -10,7 +10,7 @@ test('catalog cache + admin api smoke flow with mocked fetch', async () => {
 
   global.localStorage = {
     getItem(key) {
-      if (key === 'menu_admin_key') return 'secret';
+      if (key === 'menu_auth_token') return 'token-secret';
       return null;
     },
   };
@@ -64,7 +64,8 @@ test('catalog cache + admin api smoke flow with mocked fetch', async () => {
 
   const adminPut = calls.find((x) => String(x.url).includes('/admin/catalog/ingredients/ing_new'));
   assert.ok(adminPut, 'expected admin ingredient PUT call');
-  assert.equal(adminPut.options.headers['X-Admin-Key'], 'secret');
+  assert.equal(adminPut.options.headers.Authorization, 'Bearer token-secret');
+  assert.equal(adminPut.options.headers['X-Admin-Key'], undefined);
 });
 
 test('httpJson throws detail message on non-2xx response', async () => {
@@ -85,7 +86,7 @@ test('backup api helpers call expected endpoints', async () => {
 
   global.localStorage = {
     getItem(key) {
-      if (key === 'menu_admin_key') return 'secret';
+      if (key === 'menu_auth_token') return 'token-secret';
       return null;
     },
   };
@@ -114,7 +115,7 @@ test('unit conversion api helpers call expected endpoints', async () => {
 
   global.localStorage = {
     getItem(key) {
-      if (key === 'menu_admin_key') return 'secret';
+      if (key === 'menu_auth_token') return 'token-secret';
       return null;
     },
   };
@@ -139,7 +140,7 @@ test('deleteDish posts JSON body so slash IDs are not split by path routing', as
 
   global.localStorage = {
     getItem(key) {
-      if (key === 'menu_admin_key') return 'secret';
+      if (key === 'menu_auth_token') return 'token-secret';
       return null;
     },
   };
@@ -157,7 +158,8 @@ test('deleteDish posts JSON body so slash IDs are not split by path routing', as
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, '/admin/catalog/dishes/delete');
   assert.equal(calls[0].options.method, 'POST');
-  assert.equal(calls[0].options.headers['X-Admin-Key'], 'secret');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer token-secret');
+  assert.equal(calls[0].options.headers['X-Admin-Key'], undefined);
   assert.deepEqual(JSON.parse(calls[0].options.body), { id: '高麗菜/木瓜' });
 });
 
@@ -165,8 +167,8 @@ test('loadCatalogPage fetches full management lists for client-side sort-before-
   const calls = [];
 
   global.localStorage = {
-    getItem() {
-      return 'secret';
+    getItem(key) {
+      return key === 'menu_auth_token' ? 'token-secret' : null;
     },
   };
 
@@ -192,8 +194,8 @@ test('loadCatalogPage fetches every 10000-row chunk before client-side sorting',
   const calls = [];
 
   global.localStorage = {
-    getItem() {
-      return 'secret';
+    getItem(key) {
+      return key === 'menu_auth_token' ? 'token-secret' : null;
     },
   };
 

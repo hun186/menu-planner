@@ -89,3 +89,19 @@ Rejected Alternative:
 
 Long-term Consideration:
 若未來需要服務間或自動化寫入權限，應新增可審計的 service account / API token 模型，而不是恢復共享 Admin Key。
+
+---
+
+## 2026-06-08 Auth Store Serverless Fallback
+
+Decision:
+未顯式設定 `AUTH_USERS_FILE` 時，`AuthStore` 若無法寫入預設專案根目錄 `.auth_users.json`，會 fallback 到系統暫存目錄下的 `menu-planner/.auth_users.json`。
+
+Reason:
+Vercel Serverless 等部署環境可能在 import-time 對專案目錄唯讀；帳號系統在模組載入時建立 user store 會導致整個 Serverless Function 啟動失敗。Fallback 可讓服務先正常啟動。
+
+Explicit Path Rule:
+若 `AUTH_USERS_FILE` 或建構子 path 已顯式指定，寫入失敗不 fallback，保留錯誤以提醒部署設定或權限問題。
+
+Long-term Consideration:
+暫存目錄 fallback 不是持久化方案；正式部署應遷移到 SQLite/Postgres/KV/Blob 或外部身份服務，以支援多實例一致性與資料保存。

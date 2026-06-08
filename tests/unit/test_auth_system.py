@@ -63,3 +63,39 @@ def test_require_admin_user_accepts_only_superuser_token(monkeypatch, tmp_path):
     with pytest.raises(HTTPException) as forbidden:
         dependencies.require_admin_user(authorization=f"Bearer {staff_token}")
     assert forbidden.value.status_code == 403
+
+
+def test_default_auth_store_falls_back_to_temp_store_when_project_store_is_unwritable(monkeypatch, tmp_path):
+    auth_store_module = importlib.import_module("src.menu_planner.api.auth.auth_store")
+    project_store = tmp_path / "readonly-project" / ".auth_users.json"
+    fallback_store = tmp_path / "tmp-auth" / ".auth_users.json"
+    original_ensure_file = auth_store_module.AuthStore._ensure_file
+
+    def fake_ensure_file(self):
+        if self.path == project_store:
+            raise OSError("read-only file system")
+        return original_ensure_file(self)
+
+    monkeypatch.delenv("AUTH_USERS_FILE", raising=False)
+    monkeypatch.setattr(auth_store_module, "_auth_file", lambda: project_store)
+    monkeypatch.setattr(auth_store_module, "_fallback_auth_file", lambda: fallback_store)
+    monkeypatch.setattr(auth_store_module.AuthStore, "_ensure_file", fake_ensure_file)
+
+    with pytest.warns(RuntimeWarning, match="ephemeral store"):
+        store = auth_store_module.AuthStore()
+
+    assert store.path == fallback_store
+    assert fallback_store.exists()
+
+
+def test_explicit_auth_store_path_does_not_fall_back_on_write_error(monkeypatch, tmp_path):
+    auth_store_module = importlib.import_module("src.menu_planner.api.auth.auth_store")
+    explicit_store = tmp_path / "explicit" / "auth_users.json"
+
+    def fake_ensure_file(self):
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(auth_store_module.AuthStore, "_ensure_file", fake_ensure_file)
+
+    with pytest.raises(OSError, match="read-only file system"):
+        auth_store_module.AuthStore(explicit_store)

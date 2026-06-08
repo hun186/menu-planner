@@ -1,39 +1,108 @@
 # AGENTS.md
 
-## Project Context Loading
+## 專案上下文載入（Project Context Loading）
 
-Before starting any task:
+在開始任何任務前，必須依序閱讀：
 
-1. Read AGENTS.md
-2. Read .codex/memory.md
-3. Read .codex/known_issues.md
-4. Read .codex/decisions.md
-5. Read .codex/backlog.md
+1. AGENTS.md
+2. .codex/memory.md
+3. .codex/known_issues.md
+4. .codex/decisions.md
+5. .codex/backlog.md
 
-If these files do not exist:
+若上述檔案或目錄不存在：
 
-* Create the .codex directory
-* Create the missing files
-* Initialize them with appropriate headings
+1. 建立 `.codex/` 目錄
+2. 建立缺少的檔案
+3. 以適當標題初始化內容
 
-These files are the persistent project memory.
+上述檔案視為本專案的長期記憶（Persistent Project Memory）。
+
+若文件內容與目前程式碼不一致：
+
+* 以程式碼為準
+* 更新相關記錄文件
 
 ---
 
-## Memory Maintenance
+## 專案記憶維護（Memory Maintenance）
 
-After every completed task:
+每次完成任務後，必須同步更新專案記憶：
 
-1. Update .codex/memory.md
-2. Update .codex/known_issues.md if new issues are discovered
-3. Update .codex/decisions.md if design decisions are made
-4. Update .codex/backlog.md if future work is identified
+1. 更新 `.codex/memory.md`
+2. 若發現新的環境限制、錯誤或已知問題，更新 `.codex/known_issues.md`
+3. 若產生新的設計決策或架構決策，更新 `.codex/decisions.md`
+4. 若發現後續待辦事項或改善建議，更新 `.codex/backlog.md`
 
-Do not ignore memory updates.
+不得略過記憶更新步驟。
 
-Memory updates are considered part of task completion.
+專案記憶更新屬於任務的一部分。
 
-A task is NOT considered complete until project memory has been updated.
+在完成專案記憶更新前，不得視為任務已完成。
+
+---
+
+## 記錄原則
+
+### memory.md
+
+記錄：
+
+* 任務目的
+* 主要修改內容
+* 驗證結果
+* 重要結論
+
+避免記錄：
+
+* 大量重複日誌
+* 無意義執行細節
+
+---
+
+### known_issues.md
+
+記錄：
+
+* 已知錯誤
+* 環境限制
+* 外部服務限制
+* Sandbox 限制
+* Playwright、Docker、資料庫等問題
+
+---
+
+### decisions.md
+
+記錄：
+
+* 架構決策
+* 技術選型原因
+* 不採用方案及理由
+* 長期維護考量
+
+---
+
+### backlog.md
+
+記錄：
+
+* 尚未完成事項
+* 後續優化建議
+* 技術債
+* 預計改善項目
+
+---
+
+禁止將以下資訊寫入任何記憶檔案：
+
+* API Key
+* Access Token
+* Password
+* Cookie
+* 憑證內容
+* 個人敏感資料
+* 機密資訊
 
 ## Purpose
 本專案要求 AI 助手在修改程式時，同時完成「可驗證」的開發與驗證流程，而不是僅修改程式碼。

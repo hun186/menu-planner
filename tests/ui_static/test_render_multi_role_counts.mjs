@@ -73,7 +73,7 @@ test("renderResult: adds weekday column and highlights weekend offdays", () => {
   renderResult(result, { people: 250 }, { editable: false });
 
   assert.match(renderedHtml, /<th>日期<\/th><th>週幾<\/th><th>人數<\/th>/);
-  assert.match(renderedHtml, /<tr class="row-offday row-weekend-offday">[\s\S]*<td class="weekday-cell">（六）<\/td>/);
-  assert.match(renderedHtml, /<td class="weekday-cell">（一）<\/td>/);
+  assert.match(renderedHtml, /<tr class="row-offday row-weekend-offday">[\s\S]*<td class="weekday-cell">六<\/td>/);
+  assert.match(renderedHtml, /<td class="weekday-cell">一<\/td>/);
   assert.match(renderedHtml, /<td colspan="11">[\s\S]*可解釋明細/);
 });

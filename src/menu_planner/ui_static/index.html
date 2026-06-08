@@ -111,8 +111,16 @@
 
 
         <hr class="hr" />
-        <h3 class="h3">每日各角色數量</h3>
-        <div class="hint">數量為 0 代表該日不排該角色；週幾覆寫會取代全域每日預設。系統預設週三會同時排主菜 1 道與麵食 1 道。</div>
+        <div class="section-title-row">
+          <h3 class="h3">每日各角色數量</h3>
+          <details class="compact-help">
+            <summary aria-label="查看每日各角色數量說明">說明</summary>
+            <div class="compact-help-panel compact-help-panel-wide">
+              <p>數量為 0 代表該日不排該角色；週幾覆寫會取代全域每日預設。系統預設週三會同時排主菜 1 道與麵食 1 道。</p>
+              <p>可新增任一星期的覆寫列；直接修改數量會同步到右側 JSON，按「刪除」則恢復使用全域每日預設。</p>
+            </div>
+          </details>
+        </div>
         <table class="mini-table role-counts-table" id="daily_role_counts_table">
           <thead><tr><th>設定</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬</th><th>湯</th><th>水果</th></tr></thead>
           <tbody>
@@ -138,7 +146,6 @@
           </select>
           <button type="button" id="weekday_role_add">新增週幾覆寫</button>
         </div>
-        <div class="hint">可新增任一星期的覆寫列；直接修改數量會同步到右側 JSON，按「刪除」則恢復使用全域每日預設。</div>
         <table class="mini-table role-counts-table" id="weekday_role_counts_table">
           <thead><tr><th>週幾覆寫</th><th>主菜</th><th>麵食</th><th>配菜</th><th>純蔬</th><th>湯</th><th>水果</th><th>操作</th></tr></thead>
           <tbody>
@@ -155,8 +162,15 @@
         </table>
 
         <hr class="hr" />
-        <h3 class="h3">每日配菜＋湯品含肉數量上限</h3>
-        <div class="hint">計算配菜與湯品中，菜色肉類為雞、豬、牛、魚或海鮮的合計數；蛋、豆腐、素食或未填肉類不計入，週幾覆寫會取代全域每日預設。</div>
+        <div class="section-title-row">
+          <h3 class="h3">每日配菜＋湯品含肉數量上限</h3>
+          <details class="compact-help">
+            <summary aria-label="查看每日配菜與湯品含肉數量上限說明">說明</summary>
+            <div class="compact-help-panel compact-help-panel-wide">
+              計算配菜與湯品中，菜色肉類為雞、豬、牛、魚或海鮮的合計數；蛋、豆腐、素食或未填肉類不計入，週幾覆寫會取代全域每日預設。
+            </div>
+          </details>
+        </div>
         <div class="row">
           <label>全域每日上限</label>
           <input id="side_soup_meat_limit" type="number" min="0" value="2" aria-label="全域每日配菜與湯品含肉數量上限" />
@@ -177,8 +191,15 @@
         </table>
 
         <hr class="hr" />
-        <h3 class="h3">每日備菜時間上限</h3>
-        <div class="hint">全日已排菜色的「備菜時間（分鐘）」總和不可超過此上限；可針對週幾填入覆寫值，留空則使用全域預設。</div>
+        <div class="section-title-row">
+          <h3 class="h3">每日備菜時間上限</h3>
+          <details class="compact-help">
+            <summary aria-label="查看每日備菜時間上限說明">說明</summary>
+            <div class="compact-help-panel compact-help-panel-wide">
+              全日已排菜色的「備菜時間（分鐘）」總和不可超過此上限；可針對週幾填入覆寫值，留空則使用全域預設。
+            </div>
+          </details>
+        </div>
         <div class="row">
           <label>全域每日上限</label>
           <input id="prep_time_limit_minutes" type="number" min="0" value="90" aria-label="全域每日備菜時間上限（分鐘）" />
@@ -218,7 +239,6 @@
 
         <hr class="hr" />
         <h3 class="h3">重複限制（可互動調整）</h3>
-        <div class="hint">以兩欄並排呈現，保留完整限制名稱，同時減少垂直捲動。</div>
         <table class="mini-table repeat-limits-table" id="repeat_limits_table">
           <thead>
             <tr><th>限制項目</th><th>數值</th><th>限制項目</th><th>數值</th></tr>

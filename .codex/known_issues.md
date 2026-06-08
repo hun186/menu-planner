@@ -108,3 +108,44 @@ Open
 
 狀態：
 Open
+
+---
+
+## Playwright Chromium 安裝仍受 Proxy/CDN HTTP 403 限制
+
+最後確認：
+2026-06-08
+
+問題：
+- `python -m playwright install --with-deps chromium` 嘗試安裝系統依賴時，Ubuntu apt repository 經 proxy 回傳 HTTP 403。
+- `python -m playwright install chromium` 下載 Chromium zip 時，`https://cdn.playwright.dev/...` 回傳 HTTP 403。
+
+影響：
+- 前端 hover tooltip 的真實瀏覽器截圖與互動驗證無法在目前環境完成。
+
+替代驗證：
+- 使用既有 Node UI static 測試檢查帳號頁、tooltip markup、導覽列與角色狀態文案。
+- 啟動 FastAPI 後使用 HTTP 讀取頁面，確認 `/account.html`、`/admin`、`/` 可提供新 UI 內容。
+
+狀態：
+Open
+
+---
+
+## Playwright Chromium CDN HTTP 403 再次確認
+
+最後確認：
+2026-06-08
+
+問題：
+- `python -m playwright install chromium` 下載 `https://cdn.playwright.dev/.../chrome-linux64.zip` 時仍回傳 HTTP 403 Forbidden。
+
+影響：
+- 本次備份管理員角色與帳號頁權限文案為前端可見變更，但無法用 Playwright Chromium 產生實際 hover tooltip 截圖。
+
+替代驗證：
+- 使用 Node UI static 測試驗證帳號頁、角色選單、tooltip 文字與導覽列角色顯示。
+- 啟動 FastAPI 並用 HTTP 檢查 `/account.html`、`/admin`、`/` 回應內容。
+
+狀態：
+Open

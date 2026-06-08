@@ -44,7 +44,7 @@ def test_first_registered_user_is_superuser_and_can_approve_pending_user(monkeyp
     assert staff_login["token_type"] == "bearer"
 
 
-def test_require_admin_user_accepts_only_superuser_token(monkeypatch, tmp_path):
+def test_data_editor_backup_manager_and_superuser_permissions(monkeypatch, tmp_path):
     store = _install_temp_auth_store(monkeypatch, tmp_path)
 
     with pytest.raises(HTTPException) as no_auth:
@@ -60,8 +60,23 @@ def test_require_admin_user_accepts_only_superuser_token(monkeypatch, tmp_path):
     staff = store.register("staff", "pw2")
     store.approve_user(staff["username"], "user", approved_by="owner")
     staff_token = create_token(dependencies.AuthUser(username="staff", role="user", status="active"))
+    staff_user = dependencies.require_data_editor(authorization=f"Bearer {staff_token}")
+    assert staff_user.username == "staff"
+
+    with pytest.raises(HTTPException) as backup_forbidden:
+        dependencies.require_backup_manager(authorization=f"Bearer {staff_token}")
+    assert backup_forbidden.value.status_code == 403
+
+    backup_user = store.register("backup", "pw3")
+    store.approve_user(backup_user["username"], "backup_manager", approved_by="owner")
+    backup_token = create_token(dependencies.AuthUser(username="backup", role="backup_manager", status="active"))
+    backup_editor = dependencies.require_data_editor(authorization=f"Bearer {backup_token}")
+    assert backup_editor.username == "backup"
+    backup_manager = dependencies.require_backup_manager(authorization=f"Bearer {backup_token}")
+    assert backup_manager.username == "backup"
+
     with pytest.raises(HTTPException) as forbidden:
-        dependencies.require_admin_user(authorization=f"Bearer {staff_token}")
+        dependencies.require_admin_user(authorization=f"Bearer {backup_token}")
     assert forbidden.value.status_code == 403
 
 

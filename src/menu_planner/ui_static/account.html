@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Menu Planner - 帳號管理</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="/vendor/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+  <nav class="top-nav" aria-label="主要導覽">
+    <div class="top-nav-inner">
+      <a class="brand" href="/">Menu Planner</a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav-links">☰ 選單</button>
+      <div id="primary-nav-links" class="nav-links">
+        <a href="/">排菜總覽</a>
+        <a href="/admin">資料庫管理</a>
+        <a href="/inventory.html">庫存統整</a>
+        <a href="/account.html">帳號管理</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <header class="hdr">
+      <h1>帳號管理</h1>
+      <div class="sub">登入、註冊、查看目前權限；超級管理者可在此審核帳號。</div>
+    </header>
+
+    <div id="js_error_banner" class="js-error-banner" role="alert" aria-live="assertive" hidden></div>
+
+    <div class="account-grid">
+      <div class="card admin-top-card">
+        <h2>帳號與管理權限</h2>
+        <div id="auth_status" class="hint">尚未登入；資料維護需要已啟用帳號，帳號審核需要超級管理者；危險備份操作需要備份管理員或超級管理者。</div>
+        <div class="row">
+          <label>帳號</label>
+          <input id="auth_username" type="text" autocomplete="username" placeholder="輸入帳號" />
+        </div>
+        <div class="row">
+          <label>密碼</label>
+          <input id="auth_password" type="password" autocomplete="current-password" placeholder="輸入密碼" />
+        </div>
+        <div class="row">
+          <label>姓名</label>
+          <input id="auth_full_name" type="text" placeholder="註冊時可填" />
+        </div>
+        <div class="row">
+          <label>部門</label>
+          <input id="auth_department" type="text" placeholder="註冊時可填" />
+        </div>
+        <div class="row">
+          <label>備註</label>
+          <input id="auth_note" type="text" placeholder="註冊原因或權限需求" />
+        </div>
+        <div class="btns">
+          <button id="auth_login" class="primary">登入</button>
+          <button id="auth_register">註冊帳號</button>
+          <button id="auth_refresh_me">檢查登入</button>
+          <button id="auth_logout">登出</button>
+        </div>
+        <details class="collapsible-panel auth-users-panel">
+          <summary class="collapsible-summary">
+            <h3 class="h3">帳號審核</h3>
+            <button id="auth_users_reload" type="button">重新整理帳號</button>
+          </summary>
+          <div class="tbl-scroll">
+            <table class="tbl" id="auth_users_tbl">
+              <thead>
+                <tr><th>帳號</th><th>姓名</th><th>角色</th><th>狀態</th><th>部門</th><th>操作</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </details>
+        <div id="msg_auth" class="msg"></div>
+      </div>
+      <section class="card permission-card" aria-labelledby="permission_title">
+        <div class="permission-title-row">
+          <h2 id="permission_title">我的權限可以做什麼？</h2>
+          <span class="permission-help" tabindex="0" role="button" aria-describedby="permission_floating_help">?</span>
+          <div id="permission_floating_help" class="permission-popover" role="tooltip">
+            已啟用的普通帳號可以維護資料庫內容與建立備份；備份管理員可還原與刪除備份；超級管理者另可審核帳號。
+          </div>
+        </div>
+        <div id="permission_summary" class="permission-summary">尚未登入：目前只能使用排菜、查詢與匯出等公開功能。</div>
+        <div class="permission-list">
+          <section>
+            <h3>未登入訪客</h3>
+            <ul>
+              <li>可以使用排菜總覽、查看資料、匯出菜單與庫存/食材/菜色 Excel。</li>
+              <li>不能修改資料庫、建立/還原/刪除備份，也不能審核帳號。</li>
+            </ul>
+          </section>
+          <section>
+            <h3>普通帳號（active user / manager）</h3>
+            <ul>
+              <li>可以新增、編輯、刪除食材、菜色、價格、庫存、單位換算與菜色食材清單。</li>
+              <li>可以建立資料庫備份與補充備份註解，方便資料維護前後留存快照。</li>
+              <li>不能審核/刪除帳號，不能還原備份，也不能刪除備份檔。</li>
+            </ul>
+          </section>
+          <section>
+            <h3>備份管理員（backup_manager）</h3>
+            <ul>
+              <li>包含普通帳號所有資料維護能力。</li>
+              <li>可以還原備份、刪除單一備份或批次刪除備份。</li>
+              <li>不能審核、拒絕或刪除帳號。</li>
+            </ul>
+          </section>
+          <section>
+            <h3>超級管理者（superuser）</h3>
+            <ul>
+              <li>包含備份管理員與普通帳號所有能力。</li>
+              <li>可以審核、拒絕、刪除帳號與指定帳號角色。</li>
+            </ul>
+          </section>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="error_reporter.js"></script>
+  <script type="module" src="account.js"></script>
+  <script src="nav.js"></script>
+</body>
+</html>

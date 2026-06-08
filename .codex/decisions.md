@@ -57,13 +57,13 @@ Reason:
 ## 2026-06-08 Account Management and Admin Authorization
 
 Decision:
-導入本機 JSON user store + PBKDF2 密碼雜湊 + HMAC Bearer token 的帳號系統，並以 `superuser` 作為管理寫入 API 的主要權限。
+導入本機 JSON user store + PBKDF2 密碼雜湊 + HMAC Bearer token 的帳號系統；此初始決策曾以 `superuser` 作為管理寫入 API 的主要權限，後續已由 active data editor 與 backup_manager 決策取代部分範圍。
 
 Reason:
 原本 `MENU_ADMIN_KEY` 只是一組共享密鑰，無法審核個別帳號、區分角色或追蹤使用者狀態。帳號系統可提供 pending/active/rejected 流程與使用者管理。
 
 Authorization:
-管理寫入 API 以 active superuser Bearer token 作為唯一授權方式。
+初始版本管理寫入 API 以 active superuser Bearer token 作為唯一授權方式；目前資料維護已改由 active user，備份還原/刪除由 backup_manager 或 superuser，帳號管理仍由 superuser。
 
 Bootstrap:
 當 user store 為空時，第一個註冊帳號自動成為 active superuser，避免沒有 bootstrap 檔或環境變數時鎖死管理流程。
@@ -105,3 +105,54 @@ Explicit Path Rule:
 
 Long-term Consideration:
 暫存目錄 fallback 不是持久化方案；正式部署應遷移到 SQLite/Postgres/KV/Blob 或外部身份服務，以支援多實例一致性與資料保存。
+
+---
+
+## 2026-06-08 Active User Data Editor Permission
+
+Decision:
+資料庫資料維護操作改為 active user 即可執行，不再要求 superuser。
+
+Scope:
+- 食材、菜色、價格、庫存、單位換算、菜色食材清單與庫存食材合併。
+- 手動建立備份與備份註解。
+
+Backup Manager Scope:
+- 備份還原、單一備份刪除與批次備份刪除由 `backup_manager` 或 `superuser` 執行。
+
+Superuser-only Scope:
+- 帳號審核、拒絕與刪除。
+
+Reason:
+資料維護人員需要能完善資料，但不應因此取得帳號管理或刪除備份等高風險權限。建立備份有助於資料處理作業安全；刪除與還原備份可能造成無法回復或覆蓋現況，因此拆出備份管理員，避免授予完整 superuser。
+
+Rejected Alternative:
+不採用「所有寫入都必須 superuser」；此方案會迫使資料維護者取得過強權限。
+
+---
+
+## 2026-06-08 Dedicated Account Management Page
+
+Decision:
+帳號登入、註冊、審核與權限說明獨立到 `account.html`，並在全站導覽列加入帳號管理入口與登入身分摘要。
+
+Reason:
+帳號管理與資料庫管理是不同工作脈絡。獨立頁面可降低資料維護頁資訊負擔，也讓使用者更容易知道自己目前權限。
+
+---
+
+## 2026-06-08 Backup Manager Role
+
+Decision:
+新增 `backup_manager` 角色，作為高於普通資料維護者、低於完整 `superuser` 的備份管理權限。
+
+Authorization:
+- `backup_manager` 與 `superuser` 可還原備份、刪除單一備份與批次刪除備份。
+- `backup_manager` 同時具備 active data editor 能力，可執行普通帳號可做的資料維護與建立備份。
+- 帳號審核、拒絕與刪除仍限定 `superuser`。
+
+Reason:
+備份檔還原與刪除是高風險操作，但不等同於完整帳號管理權限。將備份管理拆成獨立角色，可授權資料/備份處理者完成復原與清理作業，同時避免授予可審核或刪除帳號的 superuser 權限。
+
+Rejected Alternative:
+不採用「備份還原/刪除仍需 superuser」；這會迫使備份處理者取得過強帳號管理權限。

@@ -863,7 +863,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     if (user?.username) {
       $status.html(`目前登入：<strong>${escapeHtml(user.username)}</strong>（${escapeHtml(user.role || "user")}）`);
     } else {
-      $status.text("尚未登入；寫入操作需要 superuser 帳號。");
+      $status.text("尚未登入；資料維護需要已啟用帳號。");
     }
   }
 
@@ -882,7 +882,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
           <td>${escapeHtml(u.department || "")}</td>
           <td>
             <select class="auth-role" data-user="${escapeHtml(u.username || "")}">
-              ${["user", "manager", "superuser"].map((role) => `<option value="${role}" ${role === u.role ? "selected" : ""}>${role}</option>`).join("")}
+              ${["user", "manager", "backup_manager", "superuser"].map((role) => `<option value="${role}" ${role === u.role ? "selected" : ""}>${role}</option>`).join("")}
             </select>
             <button class="auth-approve" data-user="${escapeHtml(u.username || "")}">核准</button>
             <button class="auth-reject" data-user="${escapeHtml(u.username || "")}">拒絕</button>
@@ -906,7 +906,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
         const payload = await loginAuth(username, password);
         saveAuthSession(payload.access_token, payload.user);
         renderAuthStatus(payload.user);
-        $("#msg_auth").text("登入成功。寫入操作會自動附加 Bearer Token。").removeClass("err");
+        $("#msg_auth").text("登入成功。資料維護操作會自動附加 Bearer Token。").removeClass("err");
         await refreshAuthUsers();
       } catch (e) {
         $("#msg_auth").text(`登入失敗：${e?.message || e}`).addClass("err");
@@ -1355,7 +1355,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       const raw = e?.message || e;
       const message = String(raw || "");
       const hint = /401|未授權|登入|權限/i.test(message)
-        ? "（請先使用 superuser 帳號登入，再重新整理）"
+        ? "（請先使用已啟用帳號登入，再重新整理）"
         : "";
       setStatusMsg(DOM.msgIng, `食材載入失敗：${message}${hint}`, true);
       setStatusMsg(DOM.msgDish, `菜色載入失敗：${message}${hint}`, true);
@@ -1368,7 +1368,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
       const raw = e?.message || e;
       const message = String(raw || "");
       const hint = /401|未授權|登入|權限/i.test(message)
-        ? "（請先使用 superuser 帳號登入，再重新整理）"
+        ? "（請先使用已啟用帳號登入，再重新整理）"
         : "";
       setStatusMsg(DOM.msgBackup, `備份清單載入失敗：${message}${hint}`, true);
     }

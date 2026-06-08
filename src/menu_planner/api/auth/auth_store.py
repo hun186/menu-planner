@@ -16,7 +16,7 @@ from threading import RLock
 from typing import Any
 
 PBKDF2_ITERATIONS = 260_000
-ALLOWED_ROLES = {"user", "manager", "superuser"}
+ALLOWED_ROLES = {"user", "manager", "backup_manager", "superuser"}
 
 
 def _env_value(name: str) -> str:

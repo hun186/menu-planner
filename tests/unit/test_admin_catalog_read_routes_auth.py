@@ -18,14 +18,10 @@ READ_ROUTES = {
     ("GET", "/admin/catalog/dishes/cost-preview"),
 }
 
-
-WRITE_ROUTES = {
+DATA_EDITOR_ROUTES = {
     ("PUT", "/admin/catalog/unit-conversions/{from_unit}/{to_unit}"),
     ("DELETE", "/admin/catalog/unit-conversions/{from_unit}/{to_unit}"),
     ("POST", "/admin/catalog/backups/create"),
-    ("POST", "/admin/catalog/backups/restore"),
-    ("DELETE", "/admin/catalog/backups/{backup_name}"),
-    ("POST", "/admin/catalog/backups/batch-delete"),
     ("PATCH", "/admin/catalog/backups/{backup_name}/comment"),
     ("PUT", "/admin/catalog/ingredients/{ingredient_id}"),
     ("DELETE", "/admin/catalog/ingredients/{ingredient_id}"),
@@ -33,25 +29,46 @@ WRITE_ROUTES = {
     ("DELETE", "/admin/catalog/dishes/{dish_id}"),
 }
 
+BACKUP_MANAGER_ROUTES = {
+    ("POST", "/admin/catalog/backups/restore"),
+    ("DELETE", "/admin/catalog/backups/{backup_name}"),
+    ("POST", "/admin/catalog/backups/batch-delete"),
+}
 
-def _has_admin_user_dependency(route) -> bool:
-    names = [getattr(dep.call, "__name__", "") for dep in route.dependant.dependencies]
-    return "require_admin_user" in names
+
+def _dependency_names(route) -> set[str]:
+    return {getattr(dep.call, "__name__", "") for dep in route.dependant.dependencies}
 
 
-def test_read_routes_do_not_require_admin_user_dependency():
+def test_read_routes_do_not_require_write_dependency():
     for route in app.router.routes:
         path = getattr(route, "path", None)
         methods = set(getattr(route, "methods", set()) or set())
         for method in methods:
             if (method, path) in READ_ROUTES:
-                assert _has_admin_user_dependency(route) is False, f"{method} {path} should stay readable without admin user"
+                deps = _dependency_names(route)
+                assert "require_data_editor" not in deps, f"{method} {path} should stay readable without login"
+                assert "require_admin_user" not in deps, f"{method} {path} should stay readable without superuser"
+                assert "require_backup_manager" not in deps, f"{method} {path} should stay readable without backup manager"
 
 
-def test_write_routes_still_require_admin_user_dependency():
+def test_data_editor_routes_require_active_user_dependency():
     for route in app.router.routes:
         path = getattr(route, "path", None)
         methods = set(getattr(route, "methods", set()) or set())
         for method in methods:
-            if (method, path) in WRITE_ROUTES:
-                assert _has_admin_user_dependency(route) is True, f"{method} {path} must require admin user"
+            if (method, path) in DATA_EDITOR_ROUTES:
+                deps = _dependency_names(route)
+                assert "require_data_editor" in deps, f"{method} {path} must require an active data editor"
+                assert "require_admin_user" not in deps, f"{method} {path} should not require superuser"
+
+
+def test_destructive_backup_routes_require_backup_manager_dependency():
+    for route in app.router.routes:
+        path = getattr(route, "path", None)
+        methods = set(getattr(route, "methods", set()) or set())
+        for method in methods:
+            if (method, path) in BACKUP_MANAGER_ROUTES:
+                deps = _dependency_names(route)
+                assert "require_backup_manager" in deps, f"{method} {path} must require backup manager"
+                assert "require_admin_user" not in deps, f"{method} {path} should not require full superuser"

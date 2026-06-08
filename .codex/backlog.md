@@ -10,3 +10,6 @@
 - 若未來需要自動化寫入 API，設計可審計且可撤銷的 service account / API token，不恢復共享 Admin Key。
 - 為 Vercel/Serverless 部署新增正式持久化 auth store（例如 Postgres、KV 或集中式 auth provider），取代目前只用來避免崩潰的 `/tmp` fallback。
 - 在部署文件補充 `AUTH_SECRET`、bootstrap superuser 與正式 auth storage 的 Vercel 環境變數設定指南。
+
+- 待 Playwright Chromium 下載/系統依賴安裝問題解決後，補做帳號管理頁權限說明 tooltip hover 截圖驗證。
+- 評估是否將 `manager` 與 `user` 進一步拆分；目前兩者同屬 active data editor，差異主要保留給未來細分流程。

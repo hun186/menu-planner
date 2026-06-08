@@ -1,5 +1,40 @@
 # AGENTS.md
 
+## Project Context Loading
+
+Before starting any task:
+
+1. Read AGENTS.md
+2. Read .codex/memory.md
+3. Read .codex/known_issues.md
+4. Read .codex/decisions.md
+5. Read .codex/backlog.md
+
+If these files do not exist:
+
+* Create the .codex directory
+* Create the missing files
+* Initialize them with appropriate headings
+
+These files are the persistent project memory.
+
+---
+
+## Memory Maintenance
+
+After every completed task:
+
+1. Update .codex/memory.md
+2. Update .codex/known_issues.md if new issues are discovered
+3. Update .codex/decisions.md if design decisions are made
+4. Update .codex/backlog.md if future work is identified
+
+Do not ignore memory updates.
+
+Memory updates are considered part of task completion.
+
+A task is NOT considered complete until project memory has been updated.
+
 ## Purpose
 本專案要求 AI 助手在修改程式時，同時完成「可驗證」的開發與驗證流程，而不是僅修改程式碼。
 
@@ -102,139 +137,3 @@ npm run dev &
 python -m playwright codegen
 ```
 
----
-
-# Memory Persistence Rules
-
-本專案使用 `memory.md` 作為長期任務記憶。
-
-## Startup
-
-每次開始任務時：
-
-1. 優先閱讀：
-
-   * README.md
-   * AGENTS.md
-   * memory.md（若存在）
-
-2. 將 memory.md 視為歷史上下文：
-
-   * 已完成事項
-   * 設計決策
-   * 已知限制
-   * 技術債
-   * 待辦事項
-
-3. 若 memory.md 與目前程式碼不一致：
-
-   * 以程式碼為準
-   * 更新 memory.md
-
----
-
-## Update Memory
-
-完成任務後：
-
-必須同步更新 `memory.md`
-
-更新內容包含：
-
-### Task
-
-本次任務目的
-
-### Changes
-
-實際修改內容
-
-### Verification
-
-驗證方式與結果
-
-### Decisions
-
-重要設計決策
-
-### Known Issues
-
-尚未解決問題
-
-### Next Suggestions
-
-後續建議工作
-
----
-
-## Append Policy
-
-預設採用 Append 模式：
-
-```md
-## 2026-06-08 14:30
-
-### Task
-新增成本異常 Tooltip
-
-### Changes
-- 修改 cost_validator.py
-- 修改 result_page.tsx
-
-### Verification
-- pytest 通過
-- Playwright 驗證 Tooltip 顯示正常
-
-### Decisions
-維持原有成本計算邏輯
-
-### Known Issues
-Chromium 無法自動下載
-
-### Next Suggestions
-改為使用系統 Chromium
-```
-
-不要覆蓋歷史紀錄。
-
-只在以下情況允許整理：
-
-* memory.md 超過 2000 行
-* 使用者要求整理
-
-整理時保留：
-
-* 重要決策
-* 已知問題
-* 架構資訊
-
-刪除：
-
-* 重複驗證紀錄
-* 過期待辦事項
-
----
-
-## Forbidden
-
-禁止寫入：
-
-* API Key
-* Token
-* Password
-* Cookie
-* 個資
-* 機密資料
-
----
-
-## Commit Rule
-
-若本次任務修改程式：
-
-應一併提交：
-
-* code changes
-* memory.md 更新
-
-除非使用者明確要求不要修改 memory.md。

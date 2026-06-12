@@ -3,12 +3,13 @@
 這個子目錄是一包可搬移的 **FastAPI 帳號管理套用素材包**。目標是讓你把整個 `portable_auth_pack/` 複製到另一個網頁服務專案後，讓 Codex 或開發者用「嵌入既有程式」的方式導入帳密管理能力：
 
 - 帳號註冊：新帳號預設為 `pending`
-- 帳密登入：回傳 Bearer token，並記錄登入稽核
+- 帳密登入：回傳 Bearer token，記錄登入稽核，並以泛用錯誤訊息與節流降低帳號列舉 / 暴力嘗試風險
 - `/v1/auth/me`：查詢目前登入者
 - 密碼安全：使用者可變更密碼、superuser 可重設密碼、忘記密碼可建立一次性 reset token
 - Token 失效：logout 會加入 token denylist；變更/重設密碼會讓該帳號既有 token 失效
-- 使用者審核：superuser 可核准、拒絕、刪除帳號
-- 權限 dependency：`current_user` 與 `require_superuser`
+- 使用者審核：最高級全能者（`superuser`）可核准、拒絕申請／停權、刪除帳號，核准時可用角色下拉選單指定層級
+- 四層權限：`superuser`（帳號維管 + 全權限）、`db_operator`（資料庫維管 + 以下權限）、`data_editor`（編修與查閱資料）、`data_reader`（查閱資料）
+- 權限 dependency：`current_user`、`require_data_editor`、`require_db_operator` 與 `require_superuser`
 - 本機 JSON user store：不需要資料庫即可快速試用
 
 > 適用情境：內部工具、PoC、測試環境、受控網路環境、或作為 Codex 導入其他專案時的修改基礎。
@@ -85,14 +86,14 @@ app.include_router(auth_router)
 |---|---|---|
 | `POST` | `/v1/auth/register` | 建立 pending 帳號 |
 | `POST` | `/v1/auth/login` | 登入並取得 Bearer token |
-| `GET` | `/v1/auth/me` | 查詢目前登入者 |
+| `GET` | `/v1/auth/me` | 查詢目前登入者與可用角色選項 |
 | `POST` | `/v1/auth/logout` | 登出並將目前 token 加入 denylist |
 | `POST` | `/v1/auth/change-password` | 已登入使用者變更自己的密碼；既有 token 失效 |
 | `POST` | `/v1/auth/forgot-password` | 忘記密碼申請；不公開回傳 reset token |
 | `POST` | `/v1/auth/reset-password` | 使用一次性 reset token 重設密碼；既有 token 失效 |
-| `GET` | `/v1/auth/users` | superuser 列出帳號 |
-| `POST` | `/v1/auth/users/{username}/approve` | superuser 核准帳號 |
-| `POST` | `/v1/auth/users/{username}/reject` | superuser 拒絕帳號 |
+| `GET` | `/v1/auth/users` | superuser 列出帳號與可用角色選項 |
+| `POST` | `/v1/auth/users/{username}/approve` | superuser 核准帳號並設定 `superuser` / `db_operator` / `data_editor` / `data_reader` |
+| `POST` | `/v1/auth/users/{username}/reject` | superuser 拒絕 pending 申請或停權 active 帳號；帳號資料保留、既有 token 失效 |
 | `POST` | `/v1/auth/users/{username}/password-reset-token` | superuser 產生一次性 reset token，供核身後安全交付 |
 | `POST` | `/v1/auth/users/{username}/reset-password` | superuser 直接重設使用者密碼；該帳號既有 token 失效 |
 | `DELETE` | `/v1/auth/users/{username}` | superuser 刪除帳號 |
@@ -111,15 +112,23 @@ def private_api(user: AuthUser = Depends(current_user)):
     return {"hello": user.username}
 ```
 
-只有 superuser 可使用：
+依權限層級保護：
 
 ```python
 from fastapi import Depends
-from fastapi_auth_pack import AuthUser, require_superuser
+from fastapi_auth_pack import AuthUser, require_data_editor, require_db_operator, require_superuser
 
-@app.post("/v1/admin/rebuild")
-def rebuild(user: AuthUser = Depends(require_superuser)):
+@app.post("/v1/documents")
+def save_document(user: AuthUser = Depends(require_data_editor)):
+    return {"saved_by": user.username}
+
+@app.post("/v1/database/rebuild")
+def rebuild_database(user: AuthUser = Depends(require_db_operator)):
     return {"started_by": user.username}
+
+@app.post("/v1/admin/accounts")
+def manage_accounts(user: AuthUser = Depends(require_superuser)):
+    return {"managed_by": user.username}
 ```
 
 ---
@@ -130,13 +139,14 @@ def rebuild(user: AuthUser = Depends(require_superuser)):
 
 | 環境變數 | 必要 | 預設 | 說明 |
 |---|---:|---|---|
-| `AUTH_SECRET` | 正式環境必要 | development fallback | token 簽章密鑰；正式環境請用長隨機字串 |
+| `AUTH_SECRET` | 正式環境必要 | development fallback | token 簽章密鑰；正式環境請用至少 32 bytes 的長隨機字串 |
 | `AUTH_USERS_FILE` | 否 | `./.auth_users.json` | 使用者資料 JSON 檔位置 |
 | `AUTH_BOOTSTRAP_SUPERUSERS_FILE` | 否 | `./config/auth/bootstrap_superusers.json` | 初始 superuser JSON 檔位置 |
 | `AUTH_BOOTSTRAP_SUPERUSERS` | 否 | 空 | 直接用 JSON 字串設定 superusers |
 | `AUTH_BOOTSTRAP_SUPERUSER_USERNAME` | 否 | 空 | 單一初始 superuser 帳號 |
 | `AUTH_BOOTSTRAP_SUPERUSER_PASSWORD` | 否 | 空 | 單一初始 superuser 密碼 |
 | `AUTH_TOKEN_TTL_SECONDS` | 否 | `43200` | token 有效秒數，預設 12 小時 |
+| `AUTH_ENV` / `APP_ENV` / `ENV` / `PY_ENV` | 否 | 空 | 任一值為 `prod` 或 `production` 時，會要求 `AUTH_SECRET` / `SECRET_KEY` 必須存在且至少 32 bytes |
 | `AUTH_PROJECT_ROOT` | 否 | 目前工作目錄 | 控制預設 config/user file 的根目錄 |
 
 產生正式環境 secret 範例：
@@ -208,7 +218,9 @@ curl -s -X POST http://127.0.0.1:8000/v1/auth/login \
 
 ## 安全注意事項
 
-- 正式環境必須設定 `AUTH_SECRET`，且要保持穩定；換 secret 會讓既有 token 失效。
+- 密碼使用 PBKDF2-HMAC-SHA256、per-password salt 與 `hmac.compare_digest()`；登入時不存在帳號也會執行固定 dummy hash 驗證，以降低 timing account enumeration 風險。
+- 登入與 reset-password 失敗會依 `scope:username:client_host` 在 process-local memory 內節流；達 5 次失敗會暫時回 HTTP 429 與 `Retry-After`。多 worker / 多副本正式環境請改接 Redis、資料庫、API gateway 或 WAF rate limiting。
+- 正式環境必須設定 `AUTH_SECRET`，且要保持穩定；換 secret 會讓既有 token 失效。當 `AUTH_ENV` / `APP_ENV` / `ENV` / `PY_ENV` 為 `prod` 或 `production` 時，secret 不可缺漏且至少需 32 bytes。
 - `*.json` user store 請放在非公開路徑，不要放在靜態檔目錄。
 - 請把 `runtime/`、`.auth_users.json`、正式 `bootstrap_superusers.json` 加到 `.gitignore`。
 - 這個 pack 使用本機 JSON 檔，適合 PoC / 小型內部服務；高併發或多副本部署建議改接資料庫或集中式 session/token 系統。

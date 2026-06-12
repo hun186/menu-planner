@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Query, status
 
-from .auth_store import AUTH_STORE, AuthUser, create_token, parse_token
+from .auth_store import AUTH_STORE, AuthUser, create_token, parse_token, public_role_options
 from .dependencies import bearer_token, current_user, require_superuser
 from .models import (
     ApprovePayload,
@@ -16,6 +16,15 @@ from .models import (
 )
 
 router = APIRouter(tags=["auth"])
+AUTH_FAILURE_MESSAGE = "帳號或密碼錯誤，或帳號尚未啟用。"
+
+
+def _rate_limit_exception(retry_after: int) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="登入或密碼重設嘗試次數過多，請稍後再試。",
+        headers={"Retry-After": str(max(1, retry_after))},
+    )
 
 
 @router.post("/v1/auth/register")
@@ -37,13 +46,25 @@ def register(payload: AuthPayload) -> dict[str, Any]:
 def login(payload: AuthPayload, request: Request) -> dict[str, Any]:
     client_host = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
+    retry_after = AUTH_STORE.throttle_retry_after("login", payload.username, client_host)
+    if retry_after:
+        AUTH_STORE.record_login_audit(payload.username, success=False, reason="rate_limited", client_host=client_host, user_agent=user_agent)
+        raise _rate_limit_exception(retry_after)
+
     user = AUTH_STORE.authenticate(payload.username, payload.password)
     if user is None:
+        retry_after = AUTH_STORE.record_auth_failure("login", payload.username, client_host)
         AUTH_STORE.record_login_audit(payload.username, success=False, reason="invalid_credentials", client_host=client_host, user_agent=user_agent)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="帳號或密碼錯誤。")
+        if retry_after:
+            raise _rate_limit_exception(retry_after)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AUTH_FAILURE_MESSAGE)
     if user.status != "active":
+        retry_after = AUTH_STORE.record_auth_failure("login", payload.username, client_host)
         AUTH_STORE.record_login_audit(payload.username, success=False, reason="inactive_account", role=user.role, status_value=user.status, client_host=client_host, user_agent=user_agent)
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"帳號狀態為 {user.status}，尚不可使用。")
+        if retry_after:
+            raise _rate_limit_exception(retry_after)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AUTH_FAILURE_MESSAGE)
+    AUTH_STORE.clear_auth_failures("login", payload.username, client_host)
     AUTH_STORE.record_login_audit(payload.username, success=True, reason="ok", role=user.role, status_value=user.status, client_host=client_host, user_agent=user_agent)
     return {"access_token": create_token(user), "token_type": "bearer", "user": user.__dict__}
 
@@ -73,22 +94,30 @@ def forgot_password(payload: ForgotPasswordPayload) -> dict[str, Any]:
 
 
 @router.post("/v1/auth/reset-password")
-def recover_password(payload: RecoverPasswordPayload) -> dict[str, Any]:
+def recover_password(payload: RecoverPasswordPayload, request: Request) -> dict[str, Any]:
+    client_host = request.client.host if request.client else None
+    retry_after = AUTH_STORE.throttle_retry_after("password_reset", payload.username, client_host)
+    if retry_after:
+        raise _rate_limit_exception(retry_after)
     try:
         updated = AUTH_STORE.recover_password(payload.username, payload.reset_token, payload.new_password)
     except ValueError as exc:
+        retry_after = AUTH_STORE.record_auth_failure("password_reset", payload.username, client_host)
+        if retry_after:
+            raise _rate_limit_exception(retry_after)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    AUTH_STORE.clear_auth_failures("password_reset", payload.username, client_host)
     return {"user": updated, "message": "密碼已重設，既有 token 已失效；請重新登入。"}
 
 
 @router.get("/v1/auth/me")
 def me(user: AuthUser = Depends(current_user)) -> dict[str, Any]:
-    return {"user": user.__dict__}
+    return {"user": user.__dict__, "role_options": public_role_options()}
 
 
 @router.get("/v1/auth/users")
 def list_users(_: AuthUser = Depends(require_superuser)) -> dict[str, Any]:
-    return {"users": AUTH_STORE.list_users()}
+    return {"users": AUTH_STORE.list_users(), "role_options": public_role_options()}
 
 
 @router.post("/v1/auth/users/{username}/approve")

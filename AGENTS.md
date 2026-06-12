@@ -1,14 +1,28 @@
-# AGENTS.md
+# Agent 工作指南
 
-## 專案上下文載入（Project Context Loading）
+此檔提供 Codex / Agent 修改本 Repo 時的優先參考資訊。
+
+目標：
+
+* 減少不必要的全專案探索
+* 降低 Token 消耗
+* 提高修改效率
+* 保持架構一致性
+* 累積長期專案記憶
+
+---
+
+# 專案上下文載入（Project Context Loading）
 
 在開始任何任務前，必須依序閱讀：
 
 1. AGENTS.md
 2. .codex/memory.md
-3. .codex/known_issues.md
-4. .codex/decisions.md
-5. .codex/backlog.md
+3. .codex/architecture.md
+4. .codex/api_contract.md
+5. .codex/known_issues.md
+6. .codex/decisions.md
+7. .codex/backlog.md
 
 若上述檔案或目錄不存在：
 
@@ -21,34 +35,189 @@
 若文件內容與目前程式碼不一致：
 
 * 以程式碼為準
-* 更新相關記錄文件
+* 更新相關文件
 
 ---
 
-## 專案記憶維護（Memory Maintenance）
+# 開發原則（Development Principles）
+
+優先理解：
+
+* 專案目標
+* 系統架構
+* 資料流
+* 模組邊界
+* API 契約
+* 已知限制
+
+避免在未理解架構前進行大規模修改。
+
+優先重用現有實作。
+
+避免建立重複功能。
+
+保持與既有程式風格一致。
+
+---
+
+# 開發流程（Development Workflow）
+
+所有功能開發遵循：
+
+1. 需求分析
+2. 架構分析
+3. 核心資料模型與介面設計
+4. 功能實作
+5. 驗證
+6. 記憶更新
+
+依專案類型可包含：
+
+* Domain Model
+* API
+* Database
+* Agent Workflow
+* Batch Job
+* CLI
+* Frontend UI
+* Infrastructure
+* Docker
+* CI/CD
+
+僅實作本專案實際需要的組件。
+
+不得為符合流程而新增不必要模組。
+
+---
+
+# 真實功能原則（Real Functionality First）
+
+禁止以展示層、模擬資料或假結果掩蓋核心功能尚未完成的事實。
+
+禁止使用：
+
+* Mock Data
+* Hard-coded Output
+* Fake Success Message
+* Stub Result
+
+來宣稱功能已完成。
+
+若因開發需要暫時保留未完成實作，必須明確標註：
+
+STUB IMPLEMENTATION
+
+並同步記錄於：
+
+`.codex/backlog.md`
+
+---
+
+# 驗證原則（Verification Requirements）
+
+任務完成前必須提供驗證證據。
+
+依專案性質至少包含一項：
+
+* Unit Test
+* Integration Test
+* API Test
+* SQL Query 驗證
+* CLI 執行結果
+* Batch Job 執行結果
+* Agent Execution Log
+* UI Static Test
+* Playwright 測試
+* Export File Validation
+* Docker 啟動驗證
+* curl 驗證
+
+驗證結果需記錄於：
+
+`.codex/memory.md`
+
+---
+
+# 無法驗證時的處理方式
+
+若因以下原因無法完成驗證：
+
+* Sandbox 限制
+* 網路限制
+* 權限限制
+* 第三方服務限制
+* 瀏覽器限制
+* 套件安裝限制
+* Docker 環境限制
+
+必須：
+
+1. 明確說明原因
+2. 提供替代驗證方式
+3. 更新 `.codex/known_issues.md`
+
+未提供驗證說明前，不得宣稱任務完成。
+
+---
+
+# 專案記憶維護（Memory Maintenance）
 
 每次完成任務後，必須同步更新專案記憶：
 
 1. 更新 `.codex/memory.md`
-2. 若發現新的環境限制、錯誤或已知問題，更新 `.codex/known_issues.md`
-3. 若產生新的設計決策或架構決策，更新 `.codex/decisions.md`
-4. 若發現後續待辦事項或改善建議，更新 `.codex/backlog.md`
-5. 保留歷史紀錄，僅追加內容，不覆蓋既有紀錄
+2. 若架構、模組邊界或資料流有變更，更新 `.codex/architecture.md`
+3. 若 API Contract 有變更，更新 `.codex/api_contract.md`
+4. 若發現新的環境限制、錯誤或已知問題，更新 `.codex/known_issues.md`
+5. 若產生新的設計決策或架構決策，更新 `.codex/decisions.md`
+6. 若發現後續待辦事項或改善建議，更新 `.codex/backlog.md`
 
-所有內容以中文為主要語言。
-日期格式統一使用 YYYY-MM-DD。
+保留歷史紀錄。
 
-不得略過記憶更新步驟。
+一般任務僅追加內容。
 
-專案記憶更新屬於任務的一部分。
-
-在完成專案記憶更新前，不得視為任務已完成。
+一般任務不得覆蓋既有紀錄；但「記憶濃縮」是唯一例外，必須依下方濃縮機制保留可追溯歸檔後，才可重寫 active memory 檔案。
 
 ---
 
-## 記錄原則
+# 記憶濃縮機制（Memory Compaction）
 
-### memory.md
+長期記憶的目標是降低 token 消耗，而不是保存所有逐字流水帳。當記憶檔過長時，應把 active memory 維持為「目前仍有用的摘要」，並將完整歷史移入歸檔。
+
+## 觸發條件
+
+任一 `.codex/*.md` active memory 檔案符合下列條件之一時，必須在當次任務的「記憶更新」階段執行濃縮；若任務本身就是整理記憶，則應優先執行：
+
+* 單檔超過 400 行。
+* 單檔超過 40 KB。
+* 單檔累積超過 20 個日期區塊或工作紀錄區塊。
+* 已有多筆內容被目前程式碼、決策或 API contract 明確取代。
+* 閱讀 active memory 時發現大量重複、過時或低價值執行細節。
+
+## 濃縮流程
+
+1. 建立 `.codex/archive/`（若不存在）。
+2. 先將濃縮前全文保存到 `.codex/archive/<原檔名>-YYYYMMDD-HHMMSS.md`。
+3. 重寫原 active memory 檔案為精簡版本，建議結構如下：
+   * `# <檔案主題>`
+   * `## Current Summary`：目前仍有效的結論、架構、限制或待辦。
+   * `## Recent Changes`：保留最近 5～10 筆仍有參考價值的變更摘要。
+   * `## Archived History`：列出歸檔檔名、濃縮時間與涵蓋範圍。
+4. 濃縮時必須保留尚未解決的 backlog、known issues、STUB IMPLEMENTATION、API contract 與仍有效的架構決策。
+5. 已失效內容不要逐字搬回 active memory；只需以「已被 X 取代」或「歷史細節已歸檔」記錄。
+6. 濃縮完成後，在 `.codex/memory.md` 追加一筆濃縮紀錄，說明濃縮了哪些檔案、歸檔位置與驗證方式。
+
+## 濃縮後的載入規則
+
+* 一般任務只需閱讀 active memory 檔案，不需主動讀取 `.codex/archive/`。
+* 只有在使用者要求追溯歷史、active memory 指向特定歸檔、或需要釐清被濃縮前的細節時，才讀取相關歸檔檔案。
+* 濃縮後 active memory 目標大小：每個檔案盡量低於 200 行；若內容本質上較複雜，可保留必要資訊但要移除流水帳。
+* 歸檔檔案僅供追溯，不列入例行「專案上下文載入」。
+
+---
+
+# 記錄原則
+
+## memory.md
 
 記錄：
 
@@ -64,7 +233,35 @@
 
 ---
 
-### known_issues.md
+## architecture.md
+
+記錄：
+
+* 系統架構
+* 模組關係
+* 資料流
+* 專案目錄結構
+* 核心元件說明
+
+---
+
+## api_contract.md
+
+記錄：
+
+* API 路由
+* Request 格式
+* Response 格式
+* 重要資料結構
+* 對外介面契約
+
+若專案無 API，可保留空白並註明：
+
+「本專案目前無 API Contract。」
+
+---
+
+## known_issues.md
 
 記錄：
 
@@ -72,11 +269,13 @@
 * 環境限制
 * 外部服務限制
 * Sandbox 限制
-* Playwright、Docker、資料庫等問題
+* Docker 問題
+* Playwright 問題
+* 資料庫問題
 
 ---
 
-### decisions.md
+## decisions.md
 
 記錄：
 
@@ -87,16 +286,18 @@
 
 ---
 
-### backlog.md
+## backlog.md
 
 記錄：
 
 * 尚未完成事項
-* 後續優化建議
 * 技術債
-* 預計改善項目
+* 改善建議
+* 未完成的 STUB IMPLEMENTATION
 
 ---
+
+# 安全規範
 
 禁止將以下資訊寫入任何記憶檔案：
 
@@ -104,9 +305,12 @@
 * Access Token
 * Password
 * Cookie
+* Private Key
 * 憑證內容
 * 個人敏感資料
 * 機密資訊
+
+如發現敏感資訊，應立即排除並避免寫入記憶系統。
 
 ## Purpose
 本專案要求 AI 助手在修改程式時，同時完成「可驗證」的開發與驗證流程，而不是僅修改程式碼。

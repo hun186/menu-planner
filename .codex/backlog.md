@@ -10,4 +10,5 @@
 - 為 Vercel/Serverless 部署新增正式持久化 auth store（例如 Postgres、KV 或集中式 auth provider），取代目前只用來避免崩潰的 `/tmp` fallback。
 - 在部署文件補充 `AUTH_SECRET`、bootstrap superuser 與正式 auth storage 的 Vercel 環境變數設定指南。
 
-- 待 Playwright Chromium 下載/系統依賴安裝問題解決後，補做帳號管理頁權限說明 tooltip hover 截圖驗證。
+- 待 Playwright Chromium 下載/系統依賴安裝問題解決後，補做帳號管理頁權限說明 tooltip hover 截圖驗證。- 將 browser-local auth test mode 替換為正式 Vercel 持久化方案（例如 Vercel KV/Postgres/Blob 或外部身份服務），避免正式部署信任瀏覽器端帳號資料。
+- 將 login audit 從 `.auth_users.json` 拆分到獨立 rolling log 或資料庫表，降低單檔帳號 store 的寫入頻率與膨脹風險。

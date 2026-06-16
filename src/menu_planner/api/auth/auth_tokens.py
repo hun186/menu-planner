@@ -10,7 +10,7 @@ from typing import Any
 from .auth_support import AuthUser, _b64url, _b64url_decode, _now_ts, _token_secret, _token_ttl_seconds
 
 
-def create_token(user: AuthUser, get_user: Callable[[str], dict[str, Any] | None] | None = None) -> str:
+def create_token(user: AuthUser, get_user: Callable[[str], dict[str, Any] | None] | None = None, *, mode: str | None = None) -> str:
     stored = get_user(user.username) if get_user is not None else None
     token_version = int(stored.get("token_version") or 0) if isinstance(stored, dict) else 0
     payload = {
@@ -22,6 +22,8 @@ def create_token(user: AuthUser, get_user: Callable[[str], dict[str, Any] | None
         "jti": secrets.token_urlsafe(24),
         "ver": token_version,
     }
+    if mode:
+        payload["mode"] = mode
     payload_b64 = _b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
     sig = hmac.new(_token_secret(), payload_b64.encode("ascii"), hashlib.sha256).digest()
     return f"{payload_b64}.{_b64url(sig)}"

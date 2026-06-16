@@ -160,3 +160,52 @@ def test_explicit_auth_store_path_does_not_fall_back_on_write_error(monkeypatch,
 
     with pytest.raises(OSError, match="read-only file system"):
         auth_store_module.AuthStore(explicit_store)
+
+
+def test_first_registered_user_is_active_superuser(monkeypatch, tmp_path):
+    store = _install_temp_auth_store(monkeypatch, tmp_path)
+
+    created = store.register("first", "FirstPass123!")
+
+    assert created["role"] == "superuser"
+    assert created["status"] == "active"
+    assert created["approved_by"] == "first_user_bootstrap"
+
+
+def test_corrupt_auth_store_is_backed_up_and_recreated(monkeypatch, tmp_path):
+    path = tmp_path / "auth_users.json"
+    store = AuthStore(path)
+    path.write_text("{ broken json", encoding="utf-8")
+
+    with pytest.warns(RuntimeWarning, match="corrupt"):
+        users = store.list_users()
+
+    assert users == []
+    assert list(tmp_path.glob("auth_users.json.corrupt-*.bak"))
+    created = store.register("first", "FirstPass123!")
+    assert created["role"] == "superuser"
+
+
+def test_browser_local_token_is_trusted_only_in_explicit_vercel_non_production_mode(monkeypatch, tmp_path):
+    _install_temp_auth_store(monkeypatch, tmp_path)
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    monkeypatch.setenv("AUTH_BROWSER_LOCAL_STORE", "1")
+
+    token_response = auth_routes_module.browser_local_token({"username": "demo", "role": "superuser", "status": "active"})
+    user = dependencies.current_user(f"Bearer {token_response['access_token']}")
+
+    assert user.username == "demo"
+    assert user.role == "superuser"
+
+
+def test_browser_local_auth_is_disabled_in_vercel_production(monkeypatch, tmp_path):
+    _install_temp_auth_store(monkeypatch, tmp_path)
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    monkeypatch.setenv("AUTH_BROWSER_LOCAL_STORE", "1")
+
+    with pytest.raises(HTTPException) as denied:
+        auth_routes_module.browser_local_token({"username": "demo", "role": "superuser", "status": "active"})
+
+    assert denied.value.status_code == 404

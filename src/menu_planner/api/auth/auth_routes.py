@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Query, s
 
 from .auth_logging import log_failed_login_attempt
 from .auth_store import AUTH_STORE, AuthUser, create_token, parse_token, public_role_options
+from .auth_support import is_browser_local_auth_enabled, normalize_role
 from .dependencies import bearer_token, current_user, require_superuser
 from .models import (
     ApprovePayload,
@@ -20,6 +21,32 @@ router = APIRouter(tags=["auth"])
 AUTH_FAILURE_MESSAGE = "帳號或密碼錯誤，或帳號尚未啟用。"
 REGISTER_SUCCESS_MESSAGE = "若資料符合申請條件，帳號申請已送出；請等待系統管理員審核。"
 REGISTER_THROTTLE_SCOPE = "register"
+
+
+@router.get("/v1/auth/storage-mode")
+def storage_mode() -> dict[str, Any]:
+    mode = "browser_local" if is_browser_local_auth_enabled() else "server"
+    return {
+        "mode": mode,
+        "browser_local": mode == "browser_local",
+        "message": "Vercel preview/development browser-local test mode uses localStorage for account records." if mode == "browser_local" else "Server-side auth store is active; browser-local auth is disabled for production and non-Vercel environments.",
+        "role_options": public_role_options(),
+    }
+
+
+@router.post("/v1/auth/browser-local-token")
+def browser_local_token(payload: dict[str, Any]) -> dict[str, Any]:
+    if not is_browser_local_auth_enabled():
+        raise HTTPException(status_code=404, detail="browser local auth mode is not enabled.")
+    username = str(payload.get("username") or "").strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="username is required.")
+    role = normalize_role(str(payload.get("role") or "data_reader"))
+    status_value = str(payload.get("status") or "active")
+    if status_value != "active":
+        raise HTTPException(status_code=403, detail="帳號尚未啟用。")
+    user = AuthUser(username=username, role=role, status="active")
+    return {"access_token": create_token(user, mode="browser_local"), "token_type": "bearer", "user": user.__dict__}
 
 
 def _client_host(request: Request) -> str | None:
@@ -56,12 +83,13 @@ def register(payload: AuthPayload, request: Request) -> dict[str, Any]:
             department=payload.department,
             note=payload.note,
         )
+        created = AUTH_STORE.get_user(payload.username) or {}
         AUTH_STORE.record_login_audit(
             payload.username,
             success=True,
             reason="registered",
-            role="data_reader",
-            status_value="pending",
+            role=str(created.get("role") or "data_reader"),
+            status_value=str(created.get("status") or "pending"),
             client_host=client_host,
             user_agent=request.headers.get("user-agent"),
         )

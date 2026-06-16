@@ -20,6 +20,7 @@ PBKDF2_ITERATIONS = 260_000
 TOKEN_TTL_SECONDS = 60 * 60 * 12
 PASSWORD_RESET_TTL_SECONDS = 60 * 60
 LOGIN_AUDIT_LIMIT = 1000
+AUTH_BACKUP_LIMIT = 3
 AUTH_THROTTLE_WINDOW_SECONDS = 15 * 60
 AUTH_THROTTLE_BLOCK_SECONDS = 5 * 60
 AUTH_THROTTLE_FAILURE_LIMIT = 5
@@ -95,7 +96,11 @@ def _auth_file() -> Path:
     return _project_root() / ".auth_users.json"
 
 
-def _is_production_env() -> bool:
+def is_vercel_environment() -> bool:
+    return bool((os.getenv("VERCEL") or "").strip())
+
+
+def _is_production_like_env() -> bool:
     app_env = (
         os.getenv("AUTH_ENV")
         or os.getenv("APP_ENV")
@@ -103,7 +108,21 @@ def _is_production_env() -> bool:
         or os.getenv("PY_ENV")
         or ""
     ).strip().lower()
-    return app_env in PRODUCTION_ENVS
+    vercel_env = (os.getenv("VERCEL_ENV") or "").strip().lower()
+    return app_env in PRODUCTION_ENVS or vercel_env == "production"
+
+
+def is_browser_local_auth_enabled() -> bool:
+    configured = (os.getenv("AUTH_BROWSER_LOCAL_STORE") or "").strip().lower()
+    if configured in {"0", "false", "no", "off"}:
+        return False
+    if not is_vercel_environment() or (os.getenv("AUTH_USERS_FILE") or "").strip() or _is_production_like_env():
+        return False
+    return configured in {"1", "true", "yes", "on"}
+
+
+def _is_production_env() -> bool:
+    return _is_production_like_env()
 
 
 def _token_secret() -> bytes:

@@ -15,7 +15,7 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from pydantic import BaseModel, Field, field_validator
 
-from ..auth import require_backup_manager, require_data_editor
+from ..auth import require_data_editor, require_db_operator
 from ...db.admin_repo import SQLiteAdminRepo
 from ...db.backup import (
     BACKUP_REASON_DEFAULT,
@@ -519,7 +519,7 @@ def create_manual_db_backup(
     return {"ok": True, "reason": reason, "comment": comment}
 
 
-@router.post("/backups/restore", dependencies=[Depends(require_backup_manager)])
+@router.post("/backups/restore", dependencies=[Depends(require_db_operator)])
 def restore_db_backup(
     body: BackupRestoreIn,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -548,7 +548,7 @@ def restore_db_backup(
     return {"ok": True, "restored_from": backup_name}
 
 
-@router.delete("/backups/{backup_name}", dependencies=[Depends(require_backup_manager)])
+@router.delete("/backups/{backup_name}", dependencies=[Depends(require_db_operator)])
 def delete_db_backup(
     backup_name: str,
     db_path: str = Query(default=DEFAULT_DB_PATH),
@@ -573,7 +573,7 @@ def delete_db_backup(
     return {"ok": True, "deleted": name}
 
 
-@router.post("/backups/batch-delete", dependencies=[Depends(require_backup_manager)])
+@router.post("/backups/batch-delete", dependencies=[Depends(require_db_operator)])
 def batch_delete_db_backups(
     body: BackupBatchDeleteIn,
     db_path: str = Query(default=DEFAULT_DB_PATH),

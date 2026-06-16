@@ -156,3 +156,52 @@
 
 - 現在權限層級為：訪客 < active user/manager < backup_manager < superuser。
 - `backup_manager` 可管理備份檔並維護資料，但不具帳號審核能力。
+
+## 2026-06-16 Portable Auth Pack Upgrade Import
+
+### 任務目的
+
+- 將 `portable_auth_pack` 範例包新增的安全與帳號功能導入主程式既有 auth 模組。
+
+### 主要修改內容
+
+- 將 auth router 拆分為 `auth_routes`、`usage_routes`、`auth_support`、`auth_tokens`、`auth_logging`，並保留主程式 include 的聚合 `router`。
+- 新增正式環境 `AUTH_SECRET` 長度檢查、token jti/version、logout denylist、密碼變更、管理員重設密碼、使用者一次性 reset token、忘記密碼泛用回應、登入/註冊/重設節流與登入稽核。
+- 導入新版角色階層：`data_reader < data_editor < db_operator < superuser`；後續已依使用者指示移除舊角色 `user` / `manager` / `backup_manager` 相容映射。
+- 保留 Menu Planner 既有 Vercel/serverless auth store fallback，避免預設 `.auth_users.json` 不可寫時啟動崩潰。
+- 帳號頁新增變更密碼、忘記密碼、使用 token 重設密碼與 superuser 產生 reset token 的 UI 入口。
+
+### 驗證結果
+
+- `python -c "import fastapi, pytest, openpyxl"` 通過。
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py tests/unit/test_admin_catalog_read_routes_auth.py` 通過，8 tests passed。
+- `node --check src/menu_planner/ui_static/account.js && node --check src/menu_planner/ui_static/admin/api.js` 通過。
+- `node tests/ui_static/test_admin_auth_panel.mjs && node tests/ui_static/test_admin_smoke.mjs` 通過。
+- `python -m compileall -q src/menu_planner/api/auth src/menu_planner/api/routes/admin_catalog.py` 通過。
+
+### 重要結論
+
+- 主程式 auth 功能已與 portable auth pack 的新增安全功能對齊，同時保留舊角色名稱與既有 route dependency 名稱的相容性。
+
+## 2026-06-16 Remove Legacy Auth Role Aliases
+
+### 任務目的
+
+- 因 auth upgrade 尚未部署生產系統，依使用者指示移除舊角色 `user` / `manager` / `backup_manager` 相容映射，直接採用新版角色模型。
+
+### 主要修改內容
+
+- Auth role normalization 不再接受舊角色別名；approve role 僅允許 `data_reader`、`data_editor`、`db_operator`、`superuser`。
+- 管理備份危險操作改用 `require_db_operator` dependency，帳號管理測試改用 `require_superuser`。
+- 帳號頁、導覽列與舊管理頁殘留角色選單改為新角色文案與值。
+
+### 驗證結果
+
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py tests/unit/test_admin_catalog_read_routes_auth.py` 通過。
+- `node --check src/menu_planner/ui_static/account.js && node --check src/menu_planner/ui_static/admin/api.js && node --check src/menu_planner/ui_static/admin.js && node --check src/menu_planner/ui_static/nav.js` 通過。
+- `node tests/ui_static/test_admin_auth_panel.mjs && node tests/ui_static/test_admin_smoke.mjs` 通過。
+- `python -m compileall -q src/menu_planner/api/auth src/menu_planner/api/routes/admin_catalog.py` 通過。
+
+### 重要結論
+
+- 新部署只需處理 `data_reader`、`data_editor`、`db_operator`、`superuser` 四種角色，避免舊角色別名造成文件、UI 與授權判斷混淆。

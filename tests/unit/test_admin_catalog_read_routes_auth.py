@@ -29,7 +29,7 @@ DATA_EDITOR_ROUTES = {
     ("DELETE", "/admin/catalog/dishes/{dish_id}"),
 }
 
-BACKUP_MANAGER_ROUTES = {
+DB_OPERATOR_ROUTES = {
     ("POST", "/admin/catalog/backups/restore"),
     ("DELETE", "/admin/catalog/backups/{backup_name}"),
     ("POST", "/admin/catalog/backups/batch-delete"),
@@ -48,8 +48,8 @@ def test_read_routes_do_not_require_write_dependency():
             if (method, path) in READ_ROUTES:
                 deps = _dependency_names(route)
                 assert "require_data_editor" not in deps, f"{method} {path} should stay readable without login"
-                assert "require_admin_user" not in deps, f"{method} {path} should stay readable without superuser"
-                assert "require_backup_manager" not in deps, f"{method} {path} should stay readable without backup manager"
+                assert "require_superuser" not in deps, f"{method} {path} should stay readable without superuser"
+                assert "require_db_operator" not in deps, f"{method} {path} should stay readable without db operator"
 
 
 def test_data_editor_routes_require_active_user_dependency():
@@ -60,15 +60,15 @@ def test_data_editor_routes_require_active_user_dependency():
             if (method, path) in DATA_EDITOR_ROUTES:
                 deps = _dependency_names(route)
                 assert "require_data_editor" in deps, f"{method} {path} must require an active data editor"
-                assert "require_admin_user" not in deps, f"{method} {path} should not require superuser"
+                assert "require_superuser" not in deps, f"{method} {path} should not require superuser"
 
 
-def test_destructive_backup_routes_require_backup_manager_dependency():
+def test_destructive_backup_routes_require_db_operator_dependency():
     for route in app.router.routes:
         path = getattr(route, "path", None)
         methods = set(getattr(route, "methods", set()) or set())
         for method in methods:
-            if (method, path) in BACKUP_MANAGER_ROUTES:
+            if (method, path) in DB_OPERATOR_ROUTES:
                 deps = _dependency_names(route)
-                assert "require_backup_manager" in deps, f"{method} {path} must require backup manager"
-                assert "require_admin_user" not in deps, f"{method} {path} should not require full superuser"
+                assert "require_db_operator" in deps, f"{method} {path} must require db operator"
+                assert "require_superuser" not in deps, f"{method} {path} should not require superuser"

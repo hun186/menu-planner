@@ -16,19 +16,19 @@ test('account page exposes login, registration, approval, and permission guidanc
   assert.match(accountHtml, /id="auth_register"[^>]*>註冊帳號<\/button>/);
   assert.match(accountHtml, /<h3 class="h3">帳號審核<\/h3>/);
   assert.match(accountHtml, /未登入訪客/);
-  assert.match(accountHtml, /普通帳號（active user \/ manager）/);
-  assert.match(accountHtml, /備份管理員（backup_manager）/);
-  assert.match(accountHtml, /超級管理者（superuser）/);
+  assert.match(accountHtml, /資料修改者（data_editor）/);
+  assert.match(accountHtml, /資料庫操作者（db_operator）/);
+  assert.match(accountHtml, /最高級全能者（superuser）/);
   assert.match(accountHtml, /role="tooltip"/);
   assert.doesNotMatch(accountHtml, /Admin Key|X-Admin-Key|MENU_ADMIN_KEY/);
 });
 
 test('account and nav scripts surface role-aware auth status', () => {
   assert.match(accountJs, /permissionSummary/);
-  assert.match(accountJs, /資料維護需要已啟用帳號/);
-  assert.match(accountJs, /備份管理員/);
+  assert.match(accountJs, /資料維護需要資料修改者以上權限/);
+  assert.match(accountJs, /資料庫操作者/);
   assert.match(accountJs, /不能審核帳號、還原或刪除備份/);
-  assert.match(accountJs, /backup_manager/);
+  assert.match(accountJs, /db_operator/);
   assert.match(navJs, /nav-auth-status/);
   assert.match(navJs, /帳號等級/);
 });

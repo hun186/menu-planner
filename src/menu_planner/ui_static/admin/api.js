@@ -1,6 +1,32 @@
 import { authToken, httpArray, httpJson } from "../shared/http.js";
 
 const CATALOG_MANAGE_PAGE_SIZE = 10000;
+const BROWSER_AUTH_USERS_KEY = "menu_auth_browser_local_users";
+let authStorageModePromise = null;
+
+async function authStorageMode() {
+  if (!authStorageModePromise) {
+    authStorageModePromise = httpJson("/v1/auth/storage-mode", { method: "GET", headers: {} }).catch(() => ({ mode: "server" }));
+  }
+  return authStorageModePromise;
+}
+
+function readBrowserUsers() {
+  try {
+    return JSON.parse(localStorage.getItem(BROWSER_AUTH_USERS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function writeBrowserUsers(users) {
+  localStorage.setItem(BROWSER_AUTH_USERS_KEY, JSON.stringify(users || {}));
+}
+
+async function issueBrowserLocalToken(user) {
+  return httpJson("/v1/auth/browser-local-token", { method: "POST", body: JSON.stringify(user) });
+}
+
 
 export const ADMIN_API = {
   ingredients: "/admin/catalog/ingredients",
@@ -37,11 +63,27 @@ export const ADMIN_API = {
   dishesExport: "/admin/catalog/dishes/export",
 };
 
-export function loginAuth(username, password) {
+export async function loginAuth(username, password) {
+  const mode = await authStorageMode();
+  if (mode.browser_local) {
+    const users = readBrowserUsers();
+    const user = users[username];
+    if (!user || user.password !== password || user.status !== "active") throw new Error("帳號或密碼錯誤，或帳號尚未啟用。");
+    return issueBrowserLocalToken({ username: user.username, role: user.role, status: user.status });
+  }
   return httpJson("/v1/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
 }
 
-export function registerAuth({ username, password, fullName = "", department = "", note = "" }) {
+export async function registerAuth({ username, password, fullName = "", department = "", note = "" }) {
+  const mode = await authStorageMode();
+  if (mode.browser_local) {
+    const users = readBrowserUsers();
+    if (users[username]) return { message: "若資料符合申請條件，帳號申請已送出；請等待系統管理員審核。" };
+    const first = Object.keys(users).length === 0;
+    users[username] = { username, password, full_name: fullName || null, department: department || null, note: note || null, role: first ? "superuser" : "data_reader", status: first ? "active" : "pending", created_at: new Date().toISOString(), approved_by: first ? "browser_local_first_user" : null };
+    writeBrowserUsers(users);
+    return { message: first ? "第一個瀏覽器測試帳號已建立並自動啟用為最高級全能者。" : "若資料符合申請條件，帳號申請已送出；請等待系統管理員審核。" };
+  }
   return httpJson("/v1/auth/register", {
     method: "POST",
     body: JSON.stringify({ username, password, full_name: fullName, department, note }),
@@ -85,22 +127,51 @@ export function getAuthMe() {
   return httpJson("/v1/auth/me", { method: "GET", headers: {} }, { includeAuth: true });
 }
 
-export function listAuthUsers() {
+export async function listAuthUsers() {
+  const mode = await authStorageMode();
+  if (mode.browser_local) return { users: Object.values(readBrowserUsers()).map(({ password, ...user }) => user), role_options: mode.role_options || [] };
   return httpJson("/v1/auth/users", { method: "GET", headers: {} }, { includeAuth: true });
 }
 
-export function approveAuthUser(username, role = "data_reader") {
+export async function approveAuthUser(username, role = "data_reader") {
+  const mode = await authStorageMode();
+  if (mode.browser_local) {
+    const users = readBrowserUsers();
+    if (!users[username]) throw new Error("帳號不存在。");
+    users[username].role = role;
+    users[username].status = "active";
+    users[username].approved_at = new Date().toISOString();
+    writeBrowserUsers(users);
+    return { user: users[username] };
+  }
   return httpJson(`/v1/auth/users/${encodeURIComponent(username)}/approve`, {
     method: "POST",
     body: JSON.stringify({ role }),
   }, { includeAuth: true });
 }
 
-export function rejectAuthUser(username) {
+export async function rejectAuthUser(username) {
+  const mode = await authStorageMode();
+  if (mode.browser_local) {
+    const users = readBrowserUsers();
+    if (!users[username]) throw new Error("帳號不存在。");
+    users[username].status = "rejected";
+    writeBrowserUsers(users);
+    return { user: users[username] };
+  }
   return httpJson(`/v1/auth/users/${encodeURIComponent(username)}/reject`, { method: "POST" }, { includeAuth: true });
 }
 
-export function deleteAuthUser(username) {
+export async function deleteAuthUser(username) {
+  const mode = await authStorageMode();
+  if (mode.browser_local) {
+    const users = readBrowserUsers();
+    const user = users[username];
+    if (!user) throw new Error("帳號不存在。");
+    delete users[username];
+    writeBrowserUsers(users);
+    return { user };
+  }
   return httpJson(`/v1/auth/users/${encodeURIComponent(username)}`, { method: "DELETE" }, { includeAuth: true });
 }
 

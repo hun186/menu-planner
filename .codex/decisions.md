@@ -172,3 +172,20 @@ Reason:
 
 Compatibility:
 管理資料 API 直接使用新角色 dependency：資料維護使用 `require_data_editor`，危險備份操作使用 `require_db_operator`，帳號管理使用 `require_superuser`。
+
+## 2026-06-16 Auth JSON Recovery and Browser-local Test Auth
+
+Decision:
+保留單檔 `.auth_users.json` 作為本機/單機 auth store，但新增壞檔備份還原保護：JSON decode 失敗時將原檔搬移為 `.corrupt-*.bak`，再重建空 store。第一個註冊帳號恢復自動成為 active superuser。
+
+Reason:
+`.auth_users.json` 同時保存 users、login_audit、password_reset_tokens 與 token_denylist；雖然 `login_audit` 已有筆數上限，但單檔 JSON 仍可能因磁碟/中斷/手動編輯造成壞檔，因此需要基礎防壞檔機制。
+
+Decision:
+為避免正式環境被濫用，browser-local auth test mode 不再自動啟用；必須同時符合 Vercel preview/development、未設定 `AUTH_USERS_FILE`、且 `AUTH_BROWSER_LOCAL_STORE=1`。Vercel production、非 Vercel 或顯式 `AUTH_BROWSER_LOCAL_STORE=0` 一律停用。
+
+Reason:
+Vercel Serverless 檔案系統不適合持久保存 `.auth_users.json`。browser-local 模式讓部署測試者可在瀏覽器 localStorage 建立測試帳號並取得後端簽章 token，以驗證 UI 與權限流程。
+
+Security Note:
+browser-local auth test mode 不適合正式部署；帳號資料由瀏覽器持有，且 token 簽發信任瀏覽器提供的 active user/role。正式部署應設定持久化 auth store 或改用資料庫/KV/外部身份服務。

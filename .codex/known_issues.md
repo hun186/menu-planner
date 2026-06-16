@@ -149,3 +149,25 @@ Open
 
 狀態：
 Open
+
+---
+
+## Browser-local Auth 僅供 Vercel 唯讀測試
+
+首次發現：
+2026-06-16
+
+問題：
+- 只有在 Vercel preview/development、未設定 `AUTH_USERS_FILE` 且 `AUTH_BROWSER_LOCAL_STORE=1` 時，帳號資料才保存於瀏覽器 localStorage。
+- 不同瀏覽器、不同裝置、清除站台資料後帳號不會同步或保留。
+- 後端會在此模式信任瀏覽器提交的 active user/role 來簽發測試 token。
+
+影響：
+- 適合部署煙霧測試與 UI 權限流程驗證。
+- 不適合正式多使用者或任何需要可信帳號控管的部署。
+
+暫時解法：
+- 正式部署設定 `AUTH_BROWSER_LOCAL_STORE=0` 並提供持久化 `AUTH_USERS_FILE` 或改用資料庫/KV/外部身份服務。
+
+狀態：
+Open

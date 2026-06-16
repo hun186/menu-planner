@@ -17,6 +17,7 @@ from .auth_support import (
     AUTH_THROTTLE_WINDOW_SECONDS,
     DUMMY_PASSWORD_HASH,
     LOGIN_AUDIT_LIMIT,
+    AUTH_BACKUP_LIMIT,
     PASSWORD_RESET_TTL_SECONDS,
     ROLE_DATA_EDITOR,
     ROLE_DATA_READER,
@@ -97,9 +98,36 @@ class AuthStore:
                     data = json.load(f)
             except FileNotFoundError:
                 data = {"users": {}}
+            except json.JSONDecodeError as exc:
+                data = self._recover_from_corrupt_file(exc)
             if not isinstance(data, dict):
+                self._backup_corrupt_file("non_object_json")
                 data = {"users": {}}
             return self._normalize_data(data)
+
+    def _backup_corrupt_file(self, reason: str) -> Path | None:
+        if not self.path.exists():
+            return None
+        backup = self.path.with_name(f"{self.path.name}.corrupt-{_now_ts()}-{reason}.bak")
+        try:
+            os.replace(self.path, backup)
+        except OSError:
+            return None
+        for old in sorted(self.path.parent.glob(f"{self.path.name}.corrupt-*.bak"), key=lambda item: item.stat().st_mtime, reverse=True)[AUTH_BACKUP_LIMIT:]:
+            try:
+                old.unlink()
+            except OSError:
+                pass
+        return backup
+
+    def _recover_from_corrupt_file(self, exc: json.JSONDecodeError) -> dict[str, Any]:
+        backup = self._backup_corrupt_file("json_decode")
+        warnings.warn(
+            f"Auth user store {self.path} is corrupt ({exc}); moved to {backup} and recreated an empty store.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return {"users": {}, "created_at": _utc_now()}
 
     def _write(self, data: dict[str, Any]) -> None:
         with self._lock:
@@ -179,15 +207,16 @@ class AuthStore:
         users = data.setdefault("users", {})
         if username in users:
             raise ValueError("帳號已存在。")
+        is_first_user = not users
         users[username] = {
             "username": username,
             "password_hash": _hash_password(password),
-            "role": ROLE_DATA_READER,
-            "status": "pending",
+            "role": ROLE_SUPERUSER if is_first_user else ROLE_DATA_READER,
+            "status": "active" if is_first_user else "pending",
             "token_version": 0,
             "created_at": _utc_now(),
-            "approved_at": None,
-            "approved_by": None,
+            "approved_at": _utc_now() if is_first_user else None,
+            "approved_by": "first_user_bootstrap" if is_first_user else None,
             "full_name": (full_name or "").strip() or None,
             "department": (department or "").strip() or None,
             "note": (note or "").strip() or None,
@@ -414,8 +443,8 @@ from .auth_tokens import parse_token as parse_token
 from .auth_tokens import create_token as _create_token
 
 
-def create_token(user: AuthUser) -> str:
-    return _create_token(user, AUTH_STORE.get_user)
+def create_token(user: AuthUser, *, mode: str | None = None) -> str:
+    return _create_token(user, AUTH_STORE.get_user, mode=mode)
 
 
 AUTH_STORE = AuthStore()

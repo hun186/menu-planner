@@ -14,6 +14,7 @@ from .auth_store import (
     normalize_role,
     parse_token,
 )
+from .auth_support import is_browser_local_auth_enabled
 
 
 def bearer_token(authorization: str | None) -> str:
@@ -27,6 +28,12 @@ def current_user(authorization: str | None = Header(default=None)) -> AuthUser:
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登入已失效，請重新登入。")
     username = str(payload.get("sub") or "")
+    if is_browser_local_auth_enabled() and payload.get("mode") == "browser_local":
+        role = normalize_role(str(payload.get("role") or ""))
+        status_value = str(payload.get("status") or "")
+        if status_value != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="帳號尚未啟用。")
+        return AuthUser(username=username, role=role, status="active")
     stored = AUTH_STORE.get_user(username)
     if not stored or stored.get("status") != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="帳號尚未啟用。")

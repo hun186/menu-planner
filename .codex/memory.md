@@ -205,3 +205,73 @@
 ### 重要結論
 
 - 新部署只需處理 `data_reader`、`data_editor`、`db_operator`、`superuser` 四種角色，避免舊角色別名造成文件、UI 與授權判斷混淆。
+
+## 2026-06-16 Auth Store Hardening and Vercel Browser Test Mode
+
+### 任務目的
+
+- 回應 `.auth_users.json` 同時保存帳號、登入稽核與 token 狀態可能膨脹/損壞的疑慮。
+- 修復第一個註冊帳號未自動成為 active superuser 的回歸。
+- 為 Vercel/唯讀測試部署新增瀏覽器 localStorage 帳號測試模式。
+
+### 主要修改內容
+
+- `AuthStore` 讀取 JSON 時若遇到壞檔會先搬移成 `.corrupt-*.bak` 備份，再以空 store 恢復，避免整個服務因單一 JSONDecodeError 無法運作。
+- 保留既有 `LOGIN_AUDIT_LIMIT=1000` 修剪機制，並新增壞檔備份保留數限制。
+- `register()` 在 user store 為空時會將第一個帳號直接建立為 active superuser，`approved_by=first_user_bootstrap`。
+- 新增 `/v1/auth/storage-mode` 與 `/v1/auth/browser-local-token`，browser-local 模式必須同時符合 Vercel preview/development、未設定 `AUTH_USERS_FILE` 且 `AUTH_BROWSER_LOCAL_STORE=1`；Vercel production 與非 Vercel 環境不啟用。
+- 前端 auth API helper 在 browser-local 模式下將帳號清單保存於 `menu_auth_browser_local_users` localStorage key，並透過後端簽發 browser-local token 讓既有 Bearer 授權流程可用於測試。
+
+### 驗證結果
+
+- `python -c "import fastapi, pytest"` 通過。
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py` 通過，8 tests passed。
+- `node --check src/menu_planner/ui_static/admin/api.js` 通過。
+- `python -m compileall -q src/menu_planner/api/auth` 通過。
+- `node tests/ui_static/test_admin_auth_panel.mjs` 通過。
+
+### 重要結論
+
+- `.auth_users.json` 目前仍是單檔 JSON store，適合單機/測試；正式多使用者、多 worker 或 serverless 正式部署仍應遷移到資料庫/KV/集中式 auth provider。
+- browser-local auth 模式為 Vercel 唯讀環境的測試便利功能，帳號資料只存在使用者瀏覽器 localStorage，換瀏覽器/清快取/多人共用時不具一致性。
+
+
+## 2026-06-16 Browser-local Auth Production Gate
+
+### 任務目的
+
+- 回應 browser-local auth 是否會在生產環境被駭客濫用的安全疑慮。
+
+### 主要修改內容
+
+- browser-local auth 不再因偵測到 Vercel 就自動啟用。
+- 啟用條件改為必須同時符合：`VERCEL` 存在、`VERCEL_ENV` 不是 `production`、未設定 `AUTH_USERS_FILE`、且 `AUTH_BROWSER_LOCAL_STORE=1`。
+- Vercel production、非 Vercel、已設定 server-side auth store 或 `AUTH_BROWSER_LOCAL_STORE=0` 時，`/v1/auth/browser-local-token` 不會簽發 browser-local token。
+
+### 驗證結果
+
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py` 通過，9 tests passed。
+
+### 重要結論
+
+- browser-local auth 現在是明確 opt-in 的 Vercel preview/development 測試模式，不會在 Vercel production 自動作用。
+
+## 2026-06-16 README Browser-local Auth Usage
+
+### 任務目的
+
+- 將 Vercel Preview browser-local auth 測試模式的使用方式補入 README，讓新手知道啟用條件、操作流程與安全限制。
+
+### 主要修改內容
+
+- README 的 Vercel 部署章節新增「Vercel Preview：Browser-local Auth 測試模式（僅供唯讀測試）」說明。
+- 文件明確列出啟用條件：`VERCEL=1`、`VERCEL_ENV=preview/development`、未設定 `AUTH_USERS_FILE`、且 `AUTH_BROWSER_LOCAL_STORE=1`。
+- 文件明確警告此模式不會在 Vercel Production 啟用，且不適合正式部署。
+
+### 驗證結果
+
+- `python -c "from pathlib import Path; text=Path('README.md').read_text(); assert 'Browser-local Auth 測試模式' in text and 'AUTH_BROWSER_LOCAL_STORE=1' in text and 'VERCEL_ENV=production' in text"` 通過。
+
+### 重要結論
+
+- README 現在提供 Preview 測試操作步驟，同時避免新手誤以為 browser-local auth 可用於正式環境。

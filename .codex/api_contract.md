@@ -16,3 +16,8 @@
 - `POST /v1/auth/users/{username}/reset-password`：需 superuser；body `{ new_password }`，直接重設指定使用者密碼。
 - `GET /v1/auth/me` 與 `GET /v1/auth/users` 現在會附帶 `role_options`，角色階層為 `data_reader < data_editor < db_operator < superuser`；不再接受舊角色 `user` / `manager` / `backup_manager`。
 - `GET /v1/editor/usage-stats`：需登入；回傳帳號登入稽核統計，普通使用者只能看自己的事件，superuser 可看全體/指定帳號。
+
+## 2026-06-16 Auth Storage Mode API
+
+- `GET /v1/auth/storage-mode`：公開端點；回傳 `{ mode, browser_local, message, role_options }`。只有在 Vercel preview/development、未設定 `AUTH_USERS_FILE` 且 `AUTH_BROWSER_LOCAL_STORE=1` 時才會回傳 `mode=browser_local`；Vercel production 與非 Vercel 環境會維持 server mode。
+- `POST /v1/auth/browser-local-token`：僅在 browser-local 模式啟用；body `{ username, role, status }`，當 `status=active` 時簽發帶有 `mode=browser_local` 的 Bearer token。此端點只供唯讀部署測試，不應作為正式帳號驗證方案。

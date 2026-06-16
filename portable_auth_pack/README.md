@@ -24,10 +24,12 @@ portable_auth_pack/
 ├── CODEX_IMPORT_GUIDE.md
 ├── fastapi_auth_pack/
 │   ├── __init__.py
+│   ├── auth_routes.py
 │   ├── auth_store.py
 │   ├── dependencies.py
 │   ├── models.py
-│   └── router.py
+│   ├── router.py
+│   └── usage_routes.py
 ├── examples/
 │   ├── bootstrap_superusers.test.json
 │   ├── env.example
@@ -45,7 +47,7 @@ portable_auth_pack/
 這包可以整包複製到目標專案，作為 Codex 導入時的參考素材；但對於已經有既有架構、router、設定系統或啟動流程的專案，**建議不要長期用外掛子目錄 + `PYTHONPATH` 的方式運作**。較穩定的做法是：
 
 1. 先把 `portable_auth_pack/` 整包放進目標專案，讓 Codex 有完整上下文與範例。
-2. 再由 Codex 依照目標專案慣例，把 `fastapi_auth_pack/` 內的 auth store、models、dependencies、router 嵌入到既有 app package，例如 `app/auth/`、`api/auth/` 或既有 `users/` 模組。
+2. 再由 Codex 依照目標專案慣例，把 `fastapi_auth_pack/` 內的 auth store、models、dependencies、router / route modules 嵌入到既有 app package，例如 `app/auth/`、`api/auth/` 或既有 `users/` 模組。
 3. 掛 router 時沿用目標專案原本的 `app.include_router(...)`、prefix、dependency、設定載入與測試風格。
 4. 前端只抽取 `static/login_admin_minimal.html` 裡的登入、token header、帳號審核邏輯，不必照搬整頁。
 
@@ -84,7 +86,7 @@ app.include_router(auth_router)
 
 | Method | Path | 說明 |
 |---|---|---|
-| `POST` | `/v1/auth/register` | 建立 pending 帳號 |
+| `POST` | `/v1/auth/register` | 送出 pending 帳號申請；成功與帳號已存在皆回相同泛用訊息，避免帳號列舉 |
 | `POST` | `/v1/auth/login` | 登入並取得 Bearer token |
 | `GET` | `/v1/auth/me` | 查詢目前登入者與可用角色選項 |
 | `POST` | `/v1/auth/logout` | 登出並將目前 token 加入 denylist |
@@ -97,7 +99,7 @@ app.include_router(auth_router)
 | `POST` | `/v1/auth/users/{username}/password-reset-token` | superuser 產生一次性 reset token，供核身後安全交付 |
 | `POST` | `/v1/auth/users/{username}/reset-password` | superuser 直接重設使用者密碼；該帳號既有 token 失效 |
 | `DELETE` | `/v1/auth/users/{username}` | superuser 刪除帳號 |
-| `GET` | `/v1/auth/login-audit` | superuser 查詢登入稽核紀錄 |
+| `GET` | `/v1/auth/login-audit` | 已登入使用者查自己的登入稽核；superuser 可查全體或用 `username` 篩選 |
 
 ### 3. 保護你的既有 API
 
@@ -219,7 +221,8 @@ curl -s -X POST http://127.0.0.1:8000/v1/auth/login \
 ## 安全注意事項
 
 - 密碼使用 PBKDF2-HMAC-SHA256、per-password salt 與 `hmac.compare_digest()`；登入時不存在帳號也會執行固定 dummy hash 驗證，以降低 timing account enumeration 風險。
-- 登入與 reset-password 失敗會依 `scope:username:client_host` 在 process-local memory 內節流；達 5 次失敗會暫時回 HTTP 429 與 `Retry-After`。多 worker / 多副本正式環境請改接 Redis、資料庫、API gateway 或 WAF rate limiting。
+- 登入與 reset-password 失敗會依 `scope:username:client_host` 在 process-local memory 內節流；註冊申請另依 `client_host` 做 process-local 頻率限制；達 5 次會暫時回 HTTP 429 與 `Retry-After`。多 worker / 多副本正式環境請改接 Redis、資料庫、API gateway 或 WAF rate limiting。
+- 註冊 API 對成功送出與帳號已存在回相同泛用訊息，避免被用來測試帳號是否存在；實際結果只保留在內部 login audit reason。login audit 會記錄 `client_host` / `user_agent`，供資安檢核。
 - 正式環境必須設定 `AUTH_SECRET`，且要保持穩定；換 secret 會讓既有 token 失效。當 `AUTH_ENV` / `APP_ENV` / `ENV` / `PY_ENV` 為 `prod` 或 `production` 時，secret 不可缺漏且至少需 32 bytes。
 - `*.json` user store 請放在非公開路徑，不要放在靜態檔目錄。
 - 請把 `runtime/`、`.auth_users.json`、正式 `bootstrap_superusers.json` 加到 `.gitignore`。

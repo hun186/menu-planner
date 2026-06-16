@@ -1,158 +1,58 @@
+# portable_auth_pack/fastapi_auth_pack/auth_store.py
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
+import copy
 import json
 import os
 import secrets
 import tempfile
-import time
 import warnings
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
 from typing import Any
 
-PBKDF2_ITERATIONS = 260_000
-ALLOWED_ROLES = {"user", "manager", "backup_manager", "superuser"}
-
-
-def _env_value(name: str) -> str:
-    return (os.getenv(name) or "").strip()
-
-
-TOKEN_TTL_SECONDS = int(_env_value("AUTH_TOKEN_TTL_SECONDS") or str(60 * 60 * 12))
-
-
-@dataclass(frozen=True)
-class AuthUser:
-    username: str
-    role: str
-    status: str
-
-
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _project_root() -> Path:
-    configured = _env_value("AUTH_PROJECT_ROOT")
-    if configured:
-        return Path(configured).expanduser().resolve()
-    return Path.cwd().resolve()
-
-
-def _auth_config_dir() -> Path:
-    return _project_root() / "config" / "auth"
-
-
-def _bootstrap_superusers_file() -> Path:
-    configured = _env_value("AUTH_BOOTSTRAP_SUPERUSERS_FILE")
-    if configured:
-        return Path(configured).expanduser().resolve()
-    return _auth_config_dir() / "bootstrap_superusers.json"
-
-
-def _auth_file() -> Path:
-    configured = _env_value("AUTH_USERS_FILE")
-    if configured:
-        return Path(configured).expanduser().resolve()
-    return _project_root() / ".auth_users.json"
+from .auth_support import (
+    AUTH_THROTTLE_BLOCK_SECONDS,
+    AUTH_THROTTLE_FAILURE_LIMIT,
+    AUTH_THROTTLE_WINDOW_SECONDS,
+    DUMMY_PASSWORD_HASH,
+    LOGIN_AUDIT_LIMIT,
+    PASSWORD_RESET_TTL_SECONDS,
+    ROLE_DATA_EDITOR,
+    ROLE_DATA_READER,
+    ROLE_DB_OPERATOR,
+    ROLE_SUPERUSER,
+    VALID_ROLES,
+    AuthUser,
+    _auth_file,
+    _b64url,
+    _b64url_decode,
+    _hash_password,
+    _load_bootstrap_superusers,
+    _now_ts,
+    _sha256,
+    _throttle_key,
+    _token_secret,
+    _token_ttl_seconds,
+    _utc_now,
+    _validate_password,
+    _verify_password,
+    has_role_at_least,
+    normalize_role,
+    public_role_options,
+)
 
 
 def _fallback_auth_file() -> Path:
     return Path(tempfile.gettempdir()).resolve() / "menu-planner" / ".auth_users.json"
 
 
-def _token_secret() -> bytes:
-    secret = (_env_value("AUTH_SECRET") or os.getenv("SECRET_KEY") or "").strip()
-    if not secret:
-        secret = "menu-planner-auth-development-secret-change-me"
-    return secret.encode("utf-8")
-
-
-def _hash_password(password: str, *, salt: str | None = None) -> str:
-    if salt is None:
-        salt = secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        bytes.fromhex(salt),
-        PBKDF2_ITERATIONS,
-    ).hex()
-    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt}${digest}"
-
-
-def _verify_password(password: str, password_hash: str) -> bool:
-    try:
-        scheme, iterations_s, salt, expected = password_hash.split("$", 3)
-        if scheme != "pbkdf2_sha256":
-            return False
-        digest = hashlib.pbkdf2_hmac(
-            "sha256",
-            password.encode("utf-8"),
-            bytes.fromhex(salt),
-            int(iterations_s),
-        ).hex()
-        return hmac.compare_digest(digest, expected)
-    except Exception:
-        return False
-
-
-def _b64url(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
-
-
-def _b64url_decode(data: str) -> bytes:
-    padding = "=" * (-len(data) % 4)
-    return base64.urlsafe_b64decode(data + padding)
-
-
-def _collect_superusers_from_parsed(parsed: Any) -> list[dict[str, str]]:
-    if isinstance(parsed, dict):
-        parsed = parsed.get("superusers") or parsed.get("users") or []
-    users: list[dict[str, str]] = []
-    if not isinstance(parsed, list):
-        return users
-    for item in parsed:
-        if not isinstance(item, dict):
-            continue
-        username = str(item.get("username") or "").strip()
-        password = str(item.get("password") or "")
-        if username and password:
-            users.append({"username": username, "password": password})
-    return users
-
-
-def _load_bootstrap_superusers() -> list[dict[str, str]]:
-    users: list[dict[str, str]] = []
-    fixed_file = _bootstrap_superusers_file()
-    if fixed_file.exists():
-        try:
-            with fixed_file.open("r", encoding="utf-8") as f:
-                users.extend(_collect_superusers_from_parsed(json.load(f)))
-        except (OSError, json.JSONDecodeError):
-            pass
-    raw_json = _env_value("AUTH_BOOTSTRAP_SUPERUSERS")
-    if raw_json:
-        try:
-            users.extend(_collect_superusers_from_parsed(json.loads(raw_json)))
-        except json.JSONDecodeError:
-            pass
-    single_username = _env_value("AUTH_BOOTSTRAP_SUPERUSER_USERNAME")
-    single_password = _env_value("AUTH_BOOTSTRAP_SUPERUSER_PASSWORD")
-    if single_username and single_password:
-        users.append({"username": single_username, "password": single_password})
-    deduped = {item["username"]: item for item in users}
-    return list(deduped.values())
-
-
 class AuthStore:
     def __init__(self, path: Path | None = None) -> None:
         self._lock = RLock()
-        self._explicit_path = path is not None or bool(_env_value("AUTH_USERS_FILE"))
+        self._throttle_lock = RLock()
+        self._auth_failures: dict[str, dict[str, int]] = {}
+        self._explicit_path = path is not None or bool((os.getenv("AUTH_USERS_FILE") or "").strip())
         self.path = path or _auth_file()
         self._prepare_storage()
         self.ensure_bootstrap_superusers()
@@ -175,8 +75,20 @@ class AuthStore:
             self._ensure_file()
 
     def _ensure_file(self) -> None:
-        if not self.path.exists():
-            self._write({"users": {}, "created_at": _utc_now(), "updated_at": _utc_now()})
+        if self.path.exists():
+            return
+        self._write(self._normalize_data({"users": {}, "created_at": _utc_now(), "updated_at": _utc_now()}))
+
+    def _normalize_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(data.get("users"), dict):
+            data["users"] = {}
+        if not isinstance(data.get("token_denylist"), dict):
+            data["token_denylist"] = {}
+        if not isinstance(data.get("password_reset_tokens"), dict):
+            data["password_reset_tokens"] = {}
+        if not isinstance(data.get("login_audit"), list):
+            data["login_audit"] = []
+        return data
 
     def _read(self) -> dict[str, Any]:
         with self._lock:
@@ -185,16 +97,13 @@ class AuthStore:
                     data = json.load(f)
             except FileNotFoundError:
                 data = {"users": {}}
-            except json.JSONDecodeError:
-                data = {"users": {}}
             if not isinstance(data, dict):
                 data = {"users": {}}
-            if not isinstance(data.get("users"), dict):
-                data["users"] = {}
-            return data
+            return self._normalize_data(data)
 
     def _write(self, data: dict[str, Any]) -> None:
         with self._lock:
+            data = self._normalize_data(data)
             data["updated_at"] = _utc_now()
             fd, tmp_name = tempfile.mkstemp(prefix=".auth_users.", suffix=".json", dir=str(self.path.parent))
             try:
@@ -206,147 +115,307 @@ class AuthStore:
                 if os.path.exists(tmp_name):
                     os.unlink(tmp_name)
 
+    def _prune_token_denylist(self, data: dict[str, Any]) -> bool:
+        now = _now_ts()
+        denylist = data.setdefault("token_denylist", {})
+        removed = False
+        for jti, item in list(denylist.items()):
+            if not isinstance(item, dict) or int(item.get("expires_at") or 0) < now:
+                denylist.pop(jti, None)
+                removed = True
+        return removed
+
+    @staticmethod
+    def _invalidate_user_tokens(user: dict[str, Any]) -> None:
+        user["token_version"] = int(user.get("token_version") or 0) + 1
+        user["tokens_invalidated_at"] = _utc_now()
+
     def ensure_bootstrap_superusers(self) -> None:
         bootstrap_users = _load_bootstrap_superusers()
         if not bootstrap_users:
             return
         data = self._read()
-        users = data["users"]
-        changed = False
+        changed = self._prune_token_denylist(data)
+        users = data.setdefault("users", {})
         for item in bootstrap_users:
             username = item["username"]
-            if username in users:
-                continue
-            users[username] = {
-                "username": username,
-                "password_hash": _hash_password(item["password"]),
-                "role": "superuser",
-                "status": "active",
-                "created_at": _utc_now(),
-                "approved_at": _utc_now(),
-                "approved_by": "bootstrap",
-                "full_name": None,
-                "department": None,
-                "note": "bootstrap superuser",
-            }
-            changed = True
+            password = item["password"]
+            existing = users.get(username)
+            if not isinstance(existing, dict):
+                users[username] = {
+                    "username": username,
+                    "password_hash": _hash_password(password),
+                    "role": ROLE_SUPERUSER,
+                    "status": "active",
+                    "token_version": 0,
+                    "created_at": _utc_now(),
+                    "approved_at": _utc_now(),
+                    "approved_by": "bootstrap",
+                }
+                changed = True
+            else:
+                if not _verify_password(password, str(existing.get("password_hash") or "")):
+                    existing["password_hash"] = _hash_password(password)
+                    self._invalidate_user_tokens(existing)
+                    changed = True
+                if normalize_role(str(existing.get("role") or "")) != ROLE_SUPERUSER or existing.get("status") != "active":
+                    existing["role"] = ROLE_SUPERUSER
+                    existing["status"] = "active"
+                    existing["approved_at"] = _utc_now()
+                    existing["approved_by"] = "bootstrap"
+                    changed = True
+                if "token_version" not in existing:
+                    existing["token_version"] = 0
+                    changed = True
         if changed:
             self._write(data)
 
-    def has_users(self) -> bool:
-        return bool(self._read().get("users"))
-
-    def list_users(self) -> list[dict[str, Any]]:
-        users = self._read().get("users") or {}
-        out = []
-        for user in users.values():
-            clean = dict(user)
-            clean.pop("password_hash", None)
-            out.append(clean)
-        return sorted(out, key=lambda x: str(x.get("created_at") or ""), reverse=True)
-
-    def get_user(self, username: str) -> dict[str, Any] | None:
-        user = self._read().get("users", {}).get(username)
-        return dict(user) if isinstance(user, dict) else None
-
     def register(self, username: str, password: str, *, full_name: str | None = None, department: str | None = None, note: str | None = None) -> dict[str, Any]:
         username = username.strip()
-        if not username:
-            raise ValueError("帳號不可為空。")
-        if not password:
-            raise ValueError("密碼不可為空。")
+        if not username or len(username) > 64:
+            raise ValueError("帳號不可為空，且長度需小於 64。")
+        _validate_password(password)
         data = self._read()
-        users = data["users"]
+        users = data.setdefault("users", {})
         if username in users:
             raise ValueError("帳號已存在。")
-        is_first_user = not bool(users)
-        now = _utc_now()
         users[username] = {
             "username": username,
             "password_hash": _hash_password(password),
-            "role": "superuser" if is_first_user else "user",
-            "status": "active" if is_first_user else "pending",
-            "created_at": now,
-            "approved_at": now if is_first_user else None,
-            "approved_by": "first-user" if is_first_user else None,
+            "role": ROLE_DATA_READER,
+            "status": "pending",
+            "token_version": 0,
+            "created_at": _utc_now(),
+            "approved_at": None,
+            "approved_by": None,
             "full_name": (full_name or "").strip() or None,
             "department": (department or "").strip() or None,
             "note": (note or "").strip() or None,
         }
         self._write(data)
-        clean = dict(users[username])
-        clean.pop("password_hash", None)
-        return clean
+        return self.public_user(users[username])
 
     def authenticate(self, username: str, password: str) -> AuthUser | None:
-        stored = self.get_user(username.strip())
-        if not stored or not _verify_password(password, str(stored.get("password_hash") or "")):
+        data = self._read()
+        user = data.get("users", {}).get(username)
+        password_hash = str(user.get("password_hash") or DUMMY_PASSWORD_HASH) if isinstance(user, dict) else DUMMY_PASSWORD_HASH
+        password_ok = _verify_password(password, password_hash)
+        if not isinstance(user, dict) or not password_ok:
             return None
-        return AuthUser(username=str(stored["username"]), role=str(stored.get("role") or "user"), status=str(stored.get("status") or "pending"))
+        if user.get("status") != "active":
+            return AuthUser(username=username, role=normalize_role(str(user.get("role") or "")), status=str(user.get("status") or "pending"))
+        return AuthUser(username=username, role=normalize_role(str(user.get("role") or "")), status="active")
 
-    def approve_user(self, username: str, role: str, *, approved_by: str) -> dict[str, Any]:
-        role = role.strip()
-        if role not in ALLOWED_ROLES:
-            raise ValueError("不支援的角色。")
-        data = self._read()
-        users = data["users"]
-        if username not in users:
-            raise KeyError("找不到使用者。")
-        users[username]["role"] = role
-        users[username]["status"] = "active"
-        users[username]["approved_at"] = _utc_now()
-        users[username]["approved_by"] = approved_by
-        self._write(data)
-        clean = dict(users[username])
-        clean.pop("password_hash", None)
-        return clean
+    def get_user(self, username: str) -> dict[str, Any] | None:
+        user = self._read().get("users", {}).get(username)
+        return user if isinstance(user, dict) else None
 
-    def reject_user(self, username: str, *, rejected_by: str) -> dict[str, Any]:
+    def list_users(self) -> list[dict[str, Any]]:
+        users = self._read().get("users", {})
+        return [self.public_user(user) for user in users.values() if isinstance(user, dict)]
+
+    def approve_user(self, username: str, role: str, approved_by: str) -> dict[str, Any]:
+        requested_role = (role or "").strip().lower()
+        if requested_role not in VALID_ROLES:
+            raise ValueError("role 必須是 superuser、db_operator、data_editor 或 data_reader。")
+        role = requested_role
         data = self._read()
-        users = data["users"]
-        if username not in users:
-            raise KeyError("找不到使用者。")
-        users[username]["status"] = "rejected"
-        users[username]["rejected_at"] = _utc_now()
-        users[username]["rejected_by"] = rejected_by
+        user = data.get("users", {}).get(username)
+        if not isinstance(user, dict):
+            raise KeyError("帳號不存在。")
+        user["role"] = role
+        user["status"] = "active"
+        user["approved_at"] = _utc_now()
+        user["approved_by"] = approved_by
         self._write(data)
-        clean = dict(users[username])
-        clean.pop("password_hash", None)
-        return clean
+        return self.public_user(user)
+
+    def reject_user(self, username: str, rejected_by: str) -> dict[str, Any]:
+        data = self._read()
+        user = data.get("users", {}).get(username)
+        if not isinstance(user, dict):
+            raise KeyError("帳號不存在。")
+        user["status"] = "rejected"
+        user["rejected_at"] = _utc_now()
+        user["rejected_by"] = rejected_by
+        self._invalidate_user_tokens(user)
+        self._write(data)
+        return self.public_user(user)
 
     def delete_user(self, username: str) -> dict[str, Any]:
         data = self._read()
-        users = data["users"]
-        if username not in users:
-            raise KeyError("找不到使用者。")
-        deleted = users.pop(username)
+        users = data.get("users", {})
+        user = users.get(username)
+        if not isinstance(user, dict):
+            raise KeyError("帳號不存在。")
+        removed = dict(user)
+        del users[username]
         self._write(data)
-        clean = dict(deleted)
-        clean.pop("password_hash", None)
-        return clean
+        return self.public_user(removed)
+
+    def change_password(self, username: str, current_password: str, new_password: str) -> dict[str, Any]:
+        _validate_password(new_password)
+        data = self._read()
+        user = data.get("users", {}).get(username)
+        if not isinstance(user, dict):
+            raise KeyError("帳號不存在。")
+        if not _verify_password(current_password, str(user.get("password_hash") or "")):
+            raise ValueError("目前密碼不正確。")
+        user["password_hash"] = _hash_password(new_password)
+        user["password_changed_at"] = _utc_now()
+        self._invalidate_user_tokens(user)
+        self._write(data)
+        return self.public_user(user)
+
+    def reset_user_password(self, username: str, new_password: str, reset_by: str) -> dict[str, Any]:
+        _validate_password(new_password)
+        data = self._read()
+        user = data.get("users", {}).get(username)
+        if not isinstance(user, dict):
+            raise KeyError("帳號不存在。")
+        user["password_hash"] = _hash_password(new_password)
+        user["password_reset_at"] = _utc_now()
+        user["password_reset_by"] = reset_by
+        self._invalidate_user_tokens(user)
+        self._write(data)
+        return self.public_user(user)
+
+    def request_password_reset(self, username: str) -> str | None:
+        data = self._read()
+        user = data.get("users", {}).get(username)
+        if not isinstance(user, dict) or user.get("status") != "active":
+            return None
+        token = secrets.token_urlsafe(32)
+        tokens = data.setdefault("password_reset_tokens", {})
+        tokens[_sha256(token)] = {
+            "username": username,
+            "created_at": _utc_now(),
+            "expires_at": _now_ts() + PASSWORD_RESET_TTL_SECONDS,
+            "used_at": None,
+        }
+        self._write(data)
+        return token
+
+    def recover_password(self, username: str, reset_token: str, new_password: str) -> dict[str, Any]:
+        _validate_password(new_password)
+        data = self._read()
+        token_hash = _sha256(reset_token)
+        token_record = data.setdefault("password_reset_tokens", {}).get(token_hash)
+        if not isinstance(token_record, dict):
+            raise ValueError("重設密碼連結已失效。")
+        if token_record.get("used_at") or int(token_record.get("expires_at") or 0) < _now_ts():
+            raise ValueError("重設密碼連結已失效。")
+        if token_record.get("username") != username:
+            raise ValueError("重設密碼連結已失效。")
+        user = data.get("users", {}).get(username)
+        if not isinstance(user, dict) or user.get("status") != "active":
+            raise ValueError("重設密碼連結已失效。")
+        user["password_hash"] = _hash_password(new_password)
+        user["password_recovered_at"] = _utc_now()
+        self._invalidate_user_tokens(user)
+        token_record["used_at"] = _utc_now()
+        self._write(data)
+        return self.public_user(user)
+
+    def deny_token(self, payload: dict[str, Any]) -> None:
+        jti = str(payload.get("jti") or "")
+        if not jti:
+            return
+        data = self._read()
+        self._prune_token_denylist(data)
+        data.setdefault("token_denylist", {})[jti] = {
+            "username": str(payload.get("sub") or ""),
+            "denied_at": _utc_now(),
+            "expires_at": int(payload.get("exp") or _now_ts()),
+        }
+        self._write(data)
+
+    def is_token_denied(self, jti: str) -> bool:
+        if not jti:
+            return True
+        data = self._read()
+        changed = self._prune_token_denylist(data)
+        item = data.get("token_denylist", {}).get(jti)
+        if changed:
+            self._write(data)
+        return isinstance(item, dict)
+
+    def is_token_current(self, username: str, token_version: int) -> bool:
+        user = self.get_user(username)
+        if not isinstance(user, dict):
+            return False
+        return int(user.get("token_version") or 0) == token_version
+
+    def record_login_audit(self, username: str, *, success: bool, reason: str, role: str | None = None, status_value: str | None = None, client_host: str | None = None, user_agent: str | None = None) -> None:
+        data = self._read()
+        audit = data.setdefault("login_audit", [])
+        audit.append({
+            "ts": _utc_now(),
+            "username": username,
+            "success": success,
+            "reason": reason,
+            "role": role,
+            "status": status_value,
+            "client_host": client_host,
+            "user_agent": user_agent,
+        })
+        if len(audit) > LOGIN_AUDIT_LIMIT:
+            del audit[:-LOGIN_AUDIT_LIMIT]
+        self._write(data)
+
+    def list_login_audit(self, limit: int = 100) -> list[dict[str, Any]]:
+        audit = self._read().get("login_audit", [])
+        if not isinstance(audit, list):
+            return []
+        limit = max(1, min(limit, LOGIN_AUDIT_LIMIT))
+        return [item for item in audit[-limit:] if isinstance(item, dict)]
+
+    def throttle_retry_after(self, scope: str, username: str | None, client_host: str | None = None) -> int:
+        key = _throttle_key(scope, username, client_host)
+        now = _now_ts()
+        with self._throttle_lock:
+            state = self._auth_failures.get(key)
+            if not state:
+                return 0
+            blocked_until = int(state.get("blocked_until") or 0)
+            if blocked_until <= now:
+                if int(state.get("first_failed_at") or 0) + AUTH_THROTTLE_WINDOW_SECONDS <= now:
+                    self._auth_failures.pop(key, None)
+                return 0
+            return blocked_until - now
+
+    def record_auth_failure(self, scope: str, username: str | None, client_host: str | None = None) -> int:
+        key = _throttle_key(scope, username, client_host)
+        now = _now_ts()
+        with self._throttle_lock:
+            state = self._auth_failures.get(key)
+            if not state or int(state.get("first_failed_at") or 0) + AUTH_THROTTLE_WINDOW_SECONDS <= now:
+                state = {"first_failed_at": now, "failures": 0, "blocked_until": 0}
+                self._auth_failures[key] = state
+            state["failures"] = int(state.get("failures") or 0) + 1
+            if state["failures"] >= AUTH_THROTTLE_FAILURE_LIMIT:
+                state["blocked_until"] = now + AUTH_THROTTLE_BLOCK_SECONDS
+                return AUTH_THROTTLE_BLOCK_SECONDS
+            return 0
+
+    def clear_auth_failures(self, scope: str, username: str | None, client_host: str | None = None) -> None:
+        key = _throttle_key(scope, username, client_host)
+        with self._throttle_lock:
+            self._auth_failures.pop(key, None)
+
+    @staticmethod
+    def public_user(user: dict[str, Any]) -> dict[str, Any]:
+        public = {k: v for k, v in user.items() if k != "password_hash"}
+        public["role"] = normalize_role(str(public.get("role") or ""))
+        return public
+
+
+from .auth_tokens import parse_token as parse_token
+from .auth_tokens import create_token as _create_token
 
 
 def create_token(user: AuthUser) -> str:
-    header = {"alg": "HS256", "typ": "JWT"}
-    payload = {"sub": user.username, "role": user.role, "iat": int(time.time()), "exp": int(time.time()) + TOKEN_TTL_SECONDS}
-    signing_input = f"{_b64url(json.dumps(header, separators=(',', ':')).encode())}.{_b64url(json.dumps(payload, separators=(',', ':')).encode())}"
-    sig = hmac.new(_token_secret(), signing_input.encode("ascii"), hashlib.sha256).digest()
-    return f"{signing_input}.{_b64url(sig)}"
-
-
-def parse_token(token: str) -> dict[str, Any] | None:
-    try:
-        head_b64, payload_b64, sig_b64 = token.split(".", 2)
-        signing_input = f"{head_b64}.{payload_b64}"
-        expected = _b64url(hmac.new(_token_secret(), signing_input.encode("ascii"), hashlib.sha256).digest())
-        if not hmac.compare_digest(sig_b64, expected):
-            return None
-        payload = json.loads(_b64url_decode(payload_b64))
-        if int(payload.get("exp") or 0) < int(time.time()):
-            return None
-        return payload if isinstance(payload, dict) else None
-    except Exception:
-        return None
+    return _create_token(user, AUTH_STORE.get_user)
 
 
 AUTH_STORE = AuthStore()

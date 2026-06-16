@@ -1,12 +1,23 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from fastapi import Depends, Header, HTTPException, status
 
-from .auth_store import AUTH_STORE, AuthUser, parse_token
+from .auth_store import (
+    AUTH_STORE,
+    ROLE_DATA_EDITOR,
+    ROLE_DB_OPERATOR,
+    ROLE_SUPERUSER,
+    AuthUser,
+    has_role_at_least,
+    normalize_role,
+    parse_token,
+)
 
 
 def bearer_token(authorization: str | None) -> str:
-    if not isinstance(authorization, str) or not authorization.lower().startswith("bearer "):
+    if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="請先登入。")
     return authorization.split(" ", 1)[1].strip()
 
@@ -19,29 +30,28 @@ def current_user(authorization: str | None = Header(default=None)) -> AuthUser:
     stored = AUTH_STORE.get_user(username)
     if not stored or stored.get("status") != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="帳號尚未啟用。")
-    return AuthUser(username=username, role=str(stored.get("role") or "user"), status="active")
+    if AUTH_STORE.is_token_denied(str(payload.get("jti") or "")):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登入已失效，請重新登入。")
+    if not AUTH_STORE.is_token_current(username, int(payload.get("ver") or 0)):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登入已失效，請重新登入。")
+    return AuthUser(username=username, role=normalize_role(str(stored.get("role") or "")), status="active")
 
 
-def require_active_user(user: AuthUser = Depends(current_user)) -> AuthUser:
-    return user
+def require_role(minimum_role: str, detail: str) -> Callable[[AuthUser], AuthUser]:
+    def dependency(user: AuthUser = Depends(current_user)) -> AuthUser:
+        if not has_role_at_least(user.role, minimum_role):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+        return user
+
+    return dependency
 
 
-def require_data_editor(authorization: str | None = Header(default=None)) -> AuthUser:
-    return current_user(authorization)
+require_data_editor = require_role(ROLE_DATA_EDITOR, "需要資料修改者以上權限。")
+require_data_editor.__name__ = "require_data_editor"
+require_db_operator = require_role(ROLE_DB_OPERATOR, "需要資料庫操作者以上權限。")
+require_db_operator.__name__ = "require_db_operator"
+require_superuser = require_role(ROLE_SUPERUSER, "需要最高級全能者權限。")
+require_superuser.__name__ = "require_superuser"
 
 
-def require_backup_manager(authorization: str | None = Header(default=None)) -> AuthUser:
-    user = current_user(authorization)
-    if user.role not in {"backup_manager", "superuser"}:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要備份管理員或超級使用者權限。")
-    return user
-
-
-def require_superuser(user: AuthUser = Depends(current_user)) -> AuthUser:
-    if user.role != "superuser":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要超級使用者權限。")
-    return user
-
-
-def require_admin_user(authorization: str | None = Header(default=None)) -> AuthUser:
-    return require_superuser(current_user(authorization))
+require_active_user = current_user

@@ -861,7 +861,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     const $status = $("#auth_status");
     if (!$status.length) return;
     if (user?.username) {
-      $status.html(`目前登入：<strong>${escapeHtml(user.username)}</strong>（${escapeHtml(user.role || "user")}）`);
+      $status.html(`目前登入：<strong>${escapeHtml(user.username)}</strong>（${escapeHtml(user.role || "data_reader")}）`);
     } else {
       $status.text("尚未登入；資料維護需要已啟用帳號。");
     }
@@ -882,7 +882,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
           <td>${escapeHtml(u.department || "")}</td>
           <td>
             <select class="auth-role" data-user="${escapeHtml(u.username || "")}">
-              ${["user", "manager", "backup_manager", "superuser"].map((role) => `<option value="${role}" ${role === u.role ? "selected" : ""}>${role}</option>`).join("")}
+              ${["superuser", "db_operator", "data_editor", "data_reader"].map((role) => `<option value="${role}" ${role === u.role ? "selected" : ""}>${role}</option>`).join("")}
             </select>
             <button class="auth-approve" data-user="${escapeHtml(u.username || "")}">核准</button>
             <button class="auth-reject" data-user="${escapeHtml(u.username || "")}">拒絕</button>
@@ -945,7 +945,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof w
     $("#auth_users_reload").on("click", refreshAuthUsers);
     $("#auth_users_tbl").on("click", ".auth-approve", async function () {
       const username = $(this).data("user");
-      const role = $(this).siblings(".auth-role").val() || "user";
+      const role = $(this).siblings(".auth-role").val() || "data_reader";
       await approveAuthUser(username, role);
       await refreshAuthUsers();
     });

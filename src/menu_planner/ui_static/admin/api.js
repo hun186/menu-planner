@@ -48,6 +48,39 @@ export function registerAuth({ username, password, fullName = "", department = "
   });
 }
 
+export function logoutAuth() {
+  return httpJson("/v1/auth/logout", { method: "POST" }, { includeAuth: true });
+}
+
+export function changePasswordAuth(currentPassword, newPassword) {
+  return httpJson("/v1/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  }, { includeAuth: true });
+}
+
+export function forgotPasswordAuth(username) {
+  return httpJson("/v1/auth/forgot-password", { method: "POST", body: JSON.stringify({ username }) });
+}
+
+export function recoverPasswordAuth(username, resetToken, newPassword) {
+  return httpJson("/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ username, reset_token: resetToken, new_password: newPassword }),
+  });
+}
+
+export function issuePasswordResetToken(username) {
+  return httpJson(`/v1/auth/users/${encodeURIComponent(username)}/password-reset-token`, { method: "POST" }, { includeAuth: true });
+}
+
+export function resetUserPasswordAuth(username, newPassword) {
+  return httpJson(`/v1/auth/users/${encodeURIComponent(username)}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ new_password: newPassword }),
+  }, { includeAuth: true });
+}
+
 export function getAuthMe() {
   return httpJson("/v1/auth/me", { method: "GET", headers: {} }, { includeAuth: true });
 }
@@ -56,7 +89,7 @@ export function listAuthUsers() {
   return httpJson("/v1/auth/users", { method: "GET", headers: {} }, { includeAuth: true });
 }
 
-export function approveAuthUser(username, role = "user") {
+export function approveAuthUser(username, role = "data_reader") {
   return httpJson(`/v1/auth/users/${encodeURIComponent(username)}/approve`, {
     method: "POST",
     body: JSON.stringify({ role }),

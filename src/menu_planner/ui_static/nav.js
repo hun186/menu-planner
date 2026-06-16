@@ -7,10 +7,10 @@ function readAuthUser() {
 }
 
 function roleLabel(role) {
-  if (role === "superuser") return "超級管理者";
-  if (role === "backup_manager") return "備份管理員";
-  if (role === "manager") return "資料管理帳號";
-  if (role === "user") return "普通帳號";
+  if (role === "superuser") return "最高級全能者";
+  if (role === "db_operator") return "資料庫操作者";
+  if (role === "data_editor") return "資料修改者";
+  if (role === "data_reader") return "資料閱讀者";
   return role || "未登入";
 }
 

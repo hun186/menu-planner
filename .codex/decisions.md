@@ -156,3 +156,19 @@ Reason:
 
 Rejected Alternative:
 不採用「備份還原/刪除仍需 superuser」；這會迫使備份處理者取得過強帳號管理權限。
+
+---
+
+## 2026-06-16 Portable Auth Pack Security Alignment
+
+Decision:
+主程式 auth 模組跟進 `portable_auth_pack` 新版安全功能，採用 token jti/version、logout denylist、密碼變更/重設流程、登入稽核與節流機制。
+
+Role Model:
+採用新版階層 `data_reader < data_editor < db_operator < superuser`；因尚未部署生產系統，不保留舊角色 `user` / `manager` / `backup_manager` 相容映射，以降低授權模型複雜度。
+
+Reason:
+新版 pack 已補上 logout 失效、密碼生命週期、泛用登入錯誤、dummy password hash timing balance 與正式環境 secret fail-fast，比原本 Menu Planner auth 更安全完整。
+
+Compatibility:
+管理資料 API 直接使用新角色 dependency：資料維護使用 `require_data_editor`，危險備份操作使用 `require_db_operator`，帳號管理使用 `require_superuser`。

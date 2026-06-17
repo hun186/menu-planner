@@ -21,6 +21,7 @@ TOKEN_TTL_SECONDS = 60 * 60 * 12
 PASSWORD_RESET_TTL_SECONDS = 60 * 60
 LOGIN_AUDIT_LIMIT = 1000
 AUTH_BACKUP_LIMIT = 3
+AUTH_STORE_BACKUP_LIMIT = 10
 AUTH_THROTTLE_WINDOW_SECONDS = 15 * 60
 AUTH_THROTTLE_BLOCK_SECONDS = 5 * 60
 AUTH_THROTTLE_FAILURE_LIMIT = 5
@@ -94,6 +95,14 @@ def _auth_file() -> Path:
     if configured:
         return Path(configured).expanduser().resolve()
     return _project_root() / ".auth_users.json"
+
+
+def _auth_audit_file(auth_file: Path | None = None) -> Path:
+    configured = (os.getenv("AUTH_LOGIN_AUDIT_FILE") or "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    base = auth_file or _auth_file()
+    return base.with_name(f"{base.name}.login_audit.jsonl")
 
 
 def is_vercel_environment() -> bool:

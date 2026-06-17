@@ -275,3 +275,52 @@
 ### 重要結論
 
 - README 現在提供 Preview 測試操作步驟，同時避免新手誤以為 browser-local auth 可用於正式環境。
+
+## 2026-06-16 Auth Store Versioned Backups and Split Audit Log
+
+### 任務目的
+
+- 依使用者指示，確認主系統 auth store 尚未具備 portable_auth_pack 新增的帳號檔案多版本備份與登入 audit 分流記錄機制時，將等效功能導入主系統。
+
+### 主要修改內容
+
+- `AuthStore` 寫入帳號 JSON 前會先將現有帳號檔複製到 `<auth_file>.versions/`，預設保留最新 10 份版本備份，與既有壞檔 `.corrupt-*.bak` 復原備份分工。
+- 登入/註冊 audit 不再寫回帳號主 JSON；改為 append 到 `<auth_file>.login_audit.jsonl`，並以 `LOGIN_AUDIT_LIMIT` 修剪保留筆數。
+- 啟動時若偵測舊帳號 JSON 仍含 `login_audit` 陣列，會遷移到分流 JSONL 並從主帳號檔移除該欄位。
+- 新增 `AUTH_LOGIN_AUDIT_FILE` 設定與 `.gitignore` 忽略本機 audit/版本備份檔。
+
+### 驗證結果
+
+- `python -c "import fastapi, pytest, openpyxl"` 通過。
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py` 通過，12 tests passed。
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py tests/unit/test_admin_catalog_read_routes_auth.py` 通過，15 tests passed。
+- `node --check src/menu_planner/ui_static/account.js` 通過。
+- `python -m compileall -q src/menu_planner/api/auth src/menu_planner/api/routes/admin_catalog.py` 通過。
+
+### 重要結論
+
+- 帳號主檔與高頻 audit 寫入已分離，可降低 `.auth_users.json` 膨脹與寫入衝突風險。
+- 多版本帳號檔備份提高誤寫或操作錯誤時的本機回復機會，但正式多副本部署仍應遷移至資料庫/KV/外部身份服務。
+
+## 2026-06-16 Auth Store File I/O Split
+
+### 任務目的
+
+- 回應 review 意見：`src/menu_planner/api/auth/auth_store.py` 因混合帳號 domain logic、JSON 檔案 I/O、多版本備份與 audit JSONL 處理而過於肥大，需進行單檔拆分。
+
+### 主要修改內容
+
+- 新增 `src/menu_planner/api/auth/auth_store_files.py`，集中處理 auth store JSON 正規化、原子寫入、多版本備份、壞檔搬移、inline audit 遷移、audit JSONL append/list/prune。
+- `AuthStore` 保留帳號生命週期、密碼、token denylist 與節流等 domain 行為，透過 `AuthStoreFiles` delegate 檔案儲存與 audit I/O。
+- 調整 auth 單元測試中針對備份/audit 保留數的 monkeypatch 目標到新拆分模組。
+
+### 驗證結果
+
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py` 通過，12 tests passed。
+- `PYTHONPATH=. pytest -q tests/unit/test_auth_system.py tests/unit/test_admin_catalog_read_routes_auth.py` 通過，15 tests passed。
+- `python -m compileall -q src/menu_planner/api/auth src/menu_planner/api/routes/admin_catalog.py` 通過。
+- `git diff --check` 通過。
+
+### 重要結論
+
+- `auth_store.py` 從 541 行降至 386 行，檔案儲存細節改由 `auth_store_files.py` 承擔；既有公開 API 與測試行為不變。

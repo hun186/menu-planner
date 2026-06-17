@@ -189,3 +189,17 @@ Vercel Serverless 檔案系統不適合持久保存 `.auth_users.json`。browser
 
 Security Note:
 browser-local auth test mode 不適合正式部署；帳號資料由瀏覽器持有，且 token 簽發信任瀏覽器提供的 active user/role。正式部署應設定持久化 auth store 或改用資料庫/KV/外部身份服務。
+
+## 2026-06-16 Auth Store Versioned Backups and Split Audit Log
+
+Decision:
+帳號主檔 `.auth_users.json` 維持 JSON store，但每次寫入前先建立多版本備份到 `<auth_file>.versions/`，並將登入/註冊 audit 分流到 `<auth_file>.login_audit.jsonl`。
+
+Reason:
+帳號主檔保存 users、reset token 與 denylist，屬於較低頻但高價值狀態；登入 audit 是高頻追加事件。分流可降低主帳號檔膨脹與每次登入都重寫整份帳號 JSON 的風險。多版本備份則補強誤寫、遷移或非壞檔情境下的回復能力。
+
+Compatibility:
+`GET /v1/auth/login-audit` 對外 API 不變。若舊帳號 JSON 內仍有 `login_audit` 陣列，AuthStore 初始化時會遷移到 JSONL 並從主檔移除。
+
+Long-term Consideration:
+這仍是本機檔案型方案；多 worker、多副本或正式多使用者部署應遷移到資料庫/KV/外部身份服務，並把 audit 放入專用 append-only log/table。

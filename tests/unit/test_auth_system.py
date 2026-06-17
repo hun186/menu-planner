@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from src.menu_planner.api.auth.models import (
 )
 
 auth_store_module = importlib.import_module("src.menu_planner.api.auth.auth_store")
+auth_store_files_module = importlib.import_module("src.menu_planner.api.auth.auth_store_files")
 auth_routes_module = importlib.import_module("src.menu_planner.api.auth.auth_routes")
 
 
@@ -184,6 +186,56 @@ def test_corrupt_auth_store_is_backed_up_and_recreated(monkeypatch, tmp_path):
     assert list(tmp_path.glob("auth_users.json.corrupt-*.bak"))
     created = store.register("first", "FirstPass123!")
     assert created["role"] == "superuser"
+
+
+def test_auth_store_keeps_versioned_account_file_backups(monkeypatch, tmp_path):
+    monkeypatch.setattr(auth_store_files_module, "AUTH_STORE_BACKUP_LIMIT", 2)
+    path = tmp_path / "auth_users.json"
+    store = AuthStore(path)
+
+    store.register("first", "FirstPass123!")
+    store.register("second", "SecondPass123!")
+    store.approve_user("second", "data_reader", approved_by="first")
+
+    backup_dir = tmp_path / "auth_users.json.versions"
+    backups = sorted(backup_dir.glob("auth_users.json.*.bak"))
+    assert len(backups) == 2
+    assert all(json.loads(item.read_text(encoding="utf-8")).get("users") is not None for item in backups)
+
+
+def test_login_audit_is_written_to_split_jsonl_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(auth_store_files_module, "LOGIN_AUDIT_LIMIT", 2)
+    path = tmp_path / "auth_users.json"
+    store = AuthStore(path)
+
+    store.record_login_audit("first", success=True, reason="ok")
+    store.record_login_audit("second", success=False, reason="invalid_credentials")
+    store.record_login_audit("third", success=False, reason="inactive_account")
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert "login_audit" not in data
+    audit_path = tmp_path / "auth_users.json.login_audit.jsonl"
+    lines = audit_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    assert [event["username"] for event in store.list_login_audit(10)] == ["second", "third"]
+
+
+def test_inline_login_audit_is_migrated_to_split_file(tmp_path):
+    path = tmp_path / "auth_users.json"
+    path.write_text(
+        json.dumps({
+            "users": {},
+            "login_audit": [
+                {"ts": "2026-06-16T00:00:00+00:00", "username": "legacy", "success": True, "reason": "ok"}
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    store = AuthStore(path)
+
+    assert json.loads(path.read_text(encoding="utf-8")).get("login_audit") is None
+    assert store.list_login_audit(10)[0]["username"] == "legacy"
 
 
 def test_browser_local_token_is_trusted_only_in_explicit_vercel_non_production_mode(monkeypatch, tmp_path):

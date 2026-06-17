@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import os
 import secrets
 import tempfile
@@ -16,8 +15,6 @@ from .auth_support import (
     AUTH_THROTTLE_FAILURE_LIMIT,
     AUTH_THROTTLE_WINDOW_SECONDS,
     DUMMY_PASSWORD_HASH,
-    LOGIN_AUDIT_LIMIT,
-    AUTH_BACKUP_LIMIT,
     PASSWORD_RESET_TTL_SECONDS,
     ROLE_DATA_EDITOR,
     ROLE_DATA_READER,
@@ -42,6 +39,7 @@ from .auth_support import (
     normalize_role,
     public_role_options,
 )
+from .auth_store_files import AuthStoreFiles
 
 
 def _fallback_auth_file() -> Path:
@@ -55,6 +53,7 @@ class AuthStore:
         self._auth_failures: dict[str, dict[str, int]] = {}
         self._explicit_path = path is not None or bool((os.getenv("AUTH_USERS_FILE") or "").strip())
         self.path = path or _auth_file()
+        self._files = AuthStoreFiles(self.path, self._lock)
         self._prepare_storage()
         self.ensure_bootstrap_superusers()
 
@@ -62,6 +61,7 @@ class AuthStore:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self._ensure_file()
+            self._migrate_inline_login_audit()
         except OSError as exc:
             if self._explicit_path:
                 raise
@@ -72,76 +72,22 @@ class AuthStore:
                 stacklevel=2,
             )
             self.path = fallback
+            self._files.retarget(self.path)
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self._ensure_file()
+            self._migrate_inline_login_audit()
 
     def _ensure_file(self) -> None:
-        if self.path.exists():
-            return
-        self._write(self._normalize_data({"users": {}, "created_at": _utc_now(), "updated_at": _utc_now()}))
-
-    def _normalize_data(self, data: dict[str, Any]) -> dict[str, Any]:
-        if not isinstance(data.get("users"), dict):
-            data["users"] = {}
-        if not isinstance(data.get("token_denylist"), dict):
-            data["token_denylist"] = {}
-        if not isinstance(data.get("password_reset_tokens"), dict):
-            data["password_reset_tokens"] = {}
-        if not isinstance(data.get("login_audit"), list):
-            data["login_audit"] = []
-        return data
+        self._files.ensure_file()
 
     def _read(self) -> dict[str, Any]:
-        with self._lock:
-            try:
-                with self.path.open("r", encoding="utf-8") as f:
-                    data = json.load(f)
-            except FileNotFoundError:
-                data = {"users": {}}
-            except json.JSONDecodeError as exc:
-                data = self._recover_from_corrupt_file(exc)
-            if not isinstance(data, dict):
-                self._backup_corrupt_file("non_object_json")
-                data = {"users": {}}
-            return self._normalize_data(data)
+        return self._files.read()
 
-    def _backup_corrupt_file(self, reason: str) -> Path | None:
-        if not self.path.exists():
-            return None
-        backup = self.path.with_name(f"{self.path.name}.corrupt-{_now_ts()}-{reason}.bak")
-        try:
-            os.replace(self.path, backup)
-        except OSError:
-            return None
-        for old in sorted(self.path.parent.glob(f"{self.path.name}.corrupt-*.bak"), key=lambda item: item.stat().st_mtime, reverse=True)[AUTH_BACKUP_LIMIT:]:
-            try:
-                old.unlink()
-            except OSError:
-                pass
-        return backup
-
-    def _recover_from_corrupt_file(self, exc: json.JSONDecodeError) -> dict[str, Any]:
-        backup = self._backup_corrupt_file("json_decode")
-        warnings.warn(
-            f"Auth user store {self.path} is corrupt ({exc}); moved to {backup} and recreated an empty store.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        return {"users": {}, "created_at": _utc_now()}
+    def _migrate_inline_login_audit(self) -> None:
+        self._files.migrate_inline_login_audit()
 
     def _write(self, data: dict[str, Any]) -> None:
-        with self._lock:
-            data = self._normalize_data(data)
-            data["updated_at"] = _utc_now()
-            fd, tmp_name = tempfile.mkstemp(prefix=".auth_users.", suffix=".json", dir=str(self.path.parent))
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
-                    f.write("\n")
-                os.replace(tmp_name, self.path)
-            finally:
-                if os.path.exists(tmp_name):
-                    os.unlink(tmp_name)
+        self._files.write(data)
 
     def _prune_token_denylist(self, data: dict[str, Any]) -> bool:
         now = _now_ts()
@@ -376,28 +322,18 @@ class AuthStore:
         return int(user.get("token_version") or 0) == token_version
 
     def record_login_audit(self, username: str, *, success: bool, reason: str, role: str | None = None, status_value: str | None = None, client_host: str | None = None, user_agent: str | None = None) -> None:
-        data = self._read()
-        audit = data.setdefault("login_audit", [])
-        audit.append({
-            "ts": _utc_now(),
-            "username": username,
-            "success": success,
-            "reason": reason,
-            "role": role,
-            "status": status_value,
-            "client_host": client_host,
-            "user_agent": user_agent,
-        })
-        if len(audit) > LOGIN_AUDIT_LIMIT:
-            del audit[:-LOGIN_AUDIT_LIMIT]
-        self._write(data)
+        self._files.record_login_audit(
+            username,
+            success=success,
+            reason=reason,
+            role=role,
+            status_value=status_value,
+            client_host=client_host,
+            user_agent=user_agent,
+        )
 
     def list_login_audit(self, limit: int = 100) -> list[dict[str, Any]]:
-        audit = self._read().get("login_audit", [])
-        if not isinstance(audit, list):
-            return []
-        limit = max(1, min(limit, LOGIN_AUDIT_LIMIT))
-        return [item for item in audit[-limit:] if isinstance(item, dict)]
+        return self._files.list_login_audit(limit)
 
     def throttle_retry_after(self, scope: str, username: str | None, client_host: str | None = None) -> int:
         key = _throttle_key(scope, username, client_host)

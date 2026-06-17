@@ -8,3 +8,6 @@ data/menu_plan_360d.xlsx
 
 # Local auth user store (contains password hashes)
 .auth_users.json
+.auth_users.json.login_audit.jsonl
+.auth_users.json.versions/
+.auth_users.json.corrupt-*.bak

@@ -12,3 +12,5 @@
 
 - 待 Playwright Chromium 下載/系統依賴安裝問題解決後，補做帳號管理頁權限說明 tooltip hover 截圖驗證。- 將 browser-local auth test mode 替換為正式 Vercel 持久化方案（例如 Vercel KV/Postgres/Blob 或外部身份服務），避免正式部署信任瀏覽器端帳號資料。
 - 將 login audit 從 `.auth_users.json` 拆分到獨立 rolling log 或資料庫表，降低單檔帳號 store 的寫入頻率與膨脹風險。
+
+- 評估將 auth store 版本備份保留數與 audit 保留筆數改為環境變數，讓正式部署可依容量與稽核需求調整。

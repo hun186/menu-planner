@@ -113,6 +113,19 @@ STUB IMPLEMENTATION
 
 ---
 
+# 環境安裝與測試前置作業（Environment Setup）
+
+在執行任何 pytest、API 啟動或功能驗證前，必須先確認已安裝專案相依套件。
+
+請在專案根目錄執行：
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+---
+
 # 驗證原則（Verification Requirements）
 
 任務完成前必須提供驗證證據。
@@ -311,6 +324,8 @@ STUB IMPLEMENTATION
 * 機密資訊
 
 如發現敏感資訊，應立即排除並避免寫入記憶系統。
+
+
 
 ## Purpose
 本專案要求 AI 助手在修改程式時，同時完成「可驗證」的開發與驗證流程，而不是僅修改程式碼。

@@ -324,3 +324,10 @@
 ### 重要結論
 
 - `auth_store.py` 從 541 行降至 386 行，檔案儲存細節改由 `auth_store_files.py` 承擔；既有公開 API 與測試行為不變。
+
+
+## 2026-10-30 — remove obsolete tracked admin environment configuration
+
+- Public `.env` on `main` still contained a nonempty eight-character `MENU_ADMIN_KEY` setting introduced in commit `c715f22ded24c18070240bb809a2fb6135b98426` (2026-02-11). No secret bytes are reproduced here. The account-auth work recorded on 2026-06-08 retired `MENU_ADMIN_KEY` and `X-Admin-Key`; current source search returned no active consumer, but other use or copies cannot be ruled out.
+- Independent security branch deletes the tracked `.env`, ignores all local `.env*` except a blank `.env.example`, clarifies local/production secret configuration in README and adds two Git-backed policy tests. No production environment values are overwritten. Actual regression and Hosted CI must pass before approval; no Merge authorization assumed.
+- Old Git history, other branch heads, forks and clones remain exposed; operator must check whether old key is used elsewhere and rotate it if so. No history rewrite, force push or deletion was attempted.

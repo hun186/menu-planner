@@ -171,3 +171,9 @@ Open
 
 狀態：
 Open
+
+
+## 2026-10-30 — obsolete historical public .env remains in Git history
+
+- A former `MENU_ADMIN_KEY` value was tracked in a public `.env` since 2026-02-11. Code has moved to Bearer token account authentication, so the old value is not proven active; do not treat it as a current production login credential without evidence.
+- Current-tree containment is proposed in independent security PR. Deleted tracked files remain in Git history and potentially forks/clones. Any provider or operator with reused values must rotate them. Historical rewrite must be separately approved and coordinated.

@@ -11,3 +11,8 @@ data/menu_plan_360d.xlsx
 .auth_users.json.login_audit.jsonl
 .auth_users.json.versions/
 .auth_users.json.corrupt-*.bak
+
+# Sensitive runtime configuration; never commit actual values
+.env
+.env.*
+!.env.example

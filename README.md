@@ -71,11 +71,18 @@ AUTH_BROWSER_LOCAL_STORE=1
 - Production Demo URL
 -（選配）Vercel Deploy Badge
 
+
+### Security note: local environment settings
+
+The repository no longer tracks a populated `.env`. Use `.env.example` only as a blank local template; set `AUTH_SECRET` and any required private configuration using protected environment variables. The legacy `MENU_ADMIN_KEY` setting is obsolete; the current account authentication and Bearer tokens do not use it. If that old value was reused anywhere else, rotate it before relying on those services.
+
+Removing a file from the current tree does not erase its prior commits, copies, forks or cached downloads. Any history rewriting needs a separate explicitly authorized plan.
+
 ## 目錄結構（已依 repo 實際路徑校正）
 
 ```
 menu-planner/
-  .env
+  .env.example   # public placeholder (copy locally to untracked .env)
   API_CMD.txt
   data/
     menu.db
